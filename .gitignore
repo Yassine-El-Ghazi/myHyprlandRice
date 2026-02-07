@@ -1,3 +1,58 @@
+# -----------------------------------------------------
+# Secret / sensitive files
+# -----------------------------------------------------
 **/secrets/
 **/*.secret
 **/*.key
+**/.config/github-copilot/
+**/.bashrc_custom
+**/.zshrc_custom
+**/*.env
+
+# -----------------------------------------------------
+# Shell / Fish / ML4W variables
+# -----------------------------------------------------
+**/fish/fish_variables
+**/ml4w/bin/*.sh~      # temporary backups
+**/ml4w/listeners/*.sh~
+**/ml4w/scripts/*.sh~
+**/ml4w/settings/*.sh~
+**/ml4w/wallpapers/*.cache
+**/ml4w/wallpapers/*.tmp
+
+# -----------------------------------------------------
+# Backup / temporary editor files
+# -----------------------------------------------------
+**/*~
+**/*.bak
+**/*.swp
+**/.DS_Store
+**/Thumbs.db
+
+# -----------------------------------------------------
+# IDE / editor configs
+# -----------------------------------------------------
+**/.vscode/
+**/.idea/
+**/tags
+
+# -----------------------------------------------------
+# SSH / GPG keys
+# -----------------------------------------------------
+**/.ssh/id_*
+**/.gnupg/
+
+# -----------------------------------------------------
+# System / OS configs
+# -----------------------------------------------------
+**/.Xresources~
+**/.gtkrc-2.0~
+**/chromium-flags.conf
+**/edge-flags.conf
+
+# -----------------------------------------------------
+# Optional: caches / local runtime files
+# -----------------------------------------------------
+**/fastfetch/config.jsonc
+**/waypaper/config.ini
+
