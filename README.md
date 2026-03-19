@@ -24,7 +24,7 @@ sudo pacman -S stow  # Arch/CachyOS
 ### Clone and Apply
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/myHyprlandRice.git
+git clone https://github.com/Yassine-El-Ghazi/myHyprlandRice.git
 cd myHyprlandRice
 
 # Backup your existing configs (optional but recommended)
