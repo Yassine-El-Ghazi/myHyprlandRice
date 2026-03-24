@@ -56,10 +56,10 @@
   },
   // ML4W Welcome App
   "custom/ml4w-welcome": {
-    "on-click": "nwg-drawer -c 6 -is 64 -f",
-    "format": "Apps",
-    "tooltip-format": "Open Application Drawer"
-   },
+  "on-click": "qs ipc call sidebar toggle",
+  "format": "",
+  "tooltip-format": "Open ML4W Sidebar"
+  },
   // Empty
   "custom/empty": {
     "format": ""
@@ -122,10 +122,10 @@
   },
   // Settings
   "custom/settings": {
-    "format": "",
-    "on-click": "sleep 0.1 && com.ml4w.dotfilessettings",
-    "tooltip-format": "ML4W Dotfiles Settings"
-  },
+  "format": "",
+  "on-click": "sleep 0.1 && com.ml4w.dotfilessettings",
+  "tooltip-format": "ML4W Dotfiles Settings"
+},
   // Keybindings
   "custom/keybindings": {
     "format": "",
@@ -156,10 +156,10 @@
   },
   // Power Menu
   "custom/exit": {
-    "format": "",
-    "on-click": "~/.config/ml4w/scripts/wlogout.sh",
-    "on-click-right": "hyprlock",
-    "tooltip-format": "Left: Power menu\nRight: Lock screen"
+  "format": "",
+  "on-click": "qs ipc call power toggle",
+  "on-click-right": "hyprlock",
+  "tooltip-format": "Left: Power menu\nRight: Lock screen"
   },
   // SwayNC
   "custom/notification": {
@@ -222,11 +222,11 @@
   },
   // Clock
   "clock": {
-    "format": "{:%H:%M %a}",
-    "on-click": "flatpak run com.ml4w.calendar",
-    "timezone": "",
-    "tooltip": false
-  },
+  "format": "{:%H:%M %a}",
+  "on-click": "qs ipc call calendar toggle",
+  "timezone": "",
+  "tooltip": false
+},
   // System
   "custom/system": {
     "format": "",
