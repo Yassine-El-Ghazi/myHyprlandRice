@@ -35,3 +35,4 @@ done
 if [ -f ~/.bashrc_custom ]; then
     source ~/.bashrc_custom
 fi
+export PATH="$HOME/.local/bin:$PATH"

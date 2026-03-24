@@ -47,6 +47,11 @@ else
         export PATH="/home/username/miniconda3/bin:$PATH"
     fi
 fi
+
 unset __conda_setup
 # <<< conda initialize <<<
 
+# GPU modes
+alias gpu-eco='sudo envycontrol -s integrated && sudo reboot'
+alias gpu-balanced='sudo envycontrol -s hybrid --rtd3 && sudo reboot'
+alias gpu-mode='sudo envycontrol --query'

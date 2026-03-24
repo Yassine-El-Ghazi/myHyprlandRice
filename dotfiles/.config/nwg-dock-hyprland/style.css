@@ -1,42 +1,36 @@
 window {
-  background: #36364f;
-	border-radius: 10px;
-	border-style: none;
-	border-width: 1px;
-	border-color: rgba(156, 142, 122, 0.7)
+    /* Deep midnight black with 80% transparency */
+    background: rgba(10, 10, 15, 0.8); 
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 #box {
-  /* Define attributes of the box surrounding icons here */
-  padding: 10px
+    padding: 8px;
 }
 
 #active {
-	/* This is to underline the button representing the currently active window */
-	border-bottom: solid 1px;
-	border-color: rgba(255, 255, 255, 0.3)
+    /* A subtle blue glow for the active window to match the moon */
+    border-bottom: 2px solid #5e81ac; 
 }
 
 button, image {
-	background: none;
-	border-style: none;
-	box-shadow: none;
-	color: #999
+    background: none;
+    border: none;
+    box-shadow: none;
 }
 
 button {
-	padding: 4px;
-	margin-left: 4px;
-	margin-right: 4px;
-	color: #eee;
-  font-size: 12px
+    padding: 6px;
+    margin: 0 4px;
+    /* Soft grey for icons */
+    color: #a0a0a0; 
+    transition: all 0.2s ease;
 }
 
 button:hover {
-	background-color: rgba(255, 255, 255, 0.15);
-	border-radius: 2px;
-}
-
-button:focus {
-	box-shadow: none
+    /* Subtle highlight when hovering */
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #ffffff;
 }

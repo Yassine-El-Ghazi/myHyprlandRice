@@ -56,10 +56,10 @@
   },
   // ML4W Welcome App
   "custom/ml4w-welcome": {
-    "on-click": "flatpak run com.ml4w.sidebar",
-    "format": " ",
-    "tooltip-format": "Open ML4W Sidebar App"
-  },
+    "on-click": "nwg-drawer -c 6 -is 64 -f",
+    "format": "Apps",
+    "tooltip-format": "Open Application Drawer"
+   },
   // Empty
   "custom/empty": {
     "format": ""
