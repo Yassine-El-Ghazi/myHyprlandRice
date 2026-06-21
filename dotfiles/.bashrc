@@ -36,3 +36,8 @@ if [ -f ~/.bashrc_custom ]; then
     source ~/.bashrc_custom
 fi
 export PATH="$HOME/.local/bin:$PATH"
+
+
+# Added by Antigravity CLI installer
+export PATH="/home/username/.local/bin:$PATH"
+. "$HOME/.cargo/env"

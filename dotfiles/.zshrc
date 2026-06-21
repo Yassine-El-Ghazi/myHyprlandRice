@@ -19,7 +19,9 @@
 # -----------------------------------------------------
 # Load modular configuration
 # -----------------------------------------------------
-
+export PATH=$(printf '%s\n' "$PATH" | tr ':' '\n' | grep -vx '/home/username/anaconda3/bin' | grep -vx '/home/username/anaconda3/condabin' | paste -sd:)
+export PATH="/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:$PATH"
+hash -r
 for f in ~/.config/zshrc/*; do
     if [ ! -d $f ]; then
         c=`echo $f | sed -e "s=.config/zshrc=.config/zshrc/custom="`
@@ -35,23 +37,22 @@ if [ -f ~/.zshrc_custom ]; then
     source ~/.zshrc_custom
 fi
 
-# >>> conda initialize >>>
-# !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/home/username/miniconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
-if [ $? -eq 0 ]; then
-    eval "$__conda_setup"
-else
-    if [ -f "/home/username/miniconda3/etc/profile.d/conda.sh" ]; then
-        . "/home/username/miniconda3/etc/profile.d/conda.sh"
-    else
-        export PATH="/home/username/miniconda3/bin:$PATH"
-    fi
-fi
-
-unset __conda_setup
-# <<< conda initialize <<<
-
+# Load Conda only when requested
+alias conda-on='source /home/username/anaconda3/etc/profile.d/conda.sh && conda activate base'
 # GPU modes
 alias gpu-eco='sudo envycontrol -s integrated && sudo reboot'
 alias gpu-balanced='sudo envycontrol -s hybrid --rtd3 && sudo reboot'
 alias gpu-mode='sudo envycontrol --query'
+# export ANTHROPIC_API_KEY="put-your-key-in-a-local-untracked-file"
+export CYBENCH_RISK_FLAG_REMOVED=1
+alias ctf='python3 /home/username/tools/ctf-agent/files/ctf_agent.py'
+alias ctf-swarm='python3 /home/username/tools/ctf-agent/files/ctf_swarm.py'
+source /usr/share/nvm/init-nvm.sh
+export PATH="$(npm config get prefix)/bin:$PATH"
+
+
+# Added by Antigravity CLI installer
+export PATH="/home/username/.local/bin:$PATH"
+
+# OpenClaw Completion
+source "/home/username/.openclaw/completions/openclaw.zsh"

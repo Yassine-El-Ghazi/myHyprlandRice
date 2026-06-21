@@ -4,15 +4,33 @@
 **/secrets/
 **/*.secret
 **/*.key
+**/*.pem
+**/*.p12
+**/*.pfx
+**/*.crt
+**/*.csr
+**/*.asc
+**/*.kdbx
+**/*credentials*
+**/*credential*
+**/*token*
+**/*private*
 **/.config/github-copilot/
 **/.bashrc_custom
 **/.zshrc_custom
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 **/*.env
 
 # -----------------------------------------------------
 # Shell / Fish / ML4W variables
 # -----------------------------------------------------
 **/fish/fish_variables
+**/fish/generated_completions/
 **/ml4w/bin/*.sh~      # temporary backups
 **/ml4w/listeners/*.sh~
 **/ml4w/scripts/*.sh~
@@ -25,7 +43,13 @@
 # -----------------------------------------------------
 **/*~
 **/*.bak
+**/*.backup
+**/*.orig
+**/*.rej
 **/*.swp
+**/*.swo
+**/*.tmp
+**/*.temp
 **/.DS_Store
 **/Thumbs.db
 
@@ -39,6 +63,7 @@
 # -----------------------------------------------------
 # SSH / GPG keys
 # -----------------------------------------------------
+**/.ssh/
 **/.ssh/id_*
 **/.gnupg/
 
@@ -47,12 +72,12 @@
 # -----------------------------------------------------
 **/.Xresources~
 **/.gtkrc-2.0~
-**/chromium-flags.conf
-**/edge-flags.conf
 
 # -----------------------------------------------------
 # Optional: caches / local runtime files
 # -----------------------------------------------------
-**/fastfetch/config.jsonc
+**/.cache/
+**/Cache/
+**/cache/
+**/.local/state/
 **/waypaper/config.ini
-
