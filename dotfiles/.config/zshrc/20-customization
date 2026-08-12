@@ -2,9 +2,6 @@
 # CUSTOMIZATION
 # -----------------------------------------------------
 
-# Set ZSH path
-export ZSH="$HOME/.oh-my-zsh"
-
 POSH=agnoster
 # -----------------------------------------------------
 # oh-myzsh themes: https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
@@ -18,18 +15,20 @@ plugins=(
     sudo
     web-search
     archlinux
-    zsh-autosuggestions
-    fast-syntax-highlighting
     copyfile
     copybuffer
     dirhistory
 )
-# Set-up oh-my-zsh
-source $ZSH/oh-my-zsh.sh
+[[ -d "$ZSH/custom/plugins/zsh-autosuggestions" ]] && plugins+=(zsh-autosuggestions)
+[[ -d "$ZSH/custom/plugins/fast-syntax-highlighting" ]] && plugins+=(fast-syntax-highlighting)
+
+# Set up Oh My Zsh when installed. The bootstrap can install it, but keeping
+# this conditional means recovery shells still start cleanly.
+[[ -r "$ZSH/oh-my-zsh.sh" ]] && source "$ZSH/oh-my-zsh.sh"
 # -----------------------------------------------------
 # Set-up FZF key bindings (CTRL R for fuzzy history finder)
 # -----------------------------------------------------
-source <(fzf --zsh)
+(( $+commands[fzf] )) && source <(fzf --zsh)
 # zsh history
 HISTFILE=~/.zsh_history
 HISTSIZE=10000
@@ -38,4 +37,6 @@ setopt appendhistory
 # -----------------------------------------------------
 # Prompt
 # -----------------------------------------------------
-eval "$(oh-my-posh init zsh --config $HOME/.config/ohmyposh/zen.toml)"
+if (( $+commands[oh-my-posh] )); then
+    eval "$(oh-my-posh init zsh --config "$HOME/.config/ohmyposh/zen.toml")"
+fi

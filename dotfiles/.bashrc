@@ -8,36 +8,31 @@
 # ML4W bashrc loader
 # -----------------------------------------------------
 
-# DON'T CHANGE THIS FILE
-
-# You can define your custom configuration by adding
-# files in ~/.config/bashrc 
-# or by creating a folder ~/.config/bashrc/custom
-# with copies of files from ~/.config/bashrc 
-# You can also create a .bashrc_custom file in your home directory
+# Override a modular file by placing a file with the same name in
+# ~/.config/bashrc/custom, or keep machine-only settings in ~/.bashrc_custom.
 # -----------------------------------------------------
 
 # -----------------------------------------------------
 # Load modular configuration
 # -----------------------------------------------------
 
-for f in ~/.config/bashrc/*; do 
-    if [ ! -d $f ]; then
-        c=`echo $f | sed -e "s=.config/bashrc=.config/bashrc/custom="`
-        [[ -f $c ]] && source $c || source $f
+shopt -s nullglob
+for config_file in "$HOME"/.config/bashrc/*; do
+    [[ -f "$config_file" ]] || continue
+    override_file="$HOME/.config/bashrc/custom/$(basename "$config_file")"
+    if [[ -f "$override_file" ]]; then
+        source "$override_file"
+    else
+        source "$config_file"
     fi
 done
+shopt -u nullglob
+unset config_file override_file
 
 # -----------------------------------------------------
 # Load single customization file (if exists)
 # -----------------------------------------------------
 
-if [ -f ~/.bashrc_custom ]; then
-    source ~/.bashrc_custom
+if [[ -r "$HOME/.bashrc_custom" ]]; then
+    source "$HOME/.bashrc_custom"
 fi
-export PATH="$HOME/.local/bin:$PATH"
-
-
-# Added by Antigravity CLI installer
-export PATH="/home/username/.local/bin:$PATH"
-. "$HOME/.cargo/env"

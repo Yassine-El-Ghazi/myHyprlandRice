@@ -5,4 +5,5 @@
 # -----------------------------------------------------
 # Fastfetch
 # -----------------------------------------------------
-fastfetch
+status is-interactive; or return
+command -q fastfetch; and fastfetch

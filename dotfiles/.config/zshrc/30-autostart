@@ -5,7 +5,8 @@
 # The 'ff' command (Fuzzy Finder)
 finder() {
     # Run the script and capture the result
-    local result=$($HOME/.config/ml4w/bin/ml4w-finder.sh)
+    local result
+    result=$("$HOME/.config/ml4w/bin/ml4w-finder.sh")
 
     # Check if the script told us to CD
     if [[ "$result" == TYPE_DIR:* ]]; then
@@ -17,6 +18,6 @@ finder() {
 # -----------------------------------------------------
 # Fastfetch
 # -----------------------------------------------------
-if [[ $(tty) == *"pts"* ]]; then
+if [[ -o interactive && -t 1 ]] && (( $+commands[fastfetch] )); then
     fastfetch
 fi

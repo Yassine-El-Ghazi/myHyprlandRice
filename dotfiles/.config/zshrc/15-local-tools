@@ -1,0 +1,42 @@
+# -----------------------------------------------------
+# OPTIONAL LOCAL TOOLS
+# -----------------------------------------------------
+
+# Distribution-provided NVM integration or a user-local NVM install.
+if [[ -r /usr/share/nvm/init-nvm.sh ]]; then
+    source /usr/share/nvm/init-nvm.sh
+elif [[ -r "$HOME/.nvm/nvm.sh" ]]; then
+    source "$HOME/.nvm/nvm.sh"
+fi
+
+# Conda stays out of shell startup until explicitly requested.
+conda-on() {
+    local conda_root
+    for conda_root in "$HOME/miniconda3" "$HOME/anaconda3"; do
+        if [[ -r "$conda_root/etc/profile.d/conda.sh" ]]; then
+            source "$conda_root/etc/profile.d/conda.sh"
+            conda activate base
+            return
+        fi
+    done
+    print -u2 "conda-on: no Miniconda or Anaconda installation found"
+    return 1
+}
+
+# These helpers only appear on machines where their dependencies exist.
+if (( $+commands[envycontrol] )); then
+    alias gpu-eco='sudo envycontrol -s integrated && sudo reboot'
+    alias gpu-balanced='sudo envycontrol -s hybrid --rtd3 && sudo reboot'
+    alias gpu-mode='sudo envycontrol --query'
+fi
+
+if [[ -f "$HOME/tools/ctf-agent/files/ctf_agent.py" ]]; then
+    alias ctf='python3 "$HOME/tools/ctf-agent/files/ctf_agent.py"'
+fi
+if [[ -f "$HOME/tools/ctf-agent/files/ctf_swarm.py" ]]; then
+    alias ctf-swarm='python3 "$HOME/tools/ctf-agent/files/ctf_swarm.py"'
+fi
+
+if [[ -r "$HOME/.openclaw/completions/openclaw.zsh" ]]; then
+    source "$HOME/.openclaw/completions/openclaw.zsh"
+fi

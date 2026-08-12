@@ -5,7 +5,48 @@
 # -----------------------------------------------------
 # Exports
 # -----------------------------------------------------
-export EDITOR=nvim
-export PATH="/usr/lib/ccache/bin/:$PATH"
-export PATH=$PATH:~/.cargo/bin/
-export PATH=$PATH:~/.local/bin/
+export EDITOR="${EDITOR:-nvim}"
+export VISUAL="${VISUAL:-$EDITOR}"
+
+path_prepend() {
+    [[ -d "$1" ]] || return 0
+    PATH="$1:$PATH"
+}
+
+path_dedupe() {
+    local entry seen duplicate
+    local -a entries clean_entries
+    IFS=: read -r -a entries <<< "$PATH"
+
+    for entry in "${entries[@]}"; do
+        [[ "$entry" == / ]] || entry="${entry%/}"
+        [[ -n "$entry" ]] || continue
+        duplicate=false
+        for seen in "${clean_entries[@]}"; do
+            if [[ "$seen" == "$entry" ]]; then
+                duplicate=true
+                break
+            fi
+        done
+        [[ "$duplicate" == true ]] || clean_entries+=("$entry")
+    done
+
+    local IFS=:
+    PATH="${clean_entries[*]}"
+}
+
+# Reverse order because each entry is prepended.
+path_prepend /usr/lib/ccache/bin
+path_prepend "$HOME/go/bin"
+path_prepend "$HOME/.cargo/bin"
+path_prepend "$HOME/.local/bin"
+
+if command -v go >/dev/null 2>&1; then
+    go_path="$(go env GOPATH 2>/dev/null)"
+    [[ -n "$go_path" ]] && path_prepend "$go_path/bin"
+    unset go_path
+fi
+
+export PATH
+path_dedupe
+unset -f path_prepend path_dedupe

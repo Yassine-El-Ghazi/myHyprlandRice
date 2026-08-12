@@ -3,7 +3,36 @@
 # -----------------------------------------------------
 
 # -----------------------------------------------------
-export EDITOR=nvim
-export ZSH="$HOME/.oh-my-zsh"
-export PATH=$PATH:~/.cargo/bin/
-export PATH=$PATH:~/.local/bin/
+export EDITOR="${EDITOR:-nvim}"
+export VISUAL="${VISUAL:-$EDITOR}"
+export ZSH="${ZSH:-$HOME/.oh-my-zsh}"
+
+# zsh ties PATH to the `path` array. `typeset -U` keeps the first occurrence
+# and removes duplicates introduced by installers or nested shells.
+typeset -U path PATH
+path=(
+    "$HOME/.local/bin"
+    "$HOME/.cargo/bin"
+    "$HOME/go/bin"
+    /usr/local/bin
+    /usr/bin
+    /bin
+    /usr/local/sbin
+    /usr/sbin
+    $path
+)
+
+# Normalize trailing slashes before the uniqueness attribute de-duplicates PATH.
+typeset -a normalized_path
+for path_entry in "${path[@]}"; do
+    [[ "$path_entry" != / ]] && path_entry="${path_entry%/}"
+    [[ -n "$path_entry" ]] && normalized_path+=("$path_entry")
+done
+path=("${normalized_path[@]}")
+unset normalized_path path_entry
+
+if (( $+commands[go] )); then
+    go_path="$(go env GOPATH 2>/dev/null)"
+    [[ -n "$go_path" ]] && path+=("$go_path/bin")
+    unset go_path
+fi
