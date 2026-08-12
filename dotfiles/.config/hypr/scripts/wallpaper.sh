@@ -114,7 +114,7 @@ if [ -f "$wallpapereffect" ]; then
         _writeLog "Loading wallpaper $generatedversions/$effect-$wallpaperfilename with effect $effect"
         _writeLog "Setting wallpaper with $used_wallpaper"
         touch "$waypaperrunning"
-        waypaper --wallpaper "$used_wallpaper"
+        waypaper --backend awww --wallpaper "$used_wallpaper"
     else
         _writeLog "Wallpaper effect is set to off"
     fi

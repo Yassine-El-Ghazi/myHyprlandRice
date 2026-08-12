@@ -10,7 +10,7 @@ ml4w_cache_folder="$HOME/.cache/ml4w/hyprland-dotfiles"
 
 sec=$(cat ~/.config/ml4w/settings/wallpaper-automation.sh)
 _setWallpaperRandomly() {
-    waypaper --random
+    waypaper --backend awww --random
     echo ":: Next wallpaper in 60 seconds..."
     sleep $sec
     _setWallpaperRandomly

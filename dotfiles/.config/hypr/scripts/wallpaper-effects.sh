@@ -13,7 +13,7 @@ cache_file="$ml4w_cache_folder/current_wallpaper"
 
 if [ $1 == "reload" ]; then
     # Releod wallpaper with current effect
-    waypaper --wallpaper $(cat $cache_file)
+    waypaper --backend awww --wallpaper "$(cat "$cache_file")"
 else
     # Open rofi to select the Hyprshade filter for toggle
     options="$(ls ~/.config/hypr/effects/wallpaper/)\noff"
@@ -23,6 +23,6 @@ else
     if [ ! -z $choice ]; then
         echo "$choice" >~/.config/ml4w/settings/wallpaper-effect.sh
         notify-send "Changing Wallpaper Effect to " "$choice"
-        waypaper --wallpaper $(cat $cache_file)
+        waypaper --backend awww --wallpaper "$(cat "$cache_file")"
     fi
 fi

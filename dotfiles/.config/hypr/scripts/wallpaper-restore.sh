@@ -46,4 +46,17 @@ echo ":: Setting wallpaper with source image $wallpaper"
 if [ -f ~/.local/bin/waypaper ]; then
     export PATH=$PATH:~/.local/bin/
 fi
-waypaper --wallpaper "$wallpaper"
+
+# Waypaper's awww backend starts the daemon asynchronously. Ensure its socket
+# is ready first so wallpaper restore is reliable during Hyprland startup.
+if ! pgrep -x awww-daemon >/dev/null; then
+    awww-daemon >/dev/null 2>&1 &
+fi
+for _ in {1..30}; do
+    if awww query >/dev/null 2>&1; then
+        break
+    fi
+    sleep 0.1
+done
+
+waypaper --backend awww --wallpaper "$wallpaper"
