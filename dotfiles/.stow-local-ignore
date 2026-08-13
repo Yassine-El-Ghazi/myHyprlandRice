@@ -1,0 +1,35 @@
+# GNU Stow uses Perl regular expressions. A package-local file replaces the
+# built-in ignore list, so common VCS/editor patterns are repeated here.
+
+\.git
+\.gitignore
+\.gitmodules
+\.stow-local-ignore
+\.DS_Store
+Thumbs\.db
+.+~
+.+\.(?:bak|backup|orig|rej|swp|swo|tmp|temp)
+
+# Private material must never be linked out of the working tree.
+\.env(?:\..*)?
+.+\.(?:key|pem|p12|pfx|kdbx)
+\.ssh
+\.gnupg
+secrets?
+credentials?
+
+# Host-local settings and application-owned runtime state.
+^/\.bashrc_custom$
+^/\.zshrc_custom$
+^/\.config/fish/config\.local\.fish$
+^/\.config/fish/fish_variables$
+^/\.config/fish/generated_completions(?:/.*)?$
+^/\.config/hypr/local\.lua$
+^/\.config/hypr/(?:monitors|workspaces)\.(?:conf|lua)$
+^/\.config/waypaper/config\.ini$
+^/\.config/ml4w/settings/(?:dock-disabled|gamemode-enabled|waybar-disabled)$
+^/\.config/(?:gtk-3\.0|gtk-4\.0|waybar|wlogout|swaync|walker|nwg-dock-hyprland)/colors\.css$
+^/\.config/hypr/colors\.(?:conf|lua)$
+^/\.config/kitty/colors-matugen\.conf$
+^/\.config/ml4w/colors/(?:primary|secondary|onsurface)$
+^/\.config/rofi/colors\.rasi$

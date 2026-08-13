@@ -26,8 +26,8 @@ cachefile="$ml4w_cache_folder/current_wallpaper"
 
 if [ -f "$cachefile" ]; then
     sed -i "s|~|$HOME|g" "$cachefile"
-    wallpaper=$(cat $cachefile)
-    if [ -f $wallpaper ]; then
+    wallpaper=$(<"$cachefile")
+    if [ -f "$wallpaper" ]; then
         echo ":: Wallpaper $wallpaper exists"
     else
         echo ":: Wallpaper $wallpaper does not exist. Using default."
@@ -43,10 +43,6 @@ fi
 # -----------------------------------------------------
 
 echo ":: Setting wallpaper with source image $wallpaper"
-if [ -f ~/.local/bin/waypaper ]; then
-    export PATH=$PATH:~/.local/bin/
-fi
-
 # Waypaper's awww backend starts the daemon asynchronously. Ensure its socket
 # is ready first so wallpaper restore is reliable during Hyprland startup.
 if ! pgrep -x awww-daemon >/dev/null; then

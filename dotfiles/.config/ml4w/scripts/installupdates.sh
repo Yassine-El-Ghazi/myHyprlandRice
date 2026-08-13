@@ -1,104 +1,89 @@
 #!/usr/bin/env bash
-#    ____         __       ____               __     __
-#   /  _/__  ___ / /____ _/ / / __ _____  ___/ /__ _/ /____ ___
-#  _/ // _ \(_-</ __/ _ `/ / / / // / _ \/ _  / _ `/ __/ -_|_-<
-# /___/_//_/___/\__/\_,_/_/_/  \_,_/ .__/\_,_/\_,_/\__/\__/___/
-#                                 /_/
-#
+set -Euo pipefail
 
-# Check if command exists
-_checkCommandExists() {
-    cmd="$1"
-    if ! command -v "$cmd" >/dev/null; then
-        echo 1
-        return
-    fi
-    echo 0
-    return
+pause_before_exit() {
+    [[ -t 0 ]] || return 0
+    printf '\nPress [ENTER] to close.'
+    read -r _
 }
 
-_isInstalled() {
-    package="$1"
-    case $install_platform in
-        arch)
-            check="$($aur_helper -Qs --color always "${package}" | grep "local" | grep "${package} ")"
-            ;;
-        fedora)
-            check="$(dnf repoquery --quiet --installed ""${package}*"")"
-            ;;
-        *) ;;
-    esac
-
-    if [ -n "${check}" ]; then
-        echo 0 #'0' means 'true' in Bash
-        return #true
-    fi
-    echo 1 #'1' means 'false' in Bash
-    return #false
-}
-
-# ------------------------------------------------------
-# Confirm Start
-# ------------------------------------------------------
-
-sleep 1
-clear
-figlet -f smslant "Updates"
-echo
-primarycolor=$(cat ~/.config/ml4w/colors/primary)
-onsurfacecolor=$(cat ~/.config/ml4w/colors/onsurface)
-if gum confirm --selected.background=$primarycolor --prompt.foreground=$onsurfacecolor "DO YOU WANT TO START THE UPDATE NOW?"; then
-    echo
-    echo ":: Update started..."
-elif [ $? -eq 130 ]; then
-    exit 130
+if [[ -t 1 && -n ${TERM:-} ]]; then
+    clear
+fi
+if command -v figlet >/dev/null 2>&1; then
+    figlet -f smslant Updates
 else
-    echo
-    echo ":: Update canceled."
-    exit
+    printf 'System updates\n'
+fi
+printf '\n'
+
+primary='#89b4fa'
+on_surface='#cdd6f4'
+[[ -r $HOME/.config/ml4w/colors/primary ]] && primary=$(<"$HOME/.config/ml4w/colors/primary")
+[[ -r $HOME/.config/ml4w/colors/onsurface ]] && on_surface=$(<"$HOME/.config/ml4w/colors/onsurface")
+
+if command -v gum >/dev/null 2>&1; then
+    gum confirm \
+        --selected.background="$primary" \
+        --prompt.foreground="$on_surface" \
+        'Start the system update?'
+    confirmation=$?
+    [[ $confirmation -eq 130 ]] && exit 130
+    if [[ $confirmation -ne 0 ]]; then
+        printf 'Update canceled.\n'
+        exit 0
+    fi
+else
+    read -r -p 'Start the system update? [y/N] ' confirmation
+    if [[ $confirmation != [yY] && $confirmation != [yY][eE][sS] ]]; then
+        printf 'Update canceled.\n'
+        exit 0
+    fi
 fi
 
-# ----------------------------------------------------- 
-# Install update
-# ----------------------------------------------------- 
+printf '\n:: Update started...\n'
+failures=0
 
-# Arch
-if [[ $(_checkCommandExists "pacman") == 0 ]]; then
+run_update() {
+    printf ':: Running:'
+    printf ' %q' "$@"
+    printf '\n'
+    if ! "$@"; then
+        printf ':: ERROR: command failed:' >&2
+        printf ' %q' "$@" >&2
+        printf '\n' >&2
+        failures=$((failures + 1))
+    fi
+}
 
-    yay_installed="false"
-    paru_installed="false"
-    if [[ $(_checkCommandExists "yay") == 0 ]]; then
-        yay_installed="true"
-    fi
-    if [[ $(_checkCommandExists "paru") == 0 ]]; then
-        paru_installed="true"
-    fi
-    if [[ $yay_installed == "true" ]] && [[ $paru_installed == "false" ]]; then
-        yay
-    elif [[ $yay_installed == "false" ]] && [[ $paru_installed == "true" ]]; then
-        paru -Syu --noconfirm
+if command -v pacman >/dev/null 2>&1; then
+    if command -v paru >/dev/null 2>&1; then
+        run_update paru -Syu
+    elif command -v yay >/dev/null 2>&1; then
+        run_update yay -Syu
     else
-        yay
+        run_update sudo pacman -Syu
     fi
-
-# Fedora
-elif [[ $(_checkCommandExists "dnf") == 0 ]]; then
-    sudo dnf upgrade
+elif command -v dnf >/dev/null 2>&1; then
+    run_update sudo dnf upgrade
 else
-    echo ":: ERROR - Platform not supported"
-    echo "Press [ENTER] to close."
-    read
+    printf ':: ERROR: unsupported package manager.\n' >&2
+    failures=$((failures + 1))
 fi
-echo
 
-# Flatpak
-echo ":: Searching for Flatpak updates..."
-flatpak update
-echo
+if command -v flatpak >/dev/null 2>&1 && \
+    [[ -n $(flatpak remotes --columns=name 2>/dev/null) ]]; then
+    printf '\n:: Searching for Flatpak updates...\n'
+    run_update flatpak update -y
+fi
 
-# Reload Waybar
-pkill -RTMIN+1 waybar
+pkill -RTMIN+1 waybar >/dev/null 2>&1 || true
 
-# Finishing
-echo ":: Update complete! Press [ENTER] to close."
-read
+if [[ $failures -gt 0 ]]; then
+    printf '\n:: Update finished with %d error(s). Review the output above.\n' "$failures" >&2
+    pause_before_exit
+    exit 1
+fi
+
+printf '\n:: All updates completed successfully.\n'
+pause_before_exit

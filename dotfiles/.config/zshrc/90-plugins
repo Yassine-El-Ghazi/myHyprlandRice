@@ -1,0 +1,17 @@
+# -----------------------------------------------------
+# DISTRIBUTION-PROVIDED ZSH PLUGINS
+# -----------------------------------------------------
+
+# Keep plugins outside Oh My Zsh's mutable custom directory. Syntax
+# highlighting must be sourced last, so this module intentionally sorts last.
+if [[ -r /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
+    source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+elif [[ -r "$ZSH/custom/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh" ]]; then
+    source "$ZSH/custom/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
+fi
+
+if [[ -r /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
+    source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+elif [[ -r "$ZSH/custom/plugins/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh" ]]; then
+    source "$ZSH/custom/plugins/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh"
+fi

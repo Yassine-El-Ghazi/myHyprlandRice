@@ -80,4 +80,29 @@
 **/Cache/
 **/cache/
 **/.local/state/
-**/waypaper/config.ini
+/dotfiles/.config/waypaper/config.ini
+**/__pycache__/
+**/*.py[cod]
+
+# Host-generated display layout and private Hyprland overrides
+/dotfiles/.config/hypr/local.lua
+/dotfiles/.config/hypr/monitors.conf
+/dotfiles/.config/hypr/monitors.lua
+/dotfiles/.config/hypr/workspaces.conf
+/dotfiles/.config/hypr/workspaces.lua
+
+# Matugen and application-generated runtime output (defaults live in defaults/)
+/dotfiles/.config/gtk-3.0/colors.css
+/dotfiles/.config/gtk-4.0/colors.css
+/dotfiles/.config/hypr/colors.conf
+/dotfiles/.config/hypr/colors.lua
+/dotfiles/.config/kitty/colors-matugen.conf
+/dotfiles/.config/ml4w/colors/onsurface
+/dotfiles/.config/ml4w/colors/primary
+/dotfiles/.config/ml4w/colors/secondary
+/dotfiles/.config/nwg-dock-hyprland/colors.css
+/dotfiles/.config/rofi/colors.rasi
+/dotfiles/.config/swaync/colors.css
+/dotfiles/.config/walker/colors.css
+/dotfiles/.config/waybar/colors.css
+/dotfiles/.config/wlogout/colors.css

@@ -66,8 +66,3 @@ output_path = '~/.config/ml4w/colors/secondary'
 [templates.on_surface]
 input_path = '~/.config/matugen/templates/onsurface'
 output_path = '~/.config/ml4w/colors/onsurface'
-
-[templates.ohmyposh]
-input_path = '~/.config/matugen/templates/ohmyposh-colors.json'
-output_path = '~/.config/ohmyposh/colors.json'
-post_hook = "jq --slurpfile palette ~/.config/ohmyposh/colors.json '. + $palette[0]' ~/.config/ohmyposh/EDM115-newline.omp.json > /tmp/new_theme.json && mv /tmp/new_theme.json ~/.config/ohmyposh/EDM115-newline.omp.json"

@@ -1,0 +1,38 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Arch configuration and privacy gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container: archlinux:base-devel
+
+    steps:
+      - name: Install validation dependencies
+        run: >-
+          pacman -Syu --noconfirm --needed
+          bash fish git gitleaks hyprland jq lua python qt6-declarative
+          ripgrep shellcheck stow zsh
+
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate every configuration variant
+        run: ./scripts/check.sh --require-tools
+
+      - name: Audit worktree and history
+        run: ./scripts/audit.sh --history

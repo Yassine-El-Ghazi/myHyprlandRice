@@ -114,6 +114,15 @@ require("conf.ml4w")
 -- Source: ~/.config/hypr/conf/custom.conf — convert this file to Lua and ensure it is on Lua's package.path.
 require("conf.custom")
 
+-- Machine-specific monitors, input devices, and private commands belong in
+-- ~/.config/hypr/local.lua. The file is intentionally ignored by Git/Stow.
+local local_config = os.getenv("HOME") .. "/.config/hypr/local.lua"
+local local_file = io.open(local_config, "r")
+if local_file then
+    local_file:close()
+    require("local")
+end
+
 hl.on("hyprland.start", function()
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
     hl.exec_cmd("quickshell -p ~/.config/quickshell/shell.qml")

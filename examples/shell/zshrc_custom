@@ -1,0 +1,2 @@
+# Copy to ~/.zshrc_custom for private or machine-specific Zsh settings.
+# export WORKSPACE_ROOT="$HOME/Projects"

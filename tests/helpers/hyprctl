@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+case ${1:-} in
+    monitors)
+        command cat -- "$SCRIPT_DIR/../fixtures/hypr-monitors.json"
+        ;;
+    keyword|notify)
+        printf '%s\n' "$*" >> "${TEST_HYPRCTL_LOG:?}"
+        ;;
+    *)
+        printf 'Unexpected fake hyprctl call: %s\n' "$*" >&2
+        exit 2
+        ;;
+esac

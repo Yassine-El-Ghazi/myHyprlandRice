@@ -21,8 +21,8 @@ hl.bind(mainMod .. " + CTRL + C", hl.dsp.exec_cmd("~/.config/ml4w/settings/calcu
 hl.bind(mainMod .. " + SHIFT + mouse_down", hl.dsp.exec_cmd("hyprctl keyword cursor:zoom_factor $(awk \"BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') + 0.5}\")"))
 hl.bind(mainMod .. " + SHIFT + mouse_up", hl.dsp.exec_cmd("hyprctl keyword cursor:zoom_factor $(awk \"BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') - 0.5}\")"))
 hl.bind(mainMod .. " + SHIFT + Z", hl.dsp.exec_cmd("hyprctl keyword cursor:zoom_factor 1"))
-hl.bind("SUPER + F11", hl.dsp.exec_cmd("hyprctl keyword monitor \"eDP-1, 1920x1080@60, 0x0, 1\" && hyprctl notify 5 2500 \"rgb(8aadf4)\" \"Switched to 60Hz\""))
-hl.bind("SUPER + F12", hl.dsp.exec_cmd("hyprctl keyword monitor \"eDP-1, 1920x1080@144, 0x0, 1\" && hyprctl notify 5 2500 \"rgb(a6da95)\" \"Switched to 144Hz\""))
+hl.bind("SUPER + F11", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/toggle-refresh.sh low"))
+hl.bind("SUPER + F12", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/toggle-refresh.sh high"))
 -- Updated bind without the forced fullscreen flag
 hl.bind("Print", hl.dsp.exec_cmd("hyprshot -m region --raw | satty --filename -"))
 -- Windows

@@ -19,9 +19,6 @@ plugins=(
     copybuffer
     dirhistory
 )
-[[ -d "$ZSH/custom/plugins/zsh-autosuggestions" ]] && plugins+=(zsh-autosuggestions)
-[[ -d "$ZSH/custom/plugins/fast-syntax-highlighting" ]] && plugins+=(fast-syntax-highlighting)
-
 # Set up Oh My Zsh when installed. The bootstrap can install it, but keeping
 # this conditional means recovery shells still start cleanly.
 [[ -r "$ZSH/oh-my-zsh.sh" ]] && source "$ZSH/oh-my-zsh.sh"

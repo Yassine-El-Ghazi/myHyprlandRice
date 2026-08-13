@@ -1,103 +1,53 @@
 #!/usr/bin/env bash
-#  _   _           _       _             
-# | | | |_ __   __| | __ _| |_ ___  ___  
-# | | | | '_ \ / _` |/ _` | __/ _ \/ __| 
-# | |_| | |_) | (_| | (_| | ||  __/\__ \ 
-#  \___/| .__/ \__,_|\__,_|\__\___||___/ 
-#       |_|                              
-#  
+set -uo pipefail
 
-# Check if command exists
-_checkCommandExists() {
-    cmd="$1"
-    if ! command -v "$cmd" >/dev/null; then
-        echo 1
-        return
-    fi
-    echo 0
-    return
+json_status() {
+    local count=$1
+    local css_class=$2
+    local tooltip=$3
+    printf '{"text":"%s","alt":"%s","tooltip":"%s","class":"%s"}\n' \
+        "$count" "$count" "$tooltip" "$css_class"
 }
 
-script_name=$(basename "$0")
-
-# Count the instances
-instance_count=$(ps aux | grep -F "$script_name" | grep -v grep | grep -v $$ | wc -l)
-
-if [ $instance_count -gt 1 ]; then
-    sleep $instance_count
+if [[ -e /var/lib/pacman/db.lck || -e ${TMPDIR:-/tmp}/checkup-db-${UID}/db.lck ]]; then
+    json_status '…' yellow 'Package database is busy'
+    exit 0
 fi
 
+count_lines() {
+    awk 'NF { count++ } END { print count + 0 }'
+}
 
-# ----------------------------------------------------- 
-# Define threshholds for color indicators
-# ----------------------------------------------------- 
+updates=0
+if command -v pacman >/dev/null 2>&1; then
+    repo_updates=0
+    aur_updates=0
 
-threshhold_green=0
-threshhold_yellow=25
-threshhold_red=100
-
-# ----------------------------------------------------- 
-# Check for updates
-# ----------------------------------------------------- 
-
-# Arch
-if [[ $(_checkCommandExists "pacman") == 0 ]]; then
-
-    check_lock_files() {
-        local pacman_lock="/var/lib/pacman/db.lck"
-        local checkup_lock="${TMPDIR:-/tmp}/checkup-db-${UID}/db.lck"
-
-        while [ -f "$pacman_lock" ] || [ -f "$checkup_lock" ]; do
-            sleep 1
-        done
-    }
-
-    check_lock_files
-
-    yay_installed="false"
-    paru_installed="false"
-    if [[ $(_checkCommandExists "yay") == 0 ]]; then
-        yay_installed="true"
-    fi
-    if [[ $(_checkCommandExists "paru") == 0 ]]; then
-        paru_installed="true"
-    fi
-    if [[ $yay_installed == "true" ]] && [[ $paru_installed == "false" ]]; then
-        aur_helper="yay"
-    elif [[ $yay_installed == "false" ]] && [[ $paru_installed == "true" ]]; then
-        aur_helper="paru"
+    if command -v checkupdates >/dev/null 2>&1; then
+        repo_updates=$(checkupdates 2>/dev/null | count_lines)
     else
-        aur_helper="yay"
+        repo_updates=$(pacman -Qu 2>/dev/null | count_lines)
     fi
-    updates_aur=$($aur_helper -Qum | wc -l)
-    updates_pacman=$(checkupdates | wc -l)
-    updates=$((updates_aur+updates_pacman))
-    
-# Fedora
-elif [[ $(_checkCommandExists "dnf") == 0 ]]; then
-    updates=$(dnf check-update -q | grep -c ^[a-z0-9])
-# Others
+
+    if command -v paru >/dev/null 2>&1; then
+        aur_updates=$(timeout 20 paru -Qua 2>/dev/null | count_lines)
+    elif command -v yay >/dev/null 2>&1; then
+        aur_updates=$(timeout 20 yay -Qua 2>/dev/null | count_lines)
+    fi
+    updates=$((repo_updates + aur_updates))
+elif command -v dnf >/dev/null 2>&1; then
+    updates=$(dnf check-update -q 2>/dev/null | awk '/^[[:alnum:]]/ { count++ } END { print count + 0 }')
+fi
+
+css_class=green
+if ((updates > 100)); then
+    css_class=red
+elif ((updates > 25)); then
+    css_class=yellow
+fi
+
+if ((updates == 0)); then
+    json_status 0 "$css_class" 'System is up to date'
 else
-    updates=0
-fi
-
-# ----------------------------------------------------- 
-# Output in JSON format for Waybar Module custom-updates
-# ----------------------------------------------------- 
-
-css_class="green"
-
-if [ "$updates" -gt $threshhold_yellow ]; then
-    css_class="yellow"
-fi
-
-if [ "$updates" -gt $threshhold_red ]; then
-    css_class="red"
-fi
-if [ "$updates" != 0 ]; then
-    if [ "$updates" -gt $threshhold_green ]; then
-        printf '{"text": "%s", "alt": "%s", "tooltip": "Click to update your system", "class": "%s"}' "$updates" "$updates" "$css_class"
-    else
-        printf '{"text": "0", "alt": "0", "tooltip": "No updates available", "class": "green"}'
-    fi
+    json_status "$updates" "$css_class" 'Click to update the system'
 fi

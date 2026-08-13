@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-if [ -f /usr/bin/waypaper ]; then
-    echo ":: Launching waypaper in /usr/bin"
-    waypaper --backend awww "$@" &
-elif [ -f "$HOME/.local/bin/waypaper" ]; then
-    echo ":: Launching waypaper in $HOME/.local/bin"
-    "$HOME/.local/bin/waypaper" --backend awww "$@" &
-else
-    echo ":: waypaper not found"
+set -Eeuo pipefail
+
+if ! command -v waypaper >/dev/null 2>&1; then
+    printf 'waypaper: command not found\n' >&2
+    exit 127
 fi
+
+wallpaper_dir="$HOME/.config/ml4w/wallpapers"
+exec waypaper --backend awww --folder "$wallpaper_dir" "$@"

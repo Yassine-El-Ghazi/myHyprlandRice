@@ -44,7 +44,6 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("~/.config/hypr/scripts/cleanup.sh")
     hl.exec_cmd("~/.config/waybar/launch.sh")
     hl.exec_cmd("nwg-dock-hyprland -i 48 -w 5 -mb 10 -c \"rofi -show drun\"")
-    hl.exec_cmd("swaync")
 end)
 
 hl.on("config.reloaded", function()

@@ -52,6 +52,6 @@ if [ -n "$SELECTED" ]; then
     
     # Execute waypaper command
     # Source 1.1 confirms --wallpaper is the correct CLI option
-    waypaper --wallpaper "$SELECTED" & >/dev/null 2>&1
+    waypaper --backend awww --wallpaper "$SELECTED" >/dev/null 2>&1 &
     exit 0
 fi

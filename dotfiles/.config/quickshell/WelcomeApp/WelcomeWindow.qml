@@ -122,7 +122,7 @@ FloatingWindow {
                 }
                 ML4WMenuItem { 
                     text: qsTr("Wallpaper");
-                    onClicked: { appLauncher.command = ["waypaper"]; appLauncher.running = true }
+                    onClicked: { appLauncher.command = ["waypaper", "--backend", "awww"]; appLauncher.running = true }
                 }
                 ML4WMenuItem { 
                     text: qsTr("Theme");

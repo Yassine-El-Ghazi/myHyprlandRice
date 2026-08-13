@@ -768,7 +768,7 @@ PanelWindow {
                             onClicked: {
                                 root.isOpen = false
                                 appLauncher.running = false
-                                appLauncher.command = ["waypaper"]
+                                appLauncher.command = ["waypaper", "--backend", "awww"]
                                 appLauncher.running = true
                             }
                         }

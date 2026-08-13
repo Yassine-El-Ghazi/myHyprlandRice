@@ -110,7 +110,7 @@
   // Wallpaper
   "custom/wallpaper": {
     "format": "",
-    "on-click": "bash -c waypaper &",
+    "on-click": "~/.config/hypr/scripts/waypaper.sh",
     "on-click-right": "~/.config/hypr/scripts/wallpaper-effects.sh",
     "tooltip-format": "Left: Select a wallpaper\nRight: Select wallpaper effect"
   },
@@ -123,8 +123,8 @@
   // Settings
   "custom/settings": {
   "format": "",
-  "on-click": "sleep 0.1 && systemsettings ",
-  "tooltip-format": "ML4W Dotfiles Settings"
+  "on-click": "nwg-look",
+  "tooltip-format": "Appearance settings"
 },
   // Keybindings
   "custom/keybindings": {

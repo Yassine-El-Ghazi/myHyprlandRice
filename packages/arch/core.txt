@@ -1,0 +1,44 @@
+# Portable CLI, shells, editor, and repository quality gates
+base-devel
+git
+stow
+rsync
+curl
+wget
+unzip
+tar
+jq
+file
+lua
+python
+
+bash
+zsh
+fish
+neovim
+kitty
+ripgrep
+fd
+fzf
+eza
+bat
+fastfetch
+btop
+
+# Shell framework, prompt, and plugins
+oh-my-zsh-git
+zsh-autosuggestions
+zsh-syntax-highlighting
+oh-my-posh-bin
+
+# Fonts used by the prompt and terminal
+noto-fonts
+noto-fonts-emoji
+otf-font-awesome
+ttf-firacode-nerd
+ttf-jetbrains-mono-nerd
+
+# Local and CI-equivalent quality checks
+shellcheck
+shfmt
+gitleaks
