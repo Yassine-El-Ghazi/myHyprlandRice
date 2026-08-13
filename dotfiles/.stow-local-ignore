@@ -1,10 +1,10 @@
 # GNU Stow uses Perl regular expressions. A package-local file replaces the
 # built-in ignore list, so common VCS/editor patterns are repeated here.
 
-\.git
-\.gitignore
-\.gitmodules
-\.stow-local-ignore
+^/\.git$
+^/\.gitignore$
+^/\.gitmodules$
+^/\.stow-local-ignore$
 \.DS_Store
 Thumbs\.db
 .+~
