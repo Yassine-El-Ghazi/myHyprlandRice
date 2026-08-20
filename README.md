@@ -68,7 +68,8 @@ preferences and only installs or links what is missing.
    If neither exists, it can build `paru-bin` in a disposable directory.
    Privileged work shares one terminal authentication; AUR builds never run
    as root.
-3. Enables and starts NetworkManager and Bluetooth for desktop profiles.
+3. Enables and starts NetworkManager, Bluetooth, and Elephant's user service
+   for desktop profiles.
 4. Creates standard XDG user directories.
 5. Archives recognized legacy state and stale local tool shadows.
 6. Repairs the obsolete Flatpak metadata source only when no installed ref

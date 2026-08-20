@@ -114,6 +114,12 @@ if [[ $PROFILE == desktop || $PROFILE == full ]]; then
         else
             problem 'Elephant split packages can be ABI-incompatible; install elephant-all'
         fi
+        if providers=$(elephant listproviders 2>/dev/null) && \
+            [[ $providers == *desktopapplications* ]]; then
+            ok 'Elephant providers load successfully'
+        else
+            problem 'Elephant providers do not load; rebuild the atomic package set'
+        fi
     fi
 fi
 if [[ $PROFILE == full ]]; then
@@ -252,6 +258,14 @@ if command -v systemctl >/dev/null 2>&1; then
         systemctl is-active "$service" >/dev/null 2>&1 || \
             notice "$service is not active"
     done
+    if [[ $PROFILE == desktop || $PROFILE == full ]]; then
+        if systemctl --user is-enabled elephant.service >/dev/null 2>&1 && \
+            systemctl --user is-active elephant.service >/dev/null 2>&1; then
+            ok 'Elephant user service is enabled and active'
+        else
+            problem 'Elephant user service is not enabled and active'
+        fi
+    fi
 fi
 
 if [[ -n $(git -C "$REPO_ROOT" status --porcelain) ]]; then

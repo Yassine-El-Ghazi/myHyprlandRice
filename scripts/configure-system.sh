@@ -40,6 +40,18 @@ else
     success 'Required NetworkManager and Bluetooth services are active.'
 fi
 
+if command -v elephant >/dev/null 2>&1; then
+    if ! systemctl --user is-enabled elephant.service >/dev/null 2>&1; then
+        info 'Enabling the Elephant data service for graphical sessions'
+        run elephant service enable
+    fi
+    if ! systemctl --user is-active elephant.service >/dev/null 2>&1; then
+        info 'Starting the Elephant data service for this session'
+        run systemctl --user start elephant.service
+    fi
+    success 'Elephant user service is enabled and running.'
+fi
+
 if command -v xdg-user-dirs-update >/dev/null 2>&1; then
     run xdg-user-dirs-update
 fi
