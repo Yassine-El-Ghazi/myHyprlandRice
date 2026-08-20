@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-# shellcheck source=lib.sh
+# shellcheck source=scripts/lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
 DRY_RUN=0
@@ -121,10 +121,11 @@ check_parent_dirs() {
 while IFS= read -r -d '' tracked_path; do
     relative=${tracked_path#dotfiles/}
     [[ $relative == .stow-local-ignore ]] && continue
+    source_path="$REPO_ROOT/$tracked_path"
+    [[ -e $source_path || -L $source_path ]] || continue
     has_parent_conflict "$relative" && continue
     check_parent_dirs "$relative" || continue
 
-    source_path="$REPO_ROOT/$tracked_path"
     target_path="$TARGET/$relative"
     if [[ -e $target_path || -L $target_path ]]; then
         same_target "$source_path" "$target_path" || conflicts+=("$relative")
@@ -200,18 +201,18 @@ if [[ $TARGET == "$HOME" ]]; then
         .config/hypr/colors.conf
         .config/hypr/colors.lua
         .config/kitty/colors-matugen.conf
-        .config/ml4w/colors/onsurface
-        .config/ml4w/colors/primary
-        .config/ml4w/colors/secondary
+        .config/myhypr/colors/onsurface
+        .config/myhypr/colors/primary
+        .config/myhypr/colors/secondary
         .config/nwg-dock-hyprland/colors.css
         .config/rofi/colors.rasi
         .config/swaync/colors.css
         .config/walker/colors.css
         .config/waybar/colors.css
         .config/wlogout/colors.css
-        .config/ml4w/settings/dock-disabled
-        .config/ml4w/settings/gamemode-enabled
-        .config/ml4w/settings/waybar-disabled
+        .config/myhypr/settings/dock-disabled
+        .config/myhypr/settings/gamemode-enabled
+        .config/myhypr/settings/waybar-disabled
     )
     for relative in "${runtime_paths[@]}"; do
         source_path="$PACKAGE_ROOT/$relative"

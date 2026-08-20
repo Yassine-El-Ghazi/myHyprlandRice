@@ -27,16 +27,16 @@
 **/*.env
 
 # -----------------------------------------------------
-# Shell / Fish / ML4W variables
+# Shell / Fish / MyHypr variables
 # -----------------------------------------------------
 **/fish/fish_variables
 **/fish/generated_completions/
-**/ml4w/bin/*.sh~      # temporary backups
-**/ml4w/listeners/*.sh~
-**/ml4w/scripts/*.sh~
-**/ml4w/settings/*.sh~
-**/ml4w/wallpapers/*.cache
-**/ml4w/wallpapers/*.tmp
+**/myhypr/bin/*.sh~
+**/myhypr/listeners/*.sh~
+**/myhypr/scripts/*.sh~
+**/myhypr/settings/*.sh~
+**/myhypr/wallpapers/*.cache
+**/myhypr/wallpapers/*.tmp
 
 # -----------------------------------------------------
 # Backup / temporary editor files
@@ -97,9 +97,9 @@
 /dotfiles/.config/hypr/colors.conf
 /dotfiles/.config/hypr/colors.lua
 /dotfiles/.config/kitty/colors-matugen.conf
-/dotfiles/.config/ml4w/colors/onsurface
-/dotfiles/.config/ml4w/colors/primary
-/dotfiles/.config/ml4w/colors/secondary
+/dotfiles/.config/myhypr/colors/onsurface
+/dotfiles/.config/myhypr/colors/primary
+/dotfiles/.config/myhypr/colors/secondary
 /dotfiles/.config/nwg-dock-hyprland/colors.css
 /dotfiles/.config/rofi/colors.rasi
 /dotfiles/.config/swaync/colors.css

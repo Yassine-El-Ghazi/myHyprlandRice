@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
+SETTINGS_ROOT="$CONFIG_ROOT/myhypr/settings"
+
+usage() {
+    cat <<'EOF'
+Usage: desktopctl status COMPONENT
+       desktopctl set COMPONENT enabled|disabled
+       desktopctl audio get|set [PERCENT]
+       desktopctl brightness get|set [PERCENT]
+       desktopctl wifi get|set [enabled|disabled]
+
+Components: waybar, dock, gamemode
+EOF
+}
+
+component_marker() {
+    case $1 in
+        waybar) printf '%s/waybar-disabled' "$SETTINGS_ROOT" ;;
+        dock) printf '%s/dock-disabled' "$SETTINGS_ROOT" ;;
+        gamemode) printf '%s/gamemode-enabled' "$SETTINGS_ROOT" ;;
+        *) return 1 ;;
+    esac
+}
+
+component_status() {
+    local component=$1
+    local marker
+    marker=$(component_marker "$component") || return 2
+
+    if [[ $component == gamemode ]]; then
+        [[ -f $marker ]] && printf 'enabled\n' || printf 'disabled\n'
+    else
+        [[ -f $marker ]] && printf 'disabled\n' || printf 'enabled\n'
+    fi
+}
+
+set_component() {
+    local component=$1
+    local desired=$2
+    local current marker
+
+    [[ $desired == enabled || $desired == disabled ]] || return 2
+    marker=$(component_marker "$component") || return 2
+    current=$(component_status "$component")
+    [[ $current != "$desired" ]] || return 0
+    mkdir -p -- "$SETTINGS_ROOT"
+
+    if [[ $component == gamemode ]]; then
+        "$CONFIG_ROOT/hypr/scripts/gamemode.sh"
+        return
+    fi
+
+    if [[ $desired == enabled ]]; then
+        rm -f -- "$marker"
+    else
+        : > "$marker"
+    fi
+    if [[ $component == waybar ]]; then
+        "$CONFIG_ROOT/waybar/launch.sh"
+    else
+        "$CONFIG_ROOT/nwg-dock-hyprland/launch.sh" >/dev/null 2>&1 &
+        disown
+    fi
+}
+
+audio_control() {
+    case ${1:-} in
+        get)
+            wpctl get-volume @DEFAULT_AUDIO_SINK@ | \
+                awk '/^Volume:/ {printf "%d\n", $2 * 100}'
+            ;;
+        set)
+            local value=${2:-}
+            [[ $value =~ ^[0-9]+$ ]] && ((value <= 100)) || return 2
+            exec wpctl set-volume @DEFAULT_AUDIO_SINK@ "${value}%"
+            ;;
+        *) return 2 ;;
+    esac
+}
+
+brightness_control() {
+    case ${1:-} in
+        get)
+            brightnessctl -m | awk -F, '{gsub("%", "", $4); print $4}'
+            ;;
+        set)
+            local value=${2:-}
+            [[ $value =~ ^[0-9]+$ ]] && ((value >= 10 && value <= 100)) || return 2
+            exec brightnessctl set "${value}%"
+            ;;
+        *) return 2 ;;
+    esac
+}
+
+wifi_control() {
+    local current desired
+
+    case ${1:-} in
+        get)
+            current=$(nmcli radio wifi)
+            [[ $current == enabled ]] && printf 'true\n' || printf 'false\n'
+            ;;
+        set)
+            desired=${2:-${SWAYNC_TOGGLE_STATE:-}}
+            case $desired in
+                true|enabled|on) exec nmcli radio wifi on ;;
+                false|disabled|off) exec nmcli radio wifi off ;;
+                *) return 2 ;;
+            esac
+            ;;
+        *) return 2 ;;
+    esac
+}
+
+case ${1:-} in
+    status)
+        (($# == 2)) || { usage >&2; exit 2; }
+        component_status "$2" || { usage >&2; exit 2; }
+        ;;
+    set)
+        (($# == 3)) || { usage >&2; exit 2; }
+        set_component "$2" "$3" || { usage >&2; exit 2; }
+        ;;
+    audio)
+        shift
+        audio_control "$@" || { usage >&2; exit 2; }
+        ;;
+    brightness)
+        shift
+        brightness_control "$@" || { usage >&2; exit 2; }
+        ;;
+    wifi)
+        shift
+        wifi_control "$@" || { usage >&2; exit 2; }
+        ;;
+    -h|--help|help)
+        usage
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac

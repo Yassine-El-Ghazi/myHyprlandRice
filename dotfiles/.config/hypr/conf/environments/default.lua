@@ -12,5 +12,5 @@ hl.config({
     cursor = {
         no_hardware_cursors = false,
     },
-    -- Default Settings in ml4w.conf
+    -- Default settings in myhypr.conf
 })

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # -----------------------------------------------------
 # ALIASES
 # -----------------------------------------------------
@@ -16,25 +17,26 @@ alias shutdown='systemctl poweroff'
 alias v='$EDITOR'
 alias vim='$EDITOR'
 alias wifi='nmtui'
-alias arch-cleanup='~/.config/ml4w/scripts/arch/cleanup.sh'
-alias apps='~/.config/ml4w/bin/ml4w-apps.sh'
-alias screenshot='~/.config/ml4w/bin/ml4w-screenshot.sh'
-alias updates='~/.config/ml4w/scripts/installupdates.sh'
-alias filemanager='~/.config/ml4w/settings/filemanager'
+alias arch-cleanup='~/.config/myhypr/scripts/arch/cleanup.sh'
+alias apps='~/.config/myhypr/bin/myhypr-apps.sh'
+alias screenshot='~/.config/myhypr/bin/myhypr-screenshot.sh'
+alias updates='~/.config/myhypr/scripts/installupdates.sh'
+alias filemanager='~/.config/myhypr/settings/filemanager.sh'
 alias lock='hyprlock'
 alias clock='tty-clock'
-alias system='~/.config/ml4w/settings/systemmonitor'
-alias quick='~/.config/ml4w/bin/ml4w-quicklinks.sh'
-alias wallpaper='~/.config/ml4w/bin/ml4w-wallpaper.sh'
+alias system='~/.config/myhypr/settings/system-monitor.sh'
+alias quick='~/.config/myhypr/bin/myhypr-quicklinks.sh'
+alias wallpaper='~/.config/myhypr/bin/myhypr-wallpaper.sh'
 
 # -----------------------------------------------------
-# ML4W Apps
+# MyHypr controls
 # -----------------------------------------------------
-alias ml4w='flatpak run com.ml4w.welcome'
-alias ml4w-settings='flatpak run com.ml4w.settings'
-alias ml4w-calendar='flatpak run com.ml4w.calendar'
-alias ml4w-hyprland='flatpak run com.ml4w.hyprlandsettings'
-alias ml4w-sidebar='flatpak run com.ml4w.sidebar'
+alias myhypr='~/.config/myhypr/bin/myhyprctl welcome'
+alias myhypr-settings='~/.config/myhypr/bin/myhyprctl settings'
+alias myhypr-calendar='~/.config/myhypr/bin/myhyprctl calendar'
+alias myhypr-sidebar='~/.config/myhypr/bin/myhyprctl sidebar'
+alias myhypr-doctor='~/.config/myhypr/bin/myhyprctl doctor'
+alias myhypr-update='~/.config/myhypr/bin/myhyprctl update'
 
 # -----------------------------------------------------
 # Git
@@ -51,7 +53,7 @@ alias gcheck="git checkout"
 # -----------------------------------------------------
 # Scripts
 # -----------------------------------------------------
-alias ascii='~/.config/ml4w/scripts/figlet.sh'
+alias ascii='~/.config/myhypr/scripts/figlet.sh'
 
 # -----------------------------------------------------
 # System

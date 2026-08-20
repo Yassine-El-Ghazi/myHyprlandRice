@@ -5,7 +5,7 @@
 # (_)___|___/_| |_|_|  \___|
 #
 # -----------------------------------------------------
-# ML4W zshrc loader
+# MyHyprlandRice zshrc loader
 # -----------------------------------------------------
 
 # You can override a modular file by placing a file with the same name in
@@ -17,7 +17,7 @@
 # -----------------------------------------------------
 # Keep per-user commands available even if the modular directory is absent.
 # 00-init normalizes and de-duplicates the final path when it is present.
-export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/.config/myhypr/bin:$HOME/.local/bin:$PATH"
 
 for config_file in "$HOME"/.config/zshrc/*(N); do
     # Stow may link each module individually. Test the resolved target instead

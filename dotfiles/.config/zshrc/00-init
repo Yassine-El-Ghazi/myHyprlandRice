@@ -17,6 +17,7 @@ fi
 # and removes duplicates introduced by installers or nested shells.
 typeset -U path PATH
 path=(
+    "$HOME/.config/myhypr/bin"
     "$HOME/.local/bin"
     "$HOME/.cargo/bin"
     "$HOME/go/bin"

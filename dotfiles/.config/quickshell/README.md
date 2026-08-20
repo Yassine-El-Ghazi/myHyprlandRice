@@ -1,11 +1,11 @@
 # Start Quickshell in configuration folder
-qs -p ~/.config/ml4w-quickshell &
+quickshell -p ~/.config/quickshell/shell.qml &
 
 # Toggle Settings App
-qs -p ~/.config/ml4w-quickshell ipc call settings toggle
+qs ipc call settings toggle
 
 # Toggle Welcome App
-qs -p ~/.config/ml4w-quickshell ipc call welcome toggle
+qs ipc call welcome toggle
 
 2. Cross-App Launching
 
@@ -14,5 +14,5 @@ QML
 
 onClicked: {
     // This tells the background daemon to show the other window
-    Quickshell.execute(["qs", "-p", Quickshell.env("HOME") + "/.config/ml4w-quickshell", "ipc", "call", "settings", "open"])
+    Quickshell.execDetached(["qs", "ipc", "call", "settings", "open"])
 }

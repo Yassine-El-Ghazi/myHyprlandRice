@@ -7,7 +7,7 @@ cat <<"EOF"
 /_/|_|\__/___/\__/\___/_/  \__/
 
 EOF
-echo "You can restore to the default ML4W variations."
+echo "You can restore to the default MyHypr variations."
 echo "PLEASE NOTE: You can reactivate to a customized variation or selection in the settings script."
 echo "Your customized variation will not be overwritten or deleted."
 

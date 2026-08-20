@@ -44,6 +44,7 @@ PanelWindow {
 
     // --- 2. ANIMATION LOGIC (FIXED) ---
     property bool isOpen: false
+    property string powerScript: Quickshell.env("HOME") + "/.config/hypr/scripts/power.sh"
     
     // Keep the window mapped to the screen while the animation is playing
     visible: isOpen || slideAnim.running
@@ -106,7 +107,7 @@ PanelWindow {
             component PowerButton: Rectangle {
                 id: btn
                 property string iconTxt: ""
-                property string cmd: ""
+                property var commandArgs: []
                 
                 implicitWidth: 50
                 implicitHeight: 50
@@ -129,18 +130,18 @@ PanelWindow {
                     anchors.fill: parent
                     hoverEnabled: true
                     onClicked: {
-                        powerProcess.command = ["bash", "-c", btn.cmd]
+                        powerProcess.command = btn.commandArgs
                         powerProcess.running = true
                         root.isOpen = false // Trigger the slide-out animation!
                     }
                 }
             }
 
-            PowerButton { iconTxt: ""; cmd: "pidof hyprlock || hyprlock" }
-            PowerButton { iconTxt: ""; cmd: "systemctl suspend" }
-            PowerButton { iconTxt: ""; cmd: "hyprctl dispatch exit" }
-            PowerButton { iconTxt: ""; cmd: "systemctl reboot" }
-            PowerButton { iconTxt: ""; cmd: "systemctl poweroff" }
+            PowerButton { iconTxt: ""; commandArgs: [root.powerScript, "lock"] }
+            PowerButton { iconTxt: ""; commandArgs: [root.powerScript, "suspend"] }
+            PowerButton { iconTxt: ""; commandArgs: [root.powerScript, "exit"] }
+            PowerButton { iconTxt: ""; commandArgs: [root.powerScript, "reboot"] }
+            PowerButton { iconTxt: ""; commandArgs: [root.powerScript, "shutdown"] }
         }
     }
 }

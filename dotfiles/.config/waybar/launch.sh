@@ -1,113 +1,71 @@
 #!/usr/bin/env bash
-#                    __
-#  _    _____ ___ __/ /  ___ _____
-# | |/|/ / _ `/ // / _ \/ _ `/ __/
-# |__,__/\_,_/\_, /_.__/\_,_/_/
-#            /___/
-#
+set -Eeuo pipefail
 
-# -----------------------------------------------------
-# Prevent duplicate launches: only the first parallel
-# invocation proceeds; all others exit immediately.
-# -----------------------------------------------------
+CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
+THEME_ROOT="$CONFIG_ROOT/waybar/themes"
+THEME_SETTING="$CONFIG_ROOT/myhypr/settings/waybar-theme.sh"
+DEFAULT_THEME='/myhypr-modern;/myhypr-modern/default'
+LOCK_ROOT="${XDG_RUNTIME_DIR:-$HOME/.cache/myhypr}"
 
-exec 200>/tmp/waybar-launch.lock
-flock -n 200 || exit 0
+mkdir -p -- "$LOCK_ROOT" "${THEME_SETTING%/*}"
+exec {LOCK_FD}>"$LOCK_ROOT/waybar-launch.lock"
+flock -n "$LOCK_FD" || exit 0
 
-# -----------------------------------------------------
-# Quit all running waybar instances
-# -----------------------------------------------------
+write_theme_setting() {
+    local value=$1
+    local temporary
 
-killall waybar || true
-pkill waybar || true
-sleep 0.5
+    temporary=$(mktemp "${THEME_SETTING%/*}/.waybar-theme.XXXXXX")
+    printf '%s\n' "$value" > "$temporary"
+    mv -- "$temporary" "$THEME_SETTING"
+}
 
-# -----------------------------------------------------
-# Default theme: /THEMEFOLDER;/VARIATION
-# -----------------------------------------------------
+resolve_theme() {
+    local raw=$1
+    local extra=''
 
-default_theme="/ml4w-modern;/ml4w-modern/default"
+    IFS=';' read -r theme_path style_path extra <<< "$raw"
+    [[ -z $extra ]] || return 1
+    [[ $theme_path =~ ^/[A-Za-z0-9._-]+$ ]] || return 1
+    [[ $style_path =~ ^/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)?$ ]] || return 1
+    [[ -f $THEME_ROOT$theme_path/config && -f $THEME_ROOT$style_path/style.css ]]
+}
 
-# -----------------------------------------------------
-# Remove incompatible themes
-# -----------------------------------------------------
-
-if [ -f ~/.config/ml4w/settings/waybar-theme.sh ]; then
-    themestyle=$(cat ~/.config/ml4w/settings/waybar-theme.sh)
-    case "$themestyle" in
-    "/ml4w-modern;/ml4w-modern/light")
-        echo "$default_theme" >~/.config/ml4w/settings/waybar-theme.sh
-        ;;
-    "/ml4w-modern;/ml4w-modern/dark")
-        echo "$default_theme" >~/.config/ml4w/settings/waybar-theme.sh
-        ;;
-    "/ml4w;/ml4w/light")
-        echo "$default_theme" >~/.config/ml4w/settings/waybar-theme.sh
-        ;;
-    "/ml4w;/ml4w/dark")
-        echo "$default_theme" >~/.config/ml4w/settings/waybar-theme.sh
-        ;;
-    *)
-        echo
-        ;;
-    esac
-    if [ -d $HOME/.config/waybar/themes/ml4w-modern/light ]; then
-        rm -rf $HOME/.config/waybar/themes/ml4w-modern/light
-    fi
-    if [ -d $HOME/.config/waybar/themes/ml4w-modern/dark ]; then
-        rm -rf $HOME/.config/waybar/themes/ml4w-modern/dark
-    fi
-    if [ -d $HOME/.config/waybar/themes/ml4w/light ]; then
-        rm -rf $HOME/.config/waybar/themes/ml4w/light
-    fi
-    if [ -d $HOME/.config/waybar/themes/ml4w/dark ]; then
-        rm -rf $HOME/.config/waybar/themes/ml4w/dark
-    fi
+theme_spec=$DEFAULT_THEME
+[[ -r $THEME_SETTING ]] && theme_spec=$(<"$THEME_SETTING")
+if ! resolve_theme "$theme_spec"; then
+    printf 'Invalid or unavailable Waybar theme %q; using %s.\n' \
+        "$theme_spec" "$DEFAULT_THEME" >&2
+    theme_spec=$DEFAULT_THEME
+    resolve_theme "$theme_spec" || {
+        printf 'Default Waybar theme is incomplete.\n' >&2
+        exit 1
+    }
+    write_theme_setting "$theme_spec"
 fi
 
-# -----------------------------------------------------
-# Get current theme information from ~/.config/ml4w/settings/waybar-theme.sh
-# -----------------------------------------------------
+IFS=';' read -r theme_path style_path <<< "$theme_spec"
+config_file="$THEME_ROOT$theme_path/config"
+style_file="$THEME_ROOT$style_path/style.css"
+[[ -f $THEME_ROOT$theme_path/config-custom ]] && \
+    config_file="$THEME_ROOT$theme_path/config-custom"
+[[ -f $THEME_ROOT$style_path/style-custom.css ]] && \
+    style_file="$THEME_ROOT$style_path/style-custom.css"
 
-if [ -f ~/.config/ml4w/settings/waybar-theme.sh ]; then
-    themestyle=$(cat ~/.config/ml4w/settings/waybar-theme.sh)
-else
-    touch ~/.config/ml4w/settings/waybar-theme.sh
-    echo "$default_theme" >~/.config/ml4w/settings/waybar-theme.sh
-    themestyle=$default_theme
+pkill -x waybar >/dev/null 2>&1 || true
+sleep 0.3
+
+if [[ -f $CONFIG_ROOT/myhypr/settings/waybar-disabled ]]; then
+    printf 'Waybar is disabled by the runtime setting.\n'
+    exit 0
 fi
 
-IFS=';' read -ra arrThemes <<<"$themestyle"
-echo ":: Theme: ${arrThemes[0]}"
-
-if [ ! -f ~/.config/waybar/themes${arrThemes[1]}/style.css ]; then
-    themestyle=$default_theme
+instance_signature=${HYPRLAND_INSTANCE_SIGNATURE:-}
+if [[ -z $instance_signature ]]; then
+    instance_signature=$(hyprctl instances -j | jq -er '.[0].instance')
 fi
 
-# -----------------------------------------------------
-# Loading the configuration
-# -----------------------------------------------------
-
-config_file="config"
-style_file="style.css"
-
-# Standard files can be overwritten with an existing config-custom or style-custom.css
-if [ -f ~/.config/waybar/themes${arrThemes[0]}/config-custom ]; then
-    config_file="config-custom"
-fi
-if [ -f ~/.config/waybar/themes${arrThemes[1]}/style-custom.css ]; then
-    style_file="style-custom.css"
-fi
-
-# Check if waybar-disabled file exists
-if [ ! -f $HOME/.config/ml4w/settings/waybar-disabled ]; then
-    HYPRLAND_SIGNATURE=$(hyprctl instances -j | jq -r '.[0].instance')
-    HYPRLAND_INSTANCE_SIGNATURE="$HYPRLAND_SIGNATURE" waybar -c ~/.config/waybar/themes${arrThemes[0]}/$config_file -s ~/.config/waybar/themes${arrThemes[1]}/$style_file &
-    # env GTK_DEBUG=interactive waybar -c ~/.config/waybar/themes${arrThemes[0]}/$config_file -s ~/.config/waybar/themes${arrThemes[1]}/$style_file &
-else
-    echo ":: Waybar disabled"
-fi
-
-# Explicitly release the lock (optional) -> flock releases on exit
-flock -u 200
-exec 200>&-
+printf 'Launching Waybar theme %s.\n' "$theme_spec"
+HYPRLAND_INSTANCE_SIGNATURE="$instance_signature" \
+    waybar --config "$config_file" --style "$style_file" &
+disown

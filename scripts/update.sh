@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-# shellcheck source=lib.sh
+# shellcheck source=scripts/lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
 PROFILE=desktop
@@ -46,6 +46,7 @@ args=(--profile "$PROFILE")
 
 repair_args=()
 [[ $ASSUME_YES -eq 1 ]] && repair_args+=(--yes)
+"$REPO_ROOT/scripts/migrate-namespace.sh" "${repair_args[@]}"
 if [[ $PROFILE == desktop || $PROFILE == full ]]; then
     "$REPO_ROOT/scripts/repair-flatpak.sh" "${repair_args[@]}"
 fi

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # -----------------------------------------------------
 # AUTOSTART
 # -----------------------------------------------------
@@ -6,7 +7,7 @@
 finder() {
     # Run the script and capture the result
     local result
-    result=$("$HOME/.config/ml4w/bin/ml4w-finder.sh")
+    result=$("$HOME/.config/myhypr/bin/myhypr-finder.sh")
 
     # Check if the script told us to CD
     if [[ "$result" == TYPE_DIR:* ]]; then

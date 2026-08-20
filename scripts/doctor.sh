@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-# shellcheck source=lib.sh
+# shellcheck source=scripts/lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
 PROFILE=desktop
@@ -87,13 +87,29 @@ desktop_commands=(
     walker swaync-client nwg-dock-hyprland awww waypaper matugen grim slurp
     hyprshot satty wl-copy cliphist tesseract brightnessctl playerctl nm-applet
     blueman-manager pavucontrol wpctl pactl notify-send nautilus yazi
-    gnome-calculator gnome-text-editor qalculate-gtk rofimoji pinta gum checkupdates
+    gnome-calculator gnome-text-editor gnome-software qalculate-gtk rofimoji pinta evolution
+    hyprshade gtk-launch elephant gum checkupdates
 )
-full_commands=(evolution firefox thunderbird vlc loupe hyprshade tty-clock)
+full_commands=(firefox thunderbird vlc loupe tty-clock)
 
 check_commands Core "${core_commands[@]}"
 if [[ $PROFILE == desktop || $PROFILE == full ]]; then
     check_commands Desktop "${desktop_commands[@]}"
+    if command -v pacman >/dev/null 2>&1; then
+        elephant_dependencies=(
+            elephant elephant-desktopapplications elephant-calc elephant-runner
+            elephant-menus elephant-websearch elephant-providerlist elephant-files
+            elephant-symbols elephant-todo elephant-clipboard
+        )
+        mapfile -t missing_elephant < <(
+            pacman -T -- "${elephant_dependencies[@]}" 2>/dev/null || true
+        )
+        if ((${#missing_elephant[@]})); then
+            problem "Walker providers missing: ${missing_elephant[*]}"
+        else
+            ok 'Walker and all configured Elephant providers are installed'
+        fi
+    fi
 fi
 if [[ $PROFILE == full ]]; then
     check_commands Full "${full_commands[@]}"
@@ -139,9 +155,9 @@ runtime_paths=(
     .config/hypr/colors.conf
     .config/hypr/colors.lua
     .config/kitty/colors-matugen.conf
-    .config/ml4w/colors/onsurface
-    .config/ml4w/colors/primary
-    .config/ml4w/colors/secondary
+    .config/myhypr/colors/onsurface
+    .config/myhypr/colors/primary
+    .config/myhypr/colors/secondary
     .config/nwg-dock-hyprland/colors.css
     .config/rofi/colors.rasi
     .config/swaync/colors.css
@@ -152,6 +168,10 @@ runtime_paths=(
 for relative in "${runtime_paths[@]}"; do
     [[ -L $HOME/$relative ]] && runtime_links+=("$relative")
 done
+while IFS= read -r -d '' default_path; do
+    relative=${default_path#"$REPO_ROOT/defaults/"}
+    [[ -L $HOME/$relative ]] && runtime_links+=("$relative")
+done < <(find "$REPO_ROOT/defaults" -type f -print0)
 if ((${#runtime_links[@]})); then
     problem "Runtime files are symlinked into Git: ${runtime_links[*]}"
 else
@@ -192,6 +212,25 @@ if [[ -f $HOME/.config/hypr/hyprland.lua ]]; then
     ok 'Hyprland uses the current Lua configuration entrypoint'
 else
     problem 'Hyprland Lua entrypoint is missing'
+fi
+
+legacy_runtime_paths=(
+    "$HOME/.config/ml4w"
+    "$HOME/.config/ml4w-dotfiles-settings"
+    "$HOME/.config/ml4w-dotfiles-installer"
+    "$HOME/.local/share/ml4w-dotfiles-settings"
+    "$HOME/.local/share/ml4w-dotfiles-installer"
+    "$HOME/.local/bin/ml4w-dotfiles-settings"
+    "$HOME/.local/bin/ml4w-dotfiles-installer"
+)
+active_legacy=()
+for path in "${legacy_runtime_paths[@]}"; do
+    [[ -e $path || -L $path ]] && active_legacy+=("$path")
+done
+if ((${#active_legacy[@]})); then
+    problem "Legacy ML4W runtime paths remain; run scripts/migrate-namespace.sh: ${active_legacy[*]}"
+else
+    ok 'No legacy ML4W runtime paths remain active'
 fi
 
 if command -v flatpak >/dev/null 2>&1 && \

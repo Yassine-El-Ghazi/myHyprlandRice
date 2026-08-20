@@ -6,5 +6,5 @@ if ! command -v waypaper >/dev/null 2>&1; then
     exit 127
 fi
 
-wallpaper_dir="$HOME/.config/ml4w/wallpapers"
+wallpaper_dir="$HOME/.config/myhypr/wallpapers"
 exec waypaper --backend awww --folder "$wallpaper_dir" "$@"

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-ml4w_cache_folder="$HOME/.cache/ml4w/hyprland-dotfiles"
-generated_versions="$ml4w_cache_folder/wallpaper-generated"
-rm $generated_versions/*
-echo ":: Wallpaper cache cleared"
-notify-send "Wallpaper cache cleared"
+set -Eeuo pipefail
+
+generated_versions="$HOME/.cache/myhypr/wallpaper-generated"
+mkdir -p -- "$generated_versions"
+shopt -s nullglob
+cached_files=("$generated_versions"/*)
+((${#cached_files[@]} == 0)) || rm -f -- "${cached_files[@]}"
+printf '%s\n' ':: Wallpaper cache cleared'
+notify-send 'Wallpaper cache cleared'

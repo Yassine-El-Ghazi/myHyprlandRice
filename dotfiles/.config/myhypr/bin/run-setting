@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+setting_name=${1:-}
+[[ $setting_name =~ ^[a-z][a-z0-9-]*$ ]] || {
+    printf 'Usage: %s SETTING [ARG ...]\n' "${0##*/}" >&2
+    exit 2
+}
+shift
+
+setting_file="${XDG_CONFIG_HOME:-$HOME/.config}/myhypr/settings/$setting_name"
+[[ -f $setting_file ]] || {
+    printf 'Missing MyHypr setting: %s\n' "$setting_file" >&2
+    exit 1
+}
+
+IFS= read -r command_line < "$setting_file" || true
+[[ -n $command_line ]] || {
+    printf 'MyHypr setting is empty: %s\n' "$setting_name" >&2
+    exit 1
+}
+
+# Settings are intentionally parsed as whitespace-delimited arguments, not as
+# shell code. Metacharacters and command substitutions therefore never run.
+read -r -a command_parts <<< "$command_line"
+command -v "${command_parts[0]}" >/dev/null 2>&1 || {
+    printf 'Configured command is unavailable: %s\n' "${command_parts[0]}" >&2
+    exit 127
+}
+exec "${command_parts[@]}" "$@"

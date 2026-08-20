@@ -1,8 +1,6 @@
-# Optional applications referenced by quick links or useful with this desktop
-evolution
+# Optional applications referenced by alternate launchers and sidepads
 firefox
 thunderbird
 vlc
 loupe
-hyprshade
 tty-clock

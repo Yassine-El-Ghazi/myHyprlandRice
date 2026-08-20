@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -Eeuo pipefail
 #                _ _
 # __      ____ _| | |_ __   __ _ _ __   ___ _ __
 # \ \ /\ / / _` | | | '_ \ / _` | '_ \ / _ \ '__|
@@ -14,45 +15,58 @@
 # Set defaults
 # -----------------------------------------------------
 
-ml4w_cache_folder="$HOME/.cache/ml4w/hyprland-dotfiles"
+myhypr_cache_root="$HOME/.cache/myhypr"
 
-defaultwallpaper="$HOME/.config/ml4w/wallpapers/default.jpg"
+defaultwallpaper="$HOME/.config/myhypr/wallpapers/default.jpg"
 
-cachefile="$ml4w_cache_folder/current_wallpaper"
+cachefile="$myhypr_cache_root/current_wallpaper"
+mkdir -p -- "$myhypr_cache_root"
 
 # -----------------------------------------------------
 # Get current wallpaper
 # -----------------------------------------------------
 
-if [ -f "$cachefile" ]; then
-    sed -i "s|~|$HOME|g" "$cachefile"
+if [[ -r $cachefile ]]; then
     wallpaper=$(<"$cachefile")
-    if [ -f "$wallpaper" ]; then
-        echo ":: Wallpaper $wallpaper exists"
+    tilde='~'
+    [[ $wallpaper == "$tilde/"* ]] && \
+        wallpaper="$HOME/${wallpaper#"$tilde/"}"
+    if [[ -f $wallpaper ]]; then
+        printf ':: Wallpaper %s exists\n' "$wallpaper"
     else
-        echo ":: Wallpaper $wallpaper does not exist. Using default."
+        printf ':: Wallpaper %s does not exist; using the default.\n' "$wallpaper"
         wallpaper=$defaultwallpaper
     fi
 else
-    echo ":: $cachefile does not exist. Using default wallpaper."
+    printf ':: %s does not exist; using the default wallpaper.\n' "$cachefile"
     wallpaper=$defaultwallpaper
 fi
+[[ -f $wallpaper ]] || {
+    printf 'Wallpaper restore failed; image does not exist: %s\n' "$wallpaper" >&2
+    exit 1
+}
 
 # -----------------------------------------------------
 # Set wallpaper
 # -----------------------------------------------------
 
-echo ":: Setting wallpaper with source image $wallpaper"
+printf ':: Restoring wallpaper from %s\n' "$wallpaper"
 # Waypaper's awww backend starts the daemon asynchronously. Ensure its socket
 # is ready first so wallpaper restore is reliable during Hyprland startup.
-if ! pgrep -x awww-daemon >/dev/null; then
+if ! awww query >/dev/null 2>&1; then
     awww-daemon >/dev/null 2>&1 &
 fi
+awww_ready=0
 for _ in {1..30}; do
     if awww query >/dev/null 2>&1; then
+        awww_ready=1
         break
     fi
     sleep 0.1
 done
+[[ $awww_ready -eq 1 ]] || {
+    printf 'Awww daemon did not become ready.\n' >&2
+    exit 1
+}
 
-waypaper --backend awww --wallpaper "$wallpaper"
+exec waypaper --backend awww --wallpaper "$wallpaper"

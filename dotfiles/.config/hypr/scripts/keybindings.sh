@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -Eeuo pipefail
 #    __            __   _         ___             
 #   / /_____ __ __/ /  (_)__  ___/ (_)__  ___ ____
 #  /  '_/ -_) // / _ \/ / _ \/ _  / / _ \/ _ `(_-<
@@ -9,18 +10,34 @@
 # -----------------------------------------------------
 # Get keybindings location based on variation
 # -----------------------------------------------------
-config_file=$(<~/.config/hypr/conf/keybinding.conf)
-config_file=${config_file//source = ~//home/$USER}
+selector="$HOME/.config/hypr/conf/keybinding.conf"
+[[ -r $selector ]] || {
+    printf 'Keybinding selector is missing: %s\n' "$selector" >&2
+    exit 1
+}
+selector_value=$(<"$selector")
+variant=${selector_value##*/}
+[[ $variant =~ ^[A-Za-z0-9._-]+\.conf$ ]] || {
+    printf 'Invalid keybinding variant: %s\n' "$variant" >&2
+    exit 1
+}
+config_file="$HOME/.config/hypr/conf/keybindings/$variant"
+[[ -f $config_file ]] || {
+    printf 'Keybinding variant does not exist: %s\n' "$config_file" >&2
+    exit 1
+}
 
 # -----------------------------------------------------
 # Load Launcher
 # -----------------------------------------------------
-launcher=$(cat $HOME/.config/ml4w/settings/launcher)
+launcher=rofi
+launcher_file="$HOME/.config/myhypr/settings/launcher"
+[[ -r $launcher_file ]] && IFS= read -r launcher < "$launcher_file"
 
 # -----------------------------------------------------
 # Path to keybindings config file
 # -----------------------------------------------------
-echo "Reading from: $config_file"
+printf 'Reading from: %s\n' "$config_file"
 
 keybinds=$(awk -F'[=#]' '
     $1 ~ /^bind/ {
@@ -41,9 +58,18 @@ keybinds=$(awk -F'[=#]' '
 
 sleep 0.2
 
-if [ "$launcher" == "walker" ]; then
-    keybinds=$(echo -n "$keybinds" | tr '\r' ':')
-    $HOME/.config/walker/launch.sh -d -N -H -p "Search Keybinds" <<<"$keybinds"
-else
-    rofi -dmenu -i -markup -eh 2 -replace -p "Keybinds" -config ~/.config/rofi/config-compact.rasi <<<"$keybinds"
-fi
+case $launcher in
+    walker)
+        keybinds=$(printf '%s' "$keybinds" | tr '\r' ':')
+        "$HOME/.config/walker/launch.sh" -d -N -H \
+            -p 'Search Keybinds' <<< "$keybinds"
+        ;;
+    rofi)
+        rofi -dmenu -i -markup -eh 2 -replace -p 'Keybinds' \
+            -config "$HOME/.config/rofi/config-compact.rasi" <<< "$keybinds"
+        ;;
+    *)
+        printf 'Unsupported launcher setting: %s\n' "$launcher" >&2
+        exit 1
+        ;;
+esac

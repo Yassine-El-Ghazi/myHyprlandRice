@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
-cache_file="$HOME/.cache/toggle_animation"
-if [[ $(cat $HOME/.config/hypr/conf/animation.conf) == *"disabled"* ]]; then
-    echo ":: Toggle blocked by disabled.conf variation."
+set -Eeuo pipefail
+
+selector="$HOME/.config/hypr/conf/animation.conf"
+cache_root="$HOME/.cache/myhypr"
+cache_file="$cache_root/animations-disabled"
+
+if [[ -r $selector && $(<"$selector") == *disabled* ]]; then
+    printf '%s\n' ':: Toggle blocked by disabled.conf variation.'
 else
-    if [ -f $cache_file ]; then
+    mkdir -p -- "$cache_root"
+    if [[ -f $cache_file ]]; then
         hyprctl keyword animations:enabled true
-        rm $cache_file
+        rm -f -- "$cache_file"
     else
         hyprctl keyword animations:enabled false
-        touch $cache_file
+        : > "$cache_file"
     fi
 fi

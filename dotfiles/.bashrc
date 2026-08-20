@@ -1,3 +1,4 @@
+# shellcheck shell=bash disable=SC1090
 #    _               _              
 #   | |__   __ _ ___| |__  _ __ ___ 
 #   | '_ \ / _` / __| '_ \| '__/ __|
@@ -5,7 +6,7 @@
 # (_)_.__/ \__,_|___/_| |_|_|  \___|
 # 
 # -----------------------------------------------------
-# ML4W bashrc loader
+# MyHyprlandRice bashrc loader
 # -----------------------------------------------------
 
 # Override a modular file by placing a file with the same name in
@@ -34,5 +35,6 @@ unset config_file override_file
 # -----------------------------------------------------
 
 if [[ -r "$HOME/.bashrc_custom" ]]; then
+    # shellcheck source=/dev/null
     source "$HOME/.bashrc_custom"
 fi

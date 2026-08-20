@@ -9,6 +9,7 @@ PROFILE=desktop
 DRY_RUN=0
 ASSUME_YES=0
 INSTALL_PACKAGES=1
+CONFIGURE_SYSTEM=1
 LINK_DOTFILES=1
 INSTALL_HOOKS=1
 
@@ -23,6 +24,7 @@ Options:
   --dry-run                    Print every mutation without applying it
   --yes                        Accept package and conflict-backup prompts
   --no-packages                Skip package installation
+  --no-system                  Skip service and user-directory configuration
   --no-link                    Skip Stow linking
   --no-hooks                   Do not enable repository Git hooks
   -h, --help                   Show this help
@@ -46,6 +48,10 @@ while (($#)); do
             ;;
         --no-packages)
             INSTALL_PACKAGES=0
+            shift
+            ;;
+        --no-system)
+            CONFIGURE_SYSTEM=0
             shift
             ;;
         --no-link)
@@ -82,6 +88,11 @@ if [[ $INSTALL_PACKAGES -eq 1 ]]; then
     "$REPO_ROOT/scripts/install-packages.sh" --profile "$PROFILE" "${common_args[@]}"
 fi
 
+if [[ $CONFIGURE_SYSTEM -eq 1 && ( $PROFILE == desktop || $PROFILE == full ) ]]; then
+    "$REPO_ROOT/scripts/configure-system.sh" "${common_args[@]}"
+fi
+
+"$REPO_ROOT/scripts/migrate-namespace.sh" "${common_args[@]}"
 "$REPO_ROOT/scripts/migrate-local.sh" "${common_args[@]}"
 
 if [[ $PROFILE == desktop || $PROFILE == full ]]; then

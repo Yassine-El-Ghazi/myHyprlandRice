@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-# shellcheck source=lib.sh
+# shellcheck source=scripts/lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
 QUICK=0
@@ -52,10 +52,9 @@ run_check() {
 }
 
 mapfile -d '' bash_files < <(
-    find dotfiles -type f -name '*.sh' -print0
-    find . -maxdepth 2 -type f -name '*.sh' -print0
+    rg -l -0 --hidden --glob '!.git/**' '^#!.*/(env[[:space:]]+)?bash$' \
+        dotfiles scripts tests .githooks bootstrap.sh stow.sh
 )
-bash_files+=(tests/helpers/hyprctl)
 bash_files+=(dotfiles/.bashrc)
 while IFS= read -r -d '' file; do
     bash_files+=("$file")
@@ -82,10 +81,12 @@ if command -v luac >/dev/null 2>&1; then
     while IFS= read -r -d '' file; do
         luac -p "$file" || lua_failed=1
     done < <(find dotfiles -type f -name '*.lua' ! -path '*/matugen/templates/*' -print0)
-    [[ $lua_failed -eq 0 ]] && pass 'Lua syntax' || {
+    if [[ $lua_failed -eq 0 ]]; then
+        pass 'Lua syntax'
+    else
         warn 'FAIL: Lua syntax'
         failures=$((failures + 1))
-    }
+    fi
 else
     skip 'luac is unavailable'
 fi
@@ -94,10 +95,14 @@ if command -v python >/dev/null 2>&1; then
     mapfile -d '' json_files < <(find dotfiles defaults -type f \( -name '*.json' -o -name '*.jsonc' \) -print0)
     run_check 'JSON/JSONC syntax' python "$SCRIPT_DIR/validate-jsonc.py" "${json_files[@]}"
 
+    mapfile -d '' python_files < <(find scripts tests -type f -name '*.py' -print0)
+    python_files+=(dotfiles/.config/myhypr/bin/settingsctl)
     run_check 'Python syntax' python -c '
 import pathlib
-compile(pathlib.Path(__import__("sys").argv[1]).read_bytes(), __import__("sys").argv[1], "exec")
-' "$SCRIPT_DIR/validate-jsonc.py"
+import sys
+for name in sys.argv[1:]:
+    compile(pathlib.Path(name).read_bytes(), name, "exec")
+' "${python_files[@]}"
 
     mapfile -d '' toml_files < <(find dotfiles defaults -type f -name '*.toml' -print0)
     run_check 'TOML syntax' python -c '
@@ -117,13 +122,8 @@ else
 fi
 
 if command -v shellcheck >/dev/null 2>&1; then
-    mapfile -d '' automation_files < <(
-        find scripts tests -type f -name '*.sh' -print0 2>/dev/null
-        find .githooks -type f -print0 2>/dev/null
-    )
-    automation_files+=(tests/helpers/hyprctl)
-    automation_files+=(bootstrap.sh stow.sh)
-    run_check 'ShellCheck (repository automation)' shellcheck -x -S warning "${automation_files[@]}"
+    run_check 'ShellCheck style (all Bash configuration)' \
+        shellcheck -x -S style "${bash_files[@]}"
 else
     skip 'shellcheck is unavailable'
 fi
@@ -131,6 +131,20 @@ fi
 run_check 'Git whitespace checks' git diff --check
 run_check 'Zsh module loader behavior' "$REPO_ROOT/tests/test-zsh-loader.sh"
 run_check 'Dynamic monitor behavior' "$REPO_ROOT/tests/test-toggle-refresh.sh"
+run_check 'Cursor zoom behavior' "$REPO_ROOT/tests/test-cursor-zoom.sh"
+run_check 'Window focus behavior' "$REPO_ROOT/tests/test-window-focus.sh"
+run_check 'Namespace migration behavior' "$REPO_ROOT/tests/test-migrate-namespace.sh"
+run_check 'Package bootstrap behavior' "$REPO_ROOT/tests/test-install-packages.sh"
+run_check 'Arch maintenance helper safety' "$REPO_ROOT/tests/test-arch-helpers.sh"
+run_check 'Stow and bootstrap behavior' "$REPO_ROOT/tests/test-link-dotfiles.sh"
+run_check 'System integration behavior' "$REPO_ROOT/tests/test-configure-system.sh"
+run_check 'Local settings editor behavior' python "$REPO_ROOT/tests/test-settingsctl.py"
+run_check 'Standalone dependency guards' "$REPO_ROOT/tests/test-standalone.sh"
+run_check 'Desktop control behavior' "$REPO_ROOT/tests/test-desktopctl.sh"
+run_check 'Desktop theme application' "$REPO_ROOT/tests/test-desktop-themes.sh"
+run_check 'Waybar theme behavior' "$REPO_ROOT/tests/test-waybar-themes.sh"
+run_check 'Walker service behavior' "$REPO_ROOT/tests/test-walker-launch.sh"
+run_check 'Wallpaper effect behavior' "$REPO_ROOT/tests/test-wallpaper-effect.sh"
 
 if [[ $QUICK -eq 0 ]]; then
     if command -v Hyprland >/dev/null 2>&1; then

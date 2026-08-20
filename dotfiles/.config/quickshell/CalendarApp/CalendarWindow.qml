@@ -117,8 +117,8 @@ PanelWindow {
         }
     }
 
-    // Styled ML4W Button for the "Today" action
-    component ML4WButton: Button {
+    // Styled MyHypr button for the "Today" action
+    component MyHyprButton: Button {
         background: Rectangle {
             color: "transparent"
             border.color: theme.primary
@@ -258,7 +258,7 @@ PanelWindow {
                     }
                 }
 
-                ML4WButton {
+                MyHyprButton {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Today"

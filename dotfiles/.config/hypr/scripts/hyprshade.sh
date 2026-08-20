@@ -1,61 +1,67 @@
-#!/bin/bash
-#  _   _                      _               _
-# | | | |_   _ _ __  _ __ ___| |__   __ _  __| | ___
-# | |_| | | | | '_ \| '__/ __| '_ \ / _` |/ _` |/ _ \
-# |  _  | |_| | |_) | |  \__ \ | | | (_| | (_| |  __/
-# |_| |_|\__, | .__/|_|  |___/_| |_|\__,_|\__,_|\___|
-#        |___/|_|
-#
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-# Remove legacy shaders folder
-if [ -d $HOME/.config/hypr/shaders ]; then
-    rm -rf $HOME/.config/hypr/shaders
+CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
+SETTING_FILE="$CONFIG_ROOT/myhypr/settings/hyprshade.sh"
+default_filter='blue-light-filter-50'
+
+mapfile -t filters < <(hyprshade ls | sed 's/^[ *]*//' | sed '/^$/d')
+is_known_filter() {
+    local candidate=$1
+    local filter
+    [[ $candidate == off ]] && return 0
+    for filter in "${filters[@]}"; do
+        [[ $candidate == "$filter" ]] && return 0
+    done
+    return 1
+}
+
+write_filter() {
+    local filter=$1
+    local temporary
+
+    mkdir -p -- "${SETTING_FILE%/*}"
+    temporary=$(mktemp "${SETTING_FILE%/*}/.hyprshade.XXXXXX")
+    printf '%s\n' "$filter" > "$temporary"
+    mv -- "$temporary" "$SETTING_FILE"
+}
+
+if [[ ${1:-} == rofi ]]; then
+    choice=$(printf '%s\n' "${filters[@]}" off | \
+        rofi -dmenu -replace -config "$CONFIG_ROOT/rofi/config-hyprshade.rasi" \
+            -i -no-show-icons -l 4 -width 30 -p Hyprshade) || exit 0
+    [[ -n $choice ]] || exit 0
+    is_known_filter "$choice" || {
+        printf 'Unknown Hyprshade filter: %s\n' "$choice" >&2
+        exit 1
+    }
+    write_filter "$choice"
+    if [[ $choice == off ]]; then
+        hyprshade off
+        notify-send 'Hyprshade deactivated'
+    else
+        notify-send "Hyprshade set to $choice" 'Toggle with SUPER+SHIFT+H'
+    fi
+    exit 0
 fi
 
-if [[ "$1" == "rofi" ]]; then
+selected_filter=$default_filter
+[[ -r $SETTING_FILE ]] && selected_filter=$(<"$SETTING_FILE")
+if ! is_known_filter "$selected_filter"; then
+    printf 'Configured Hyprshade filter is unavailable: %s\n' "$selected_filter" >&2
+    exit 1
+fi
 
-    # Open rofi to select the Hyprshade filter for toggle
-    options="$(hyprshade ls | sed 's/^[ *]*//')\noff"
+if [[ $selected_filter == off ]]; then
+    hyprshade off
+    exit 0
+fi
 
-    # Open rofi
-    choice=$(echo -e "$options" | rofi -dmenu -replace -config ~/.config/rofi/config-hyprshade.rasi -i -no-show-icons -l 4 -width 30 -p "Hyprshade")
-    if [ ! -z $choice ]; then
-        echo "hyprshade_filter=\"$choice\"" >~/.config/ml4w/settings/hyprshade.sh
-        if [ "$choice" == "off" ]; then
-            hyprshade off
-            notify-send "Hyprshade deactivated"
-            echo ":: hyprshade turned off"
-        else
-            notify-send "Changing Hyprshade to $choice" "Toggle shader with SUPER+SHIFT+H"
-        fi
-    fi
-
+current_filter=$(hyprshade current 2>/dev/null || true)
+if [[ -z $current_filter ]]; then
+    hyprshade on "$selected_filter"
+    notify-send 'Hyprshade activated' "with $selected_filter"
 else
-
-    # Toggle Hyprshade based on the selected filter
-    hyprshade_filter="blue-light-filter-50"
-
-    # Check if hyprshade.sh settings file exists and load
-    if [ -f ~/.config/ml4w/settings/hyprshade.sh ]; then
-        source ~/.config/ml4w/settings/hyprshade.sh
-    fi
-
-    # Toggle Hyprshade
-    if [ "$hyprshade_filter" != "off" ]; then
-        if [ -z $(hyprshade current) ]; then
-            echo ":: hyprshade is not running"
-            hyprshade on $hyprshade_filter
-            notify-send "Hyprshade activated" "with $(hyprshade current)"
-            echo ":: hyprshade started with $(hyprshade current)"
-        else
-            notify-send "Hyprshade deactivated"
-            echo ":: Current hyprshade $(hyprshade current)"
-            echo ":: Switching hyprshade off"
-            hyprshade off
-        fi
-    else
-        hyprshade off
-        echo ":: hyprshade turned off"
-    fi
-
+    hyprshade off
+    notify-send 'Hyprshade deactivated'
 fi

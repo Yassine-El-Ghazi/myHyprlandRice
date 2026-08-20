@@ -8,26 +8,26 @@
 
 local mainMod = "SUPER"
 local HYPRSCRIPTS = "~/.config/hypr/scripts"
-local SCRIPTS = "~/.config/ml4w/scripts"
+local SCRIPTS = "~/.config/myhypr/scripts"
 
 -- Applications
-hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd("~/.config/ml4w/settings/terminal.sh"))
-hl.bind(mainMod .. " + B", hl.dsp.exec_cmd("~/.config/ml4w/settings/browser.sh"))
-hl.bind(mainMod .. " + E", hl.dsp.exec_cmd("~/.config/ml4w/settings/filemanager.sh"))
-hl.bind(mainMod .. " + CTRL + E", hl.dsp.exec_cmd("~/.config/ml4w/settings/emojipicker.sh"))
-hl.bind(mainMod .. " + CTRL + C", hl.dsp.exec_cmd("~/.config/ml4w/settings/calculator.sh"))
+hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd("~/.config/myhypr/settings/terminal.sh"))
+hl.bind(mainMod .. " + B", hl.dsp.exec_cmd("~/.config/myhypr/settings/browser.sh"))
+hl.bind(mainMod .. " + E", hl.dsp.exec_cmd("~/.config/myhypr/settings/filemanager.sh"))
+hl.bind(mainMod .. " + CTRL + E", hl.dsp.exec_cmd("~/.config/myhypr/settings/emojipicker.sh"))
+hl.bind(mainMod .. " + CTRL + C", hl.dsp.exec_cmd("~/.config/myhypr/settings/calculator.sh"))
 
 -- Display
-hl.bind(mainMod .. " + SHIFT + mouse_down", hl.dsp.exec_cmd("hyprctl keyword cursor:zoom_factor $(awk \"BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') + 0.5}\")"))
-hl.bind(mainMod .. " + SHIFT + mouse_up", hl.dsp.exec_cmd("hyprctl keyword cursor:zoom_factor $(awk \"BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') - 0.5}\")"))
-hl.bind(mainMod .. " + SHIFT + Z", hl.dsp.exec_cmd("hyprctl keyword cursor:zoom_factor 1"))
+hl.bind(mainMod .. " + SHIFT + mouse_down", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/cursor-zoom.sh increase"))
+hl.bind(mainMod .. " + SHIFT + mouse_up", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/cursor-zoom.sh decrease"))
+hl.bind(mainMod .. " + SHIFT + Z", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/cursor-zoom.sh reset"))
 hl.bind("SUPER + F11", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/toggle-refresh.sh low"))
 hl.bind("SUPER + F12", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/toggle-refresh.sh high"))
 -- Updated bind without the forced fullscreen flag
 hl.bind("Print", hl.dsp.exec_cmd("hyprshot -m region --raw | satty --filename -"))
 -- Windows
 hl.bind(mainMod .. " + Q", hl.dsp.window.close())
-hl.bind(mainMod .. " + SHIFT + Q", hl.dsp.exec_cmd("hyprctl activewindow | grep pid | tr -d 'pid:' | xargs kill"))
+hl.bind(mainMod .. " + SHIFT + Q", hl.dsp.window.close())
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }))
 hl.bind(mainMod .. " + M", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }))
 hl.bind(mainMod .. " + T", hl.dsp.window.float({ action = "toggle" }))
@@ -59,7 +59,7 @@ hl.bind(mainMod .. " + PRINT", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/screenshot.sh"))
 hl.bind(mainMod .. " + ALT + F", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/screenshot.sh --instant"))
 hl.bind(mainMod .. " + ALT + S", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/screenshot.sh --instant-area"))
 hl.bind(mainMod .. " + ALT + A", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/text-extractor.sh"))
-hl.bind(mainMod .. " + CTRL + Q", hl.dsp.exec_cmd("~/.config/ml4w/scripts/wlogout.sh"))
+hl.bind(mainMod .. " + CTRL + Q", hl.dsp.exec_cmd("~/.config/myhypr/scripts/wlogout.sh"))
 hl.bind(mainMod .. " + SHIFT + W", hl.dsp.exec_cmd("~/.config/hypr/scripts/waypaper.sh --random"))
 hl.bind(mainMod .. " + CTRL + W", hl.dsp.exec_cmd("~/.config/hypr/scripts/waypaper.sh"))
 hl.bind(mainMod .. " + ALT + W", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/wallpaper-automation.sh"))
@@ -70,18 +70,18 @@ hl.bind(mainMod .. " + CTRL + B", hl.dsp.exec_cmd("~/.config/waybar/toggle.sh"))
 hl.bind(mainMod .. " + SHIFT + R", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/loadconfig.sh"))
 hl.bind(mainMod .. " + V", hl.dsp.exec_cmd(SCRIPTS .. "/cliphist.sh"))
 hl.bind(mainMod .. " + CTRL + T", hl.dsp.exec_cmd("~/.config/waybar/themeswitcher.sh"))
-hl.bind(mainMod .. " + CTRL + S", hl.dsp.exec_cmd("flatpak run com.ml4w.settings"))
+hl.bind(mainMod .. " + CTRL + S", hl.dsp.exec_cmd("~/.config/myhypr/bin/myhyprctl settings"))
 hl.bind(mainMod .. " + ALT + G", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/gamemode.sh"))
 hl.bind(mainMod .. " + CTRL + L", hl.dsp.exec_cmd("~/.config/hypr/scripts/power.sh lock"))
 hl.bind(mainMod .. " + SHIFT + H", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/hyprshade.sh"))
-hl.bind("CTRL + Tab", hl.dsp.exec_cmd("~/.config/ml4w/scripts/focus.sh"))
-hl.bind("CTRL + ALT + T", hl.dsp.exec_cmd("~/.config/ml4w/themes/themes.sh"))
+hl.bind("CTRL + Tab", hl.dsp.exec_cmd("~/.config/myhypr/scripts/focus.sh"))
+hl.bind("CTRL + ALT + T", hl.dsp.exec_cmd("~/.config/myhypr/themes/themes.sh"))
 
 -- Sidepad
-hl.bind(mainMod .. " + CTRL + right", hl.dsp.exec_cmd("~/.config/ml4w/scripts/sidepad.sh"))
-hl.bind(mainMod .. " + CTRL + left", hl.dsp.exec_cmd("~/.config/ml4w/scripts/sidepad.sh --hide"))
-hl.bind(mainMod .. " + S", hl.dsp.exec_cmd("~/.config/ml4w/scripts/sidepad.sh --init"))
-hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd("~/.config/ml4w/scripts/sidepad.sh --select"))
+hl.bind(mainMod .. " + CTRL + right", hl.dsp.exec_cmd("~/.config/myhypr/scripts/sidepad.sh"))
+hl.bind(mainMod .. " + CTRL + left", hl.dsp.exec_cmd("~/.config/myhypr/scripts/sidepad.sh --hide"))
+hl.bind(mainMod .. " + S", hl.dsp.exec_cmd("~/.config/myhypr/scripts/sidepad.sh --init"))
+hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd("~/.config/myhypr/scripts/sidepad.sh --select"))
 
 -- Workspaces
 hl.bind(mainMod .. " + 1", hl.dsp.focus({ workspace = 1 }))
@@ -135,9 +135,9 @@ hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl pause"))
 hl.bind("XF86AudioNext", hl.dsp.exec_cmd("playerctl next"))
 hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"))
 hl.bind("XF86AudioMicMute", hl.dsp.exec_cmd("pactl set-source-mute @DEFAULT_SOURCE@ toggle"))
-hl.bind("XF86Calculator", hl.dsp.exec_cmd("~/.config/ml4w/settings/calculator.sh"))
+hl.bind("XF86Calculator", hl.dsp.exec_cmd("~/.config/myhypr/settings/calculator.sh"))
 hl.bind("XF86ScreenSaver", hl.dsp.exec_cmd("hyprlock"))
-hl.bind("XF86Tools", hl.dsp.exec_cmd("flatpak run com.ml4w.settings"))
+hl.bind("XF86Tools", hl.dsp.exec_cmd("~/.config/myhypr/bin/myhyprctl settings"))
 
 hl.bind("code:238", hl.dsp.exec_cmd("brightnessctl -d smc::kbd_backlight s +10"))
 hl.bind("code:237", hl.dsp.exec_cmd("brightnessctl -d smc::kbd_backlight s 10-"))

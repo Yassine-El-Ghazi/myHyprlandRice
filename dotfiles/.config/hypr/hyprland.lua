@@ -6,11 +6,13 @@
 --        |___/|_|
 --
 -- -----------------------------------------------------
--- IMPORTANT: Don't overwrite ML4W configuration.
--- Create your own custom configuration variation instead.
--- https://github.com/mylinuxforwork/dotfiles/wiki/Configuration-Variations
+-- Keep machine-specific changes in local.lua and use the selector files under
+-- conf/ for portable configuration variations.
 
--- Keep the existing ML4W variation selectors working. The settings app still
+-- writes a one-line legacy selector such as `source = .../windows/default.conf`;
+-- this helper reads that choice and loads its converted Lua sibling.
+-- The selector files intentionally remain one-line Hyprlang files so both the
+-- local settings UI and the converted Lua configuration can share them.
 -- writes a one-line legacy selector such as `source = .../windows/default.conf`;
 -- this helper reads that choice and loads its converted Lua sibling.
 function load_legacy_variant(selector, category, fallback)
@@ -103,10 +105,10 @@ require("conf.animation")
 -- Environment for xdg-desktop-portal-hyprland
 -- -----------------------------------------------------
 -- -----------------------------------------------------
--- ML4W Configuration
+-- MyHyprlandRice desktop integration
 -- -----------------------------------------------------
--- Source: ~/.config/hypr/conf/ml4w.conf — convert this file to Lua and ensure it is on Lua's package.path.
-require("conf.ml4w")
+-- Source: ~/.config/hypr/conf/myhypr.conf — convert this file to Lua and ensure it is on Lua's package.path.
+require("conf.myhypr")
 
 -- -----------------------------------------------------
 -- Custom

@@ -27,9 +27,9 @@ credentials?
 ^/\.config/hypr/local\.lua$
 ^/\.config/hypr/(?:monitors|workspaces)\.(?:conf|lua)$
 ^/\.config/waypaper/config\.ini$
-^/\.config/ml4w/settings/(?:dock-disabled|gamemode-enabled|waybar-disabled)$
+^/\.config/myhypr/settings/(?:dock-disabled|gamemode-enabled|waybar-disabled)$
 ^/\.config/(?:gtk-3\.0|gtk-4\.0|waybar|wlogout|swaync|walker|nwg-dock-hyprland)/colors\.css$
 ^/\.config/hypr/colors\.(?:conf|lua)$
 ^/\.config/kitty/colors-matugen\.conf$
-^/\.config/ml4w/colors/(?:primary|secondary|onsurface)$
+^/\.config/myhypr/colors/(?:primary|secondary|onsurface)$
 ^/\.config/rofi/colors\.rasi$

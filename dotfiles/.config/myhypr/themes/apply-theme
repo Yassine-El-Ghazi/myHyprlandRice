@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if (($# != 9)); then
+    printf 'Usage: %s NAME WAYBAR_SPEC DOCK LAUNCHER WALKER WINDOW BORDER SWAYNC WLOGOUT\n' \
+        "${0##*/}" >&2
+    exit 2
+fi
+
+display_name=$1
+waybar_spec=$2
+dock_theme=$3
+launcher=$4
+walker_theme=$5
+window_variant=$6
+border_size=$7
+swaync_theme=$8
+wlogout_theme=$9
+CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+[[ $waybar_spec =~ ^/[A-Za-z0-9._-]+\;/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)?$ ]]
+for value in "$dock_theme" "$launcher" "$walker_theme" "$swaync_theme" "$wlogout_theme"; do
+    [[ $value =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]
+done
+[[ $window_variant =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.conf$ ]]
+[[ $border_size =~ ^[0-9]+$ ]]
+
+IFS=';' read -r waybar_config waybar_style <<< "$waybar_spec"
+[[ -f $CONFIG_ROOT/waybar/themes$waybar_config/config ]]
+[[ -f $CONFIG_ROOT/waybar/themes$waybar_style/style.css ]]
+[[ -f $CONFIG_ROOT/hypr/conf/windows/$window_variant ]]
+[[ -f $CONFIG_ROOT/swaync/themes/$swaync_theme/style.css ]]
+[[ -f $CONFIG_ROOT/wlogout/themes/$wlogout_theme/style.css ]]
+
+atomic_write() {
+    local target=$1
+    local value=$2
+    local temporary
+
+    mkdir -p -- "${target%/*}"
+    temporary=$(mktemp "${target%/*}/.${target##*/}.XXXXXX")
+    printf '%s\n' "$value" > "$temporary"
+    mv -- "$temporary" "$target"
+}
+
+atomic_write "$CONFIG_ROOT/myhypr/settings/waybar-theme.sh" "$waybar_spec"
+atomic_write "$CONFIG_ROOT/myhypr/settings/dock-theme" "$dock_theme"
+atomic_write "$CONFIG_ROOT/myhypr/settings/launcher" "$launcher"
+atomic_write "$CONFIG_ROOT/myhypr/settings/walker-theme" "$walker_theme"
+atomic_write "$CONFIG_ROOT/myhypr/settings/rofi-border.rasi" \
+    "* { border-width: ${border_size}px; }"
+atomic_write "$CONFIG_ROOT/hypr/conf/window.conf" \
+    "source = ~/.config/hypr/conf/windows/$window_variant"
+atomic_write "$CONFIG_ROOT/swaync/style.css" \
+    "@import \"themes/$swaync_theme/style.css\";"
+atomic_write "$CONFIG_ROOT/wlogout/style.css" \
+    "@import \"themes/$wlogout_theme/style.css\";"
+
+"$CONFIG_ROOT/waybar/launch.sh" &
+"$CONFIG_ROOT/nwg-dock-hyprland/launch.sh" &
+swaync-client -rs
+hyprctl reload
+printf 'Desktop theme set to %s.\n' "$display_name"

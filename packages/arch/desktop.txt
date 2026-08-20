@@ -16,6 +16,20 @@ waybar
 quickshell
 rofi
 walker|walker-bin
+# Walker's data service and every provider enabled in the shipped config.
+# Split packages coexist with the base package; elephant-all also satisfies
+# these declarations through virtual provisions.
+elephant
+elephant-desktopapplications
+elephant-calc
+elephant-runner
+elephant-menus
+elephant-websearch
+elephant-providerlist
+elephant-files
+elephant-symbols
+elephant-todo
+elephant-clipboard
 swaync
 nwg-dock-hyprland
 nwg-look
@@ -85,9 +99,13 @@ nautilus
 yazi
 gnome-calculator
 gnome-text-editor
+gnome-software
+packagekit
 qalculate-gtk
 rofimoji
 pinta
+evolution
+hyprshade
 flatpak
 xdg-user-dirs
 figlet

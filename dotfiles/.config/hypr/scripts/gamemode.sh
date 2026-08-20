@@ -1,46 +1,42 @@
 #!/usr/bin/env bash
-#                                      __   
-#   ___ ____ ___ _  ___ __ _  ___  ___/ /__ 
-#  / _ `/ _ `/  ' \/ -_)  ' \/ _ \/ _  / -_)
-#  \_, /\_,_/_/_/_/\__/_/_/_/\___/\_,_/\__/ 
-# /___/                                     
-# 
+set -Eeuo pipefail
 
-ml4w_cache_folder="$HOME/.cache/ml4w/hyprland-dotfiles"
-gamemode_monitor="$HOME/.config/hypr/conf/monitors/gamemode.conf"
+CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
+CACHE_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/myhypr"
+SETTINGS_ROOT="$CONFIG_ROOT/myhypr/settings"
+MONITOR_SELECTOR="$CONFIG_ROOT/hypr/conf/monitor.conf"
+GAMEMODE_MONITOR="$CONFIG_ROOT/hypr/conf/monitors/gamemode.conf"
+ENABLED_MARKER="$SETTINGS_ROOT/gamemode-enabled"
+LAST_MONITOR="$CACHE_ROOT/last_monitor.conf"
+RESTART_WALLPAPER="$CACHE_ROOT/restart-wpauto"
+WALLPAPER_AUTOMATION="$CACHE_ROOT/wallpaper-automation"
+mkdir -p -- "$CACHE_ROOT" "$SETTINGS_ROOT"
 
-if [ -f $HOME/.config/ml4w/settings/gamemode-enabled ]; then
-  if [ -f $ml4w_cache_folder/last_monitor.conf ]; then
-    cat $ml4w_cache_folder/last_monitor.conf > $HOME/.config/hypr/conf/monitor.conf
-    rm $ml4w_cache_folder/last_monitor.conf
-  fi
-  if [ -f $ml4w_cache_folder/restart-wpauto ]; then
-    rm $ml4w_cache_folder/restart-wpauto
-    $HOME/.config/hypr/scripts/wallpaper-automation.sh &
-  fi
-  hyprctl reload
-  rm $HOME/.config/ml4w/settings/gamemode-enabled
-  notify-send "Gamemode deactivated" "Animations and blur enabled"
-else
-  if [ -f $gamemode_monitor ]; then
-    cat $HOME/.config/hypr/conf/monitor.conf > $ml4w_cache_folder/last_monitor.conf
-    echo "source = $gamemode_monitor" > $HOME/.config/hypr/conf/monitor.conf
-  fi
-  if [ -f $ml4w_cache_folder/wallpaper-automation ]; then
-    touch $ml4w_cache_folder/restart-wpauto
-    $HOME/.config/hypr/scripts/wallpaper-automation.sh
-  fi
-  hyprctl --batch "\
-    keyword animations:enabled 0;\
-    keyword decoration:shadow:enabled 0;\
-    keyword decoration:blur:enabled 0;\
-    keyword general:gaps_in 0;\
-    keyword general:gaps_out 0;\
-    keyword general:border_size 1;\
-    keyword decoration:active_opacity 1;\
-    keyword decoration:inactive_opacity 1;\
-    keyword decoration:fullscreen_opacity 1;\
-    keyword decoration:rounding 0"
-  touch $HOME/.config/ml4w/settings/gamemode-enabled
-  notify-send "Gamemode activated" "Animations and blur disabled"
+if [[ -f $ENABLED_MARKER ]]; then
+    if [[ -f $LAST_MONITOR ]]; then
+        cp -- "$LAST_MONITOR" "$MONITOR_SELECTOR"
+        rm -f -- "$LAST_MONITOR"
+    fi
+    if [[ -f $RESTART_WALLPAPER ]]; then
+        rm -f -- "$RESTART_WALLPAPER"
+        "$CONFIG_ROOT/hypr/scripts/wallpaper-automation.sh" &
+        disown
+    fi
+    hyprctl reload
+    rm -f -- "$ENABLED_MARKER"
+    notify-send 'Gamemode deactivated' 'Animations and blur enabled'
+    exit 0
 fi
+
+if [[ -f $GAMEMODE_MONITOR ]]; then
+    [[ -f $MONITOR_SELECTOR ]] && cp -- "$MONITOR_SELECTOR" "$LAST_MONITOR"
+    printf 'source = %s\n' "$GAMEMODE_MONITOR" > "$MONITOR_SELECTOR"
+fi
+if [[ -f $WALLPAPER_AUTOMATION ]]; then
+    : > "$RESTART_WALLPAPER"
+    "$CONFIG_ROOT/hypr/scripts/wallpaper-automation.sh"
+fi
+
+hyprctl --batch 'keyword animations:enabled 0; keyword decoration:shadow:enabled 0; keyword decoration:blur:enabled 0; keyword general:gaps_in 0; keyword general:gaps_out 0; keyword general:border_size 1; keyword decoration:active_opacity 1; keyword decoration:inactive_opacity 1; keyword decoration:fullscreen_opacity 1; keyword decoration:rounding 0'
+: > "$ENABLED_MARKER"
+notify-send 'Gamemode activated' 'Animations and blur disabled'

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2016  # Single quotes write literal mock-script variables.
+set -Eeuo pipefail
+
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/myhypr-system-test.XXXXXXXX")
+FAKE_BIN="$TEST_ROOT/bin"
+export SYSTEM_TEST_STATE="$TEST_ROOT/services-enabled"
+export SYSTEM_TEST_LOG="$TEST_ROOT/commands.log"
+
+cleanup() {
+    case $TEST_ROOT in
+        "${TMPDIR:-/tmp}"/myhypr-system-test.*) rm -rf -- "$TEST_ROOT" ;;
+    esac
+}
+trap cleanup EXIT
+
+mkdir -p -- "$FAKE_BIN"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'case $1 in' \
+    '  is-enabled|is-active) [[ -f $SYSTEM_TEST_STATE ]] ;;' \
+    '  enable) : > "$SYSTEM_TEST_STATE"; printf "systemctl %s\\n" "$*" >> "$SYSTEM_TEST_LOG" ;;' \
+    '  *) exit 2 ;;' \
+    'esac' > "$FAKE_BIN/systemctl"
+printf '%s\n' '#!/usr/bin/env bash' 'exec "$@"' > "$FAKE_BIN/sudo"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'printf "xdg-user-dirs-update\\n" >> "$SYSTEM_TEST_LOG"' \
+    > "$FAKE_BIN/xdg-user-dirs-update"
+chmod +x -- "$FAKE_BIN/systemctl" "$FAKE_BIN/sudo" "$FAKE_BIN/xdg-user-dirs-update"
+
+WAYLAND_DISPLAY='' DISPLAY='' PATH="$FAKE_BIN:$PATH" \
+    "$REPO_ROOT/scripts/configure-system.sh" --yes >/dev/null
+[[ -f $SYSTEM_TEST_STATE ]]
+rg -q '^systemctl enable --now NetworkManager\.service bluetooth\.service$' "$SYSTEM_TEST_LOG"
+rg -q '^xdg-user-dirs-update$' "$SYSTEM_TEST_LOG"
+
+before=$(wc -l < "$SYSTEM_TEST_LOG")
+WAYLAND_DISPLAY='' DISPLAY='' PATH="$FAKE_BIN:$PATH" \
+    "$REPO_ROOT/scripts/configure-system.sh" --yes >/dev/null
+after=$(wc -l < "$SYSTEM_TEST_LOG")
+((after == before + 1)) # Only the idempotent user-directory refresh reruns.
+
+printf 'Required service configuration is automatic and idempotent.\n'

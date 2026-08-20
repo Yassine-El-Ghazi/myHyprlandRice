@@ -1,6 +1,6 @@
 PROFILE ?= desktop
 
-.PHONY: audit audit-history bootstrap check doctor dry-run link seed uninstall
+.PHONY: audit audit-history bootstrap capture check doctor dry-run link seed uninstall
 
 bootstrap:
 	./bootstrap.sh --profile "$(PROFILE)"
@@ -14,6 +14,9 @@ link:
 
 seed:
 	./scripts/seed-runtime.sh
+
+capture:
+	./scripts/capture-runtime.sh
 
 check:
 	./scripts/check.sh

@@ -8,12 +8,9 @@ import qs.shared
 FloatingWindow {
     id: root
     visible: false
-    title: "ML4W Welcome"
+    title: "MyHyprlandRice Welcome"
     implicitWidth: 850
     implicitHeight: 550
-
-    // --- Guard property for the flatpak app ---
-    property bool isHyprlandSettingsInstalled: false
 
     IpcHandler {
         target: "welcome"
@@ -31,33 +28,19 @@ FloatingWindow {
         running: false
     }
 
-    // --- Check if flatpak is installed when window opens ---
-    Process {
-        command: ["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-flatpak-installed com.ml4w.hyprlandsettings"]
-        running: root.visible
-        
-        stdout: StdioCollector {
-            onStreamFinished: {
-                console.log(this.text.trim())
-                // The script echoes "0" if the app exists/is installed
-                root.isHyprlandSettingsInstalled = (this.text.trim() === "0")
-            }
-        }
-    }
-
     // Define a custom reusable styled MenuItem
-    component ML4WMenuItem: MenuItem {
+    component MyHyprMenuItem: MenuItem {
         id: control
-        
+
         contentItem: Text {
             text: control.text
             font.family: theme.fontFamily
             font.pixelSize: 14
             // Invert colors on hover
-            color: control.highlighted ? theme.background : theme.primary 
+            color: control.highlighted ? theme.background : theme.primary
             verticalAlignment: Text.AlignVCenter
         }
-        
+
         background: Rectangle {
             implicitWidth: 220
             implicitHeight: 36
@@ -67,7 +50,7 @@ FloatingWindow {
         }
     }
 
-    component ML4WMenuSeparator: MenuSeparator {
+    component MyHyprMenuSeparator: MenuSeparator {
         contentItem: Rectangle {
             implicitWidth: 200
             implicitHeight: 1
@@ -104,48 +87,43 @@ FloatingWindow {
                 enter: Transition { NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 200; easing.type: Easing.OutQuad } }
                 exit: Transition { NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: 150; easing.type: Easing.InQuad } }
 
-                ML4WMenuItem { 
+                MyHyprMenuItem {
                     text: qsTr("Keyboard");
-                    onClicked: { appLauncher.command = ["gnome-text-editor", Quickshell.env("HOME") + "/.config/hypr/conf/keyboard.conf"]; appLauncher.running = true }
+                    onClicked: { appLauncher.command = ["gnome-text-editor", Quickshell.env("HOME") + "/.config/hypr/conf/keyboard.lua"]; appLauncher.running = true }
                 }
-                ML4WMenuItem { 
+                MyHyprMenuItem {
                     text: qsTr("Monitors");
                     onClicked: { appLauncher.command = ["nwg-displays"]; appLauncher.running = true }
                 }
-                ML4WMenuItem { 
+                MyHyprMenuItem {
                     text: qsTr("Network");
-                    onClicked: { appLauncher.command = ["kitty", "--class", "dotfiles-floating", "-e", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-network"]; appLauncher.running = true }
-                }    
-                ML4WMenuItem { 
+                    onClicked: { appLauncher.command = [Quickshell.env("HOME") + "/.config/myhypr/settings/networkmanager.sh"]; appLauncher.running = true }
+                }
+                MyHyprMenuItem {
                     text: qsTr("Bluetooth");
                     onClicked: { appLauncher.command = ["blueman-manager"]; appLauncher.running = true }
                 }
-                ML4WMenuItem { 
+                MyHyprMenuItem {
                     text: qsTr("Wallpaper");
                     onClicked: { appLauncher.command = ["waypaper", "--backend", "awww"]; appLauncher.running = true }
                 }
-                ML4WMenuItem { 
+                MyHyprMenuItem {
                     text: qsTr("Theme");
                     onClicked: { appLauncher.command = ["nwg-look"]; appLauncher.running = true }
                 }
-                ML4WMenuSeparator {}
-                ML4WMenuItem { 
+                MyHyprMenuSeparator {}
+                MyHyprMenuItem {
                     text: qsTr("Dotfiles Settings");
-                    onClicked: { 
-                        appLauncher.command = ["qs", "-p", Quickshell.env("HOME") + "/.local/share/ml4w-dotfiles-settings/quickshell", "ipc", "call", "settings", "toggle"]
-                        appLauncher.running = true 
+                    onClicked: {
+                        appLauncher.command = ["qs", "ipc", "call", "settings", "toggle"]
+                        appLauncher.running = true
                     }
                 }
-                ML4WMenuItem { 
-                    text: root.isHyprlandSettingsInstalled ? qsTr("Hyprland Settings") : qsTr("Install Hyprland Settings")
-                    onClicked: { 
-                        appLauncher.running = false
-                        if (root.isHyprlandSettingsInstalled) {
-                            appLauncher.command = ["bash","-c","flatpak run com.ml4w.hyprlandsettings"]
-                        } else {
-                            appLauncher.command = ["kitty", "--class", "dotfiles-floating", "-e", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-install-hyprlandsettings"]
-                        }
-                        appLauncher.running = true 
+                MyHyprMenuItem {
+                    text: qsTr("Hyprland Configuration")
+                    onClicked: {
+                        appLauncher.command = ["gnome-text-editor", Quickshell.env("HOME") + "/.config/hypr/hyprland.lua"]
+                        appLauncher.running = true
                     }
                 }
                 background: Rectangle {
@@ -163,30 +141,30 @@ FloatingWindow {
                 font.family: theme.fontFamily
                 font.pixelSize: 14
                 padding:8
-                
+
                 enter: Transition { NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 200; easing.type: Easing.OutQuad } }
                 exit: Transition { NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: 150; easing.type: Easing.InQuad } }
 
-                ML4WMenuItem { 
-                    text: qsTr("Display Manager");
-                    onClicked: { appLauncher.command = ["kitty", "--class", "dotfiles-floating", "-e", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-install-sddm"]; appLauncher.running = true }
+                MyHyprMenuItem {
+                    text: qsTr("Desktop Doctor");
+                    onClicked: { appLauncher.command = ["kitty", "--class", "dotfiles-floating", "-e", Quickshell.env("HOME") + "/.config/myhypr/bin/myhyprctl", "doctor"]; appLauncher.running = true }
                 }
-                ML4WMenuItem { 
+                MyHyprMenuItem {
                     text: qsTr("Network Manager Applet");
-                    onClicked: { appLauncher.command = ["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-toggle-nmapplet"]; appLauncher.running = true }
+                    onClicked: { appLauncher.command = [Quickshell.env("HOME") + "/.config/myhypr/scripts/nm-applet.sh", "toggle"]; appLauncher.running = true }
                 }
-                ML4WMenuItem { 
+                MyHyprMenuItem {
                     text: qsTr("Change Shell");
-                    onClicked: { appLauncher.command = ["kitty", "--class", "dotfiles-floating", "-e", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-change-shell"]; appLauncher.running = true }
+                    onClicked: { appLauncher.command = ["kitty", "--class", "dotfiles-floating", "-e", Quickshell.env("HOME") + "/.config/myhypr/scripts/shell.sh"]; appLauncher.running = true }
                 }
-                ML4WMenuItem { 
-                    text: qsTr("System Info") 
+                MyHyprMenuItem {
+                    text: qsTr("System Info")
                     onClicked: { appLauncher.command = ["kitty", "--class", "dotfiles-floating", "-e", Quickshell.env("HOME") + "/.config/hypr/scripts/systeminfo.sh"]; appLauncher.running = true }
                 }
-                ML4WMenuSeparator {}
-                ML4WMenuItem { 
-                    text: qsTr("Exit Hyprland") 
-                    onClicked: { appLauncher.command = ["bash", "-c", "qs ipc call power toggle"]; appLauncher.running = true }
+                MyHyprMenuSeparator {}
+                MyHyprMenuItem {
+                    text: qsTr("Exit Hyprland")
+                    onClicked: { appLauncher.command = ["qs", "ipc", "call", "power", "toggle"]; appLauncher.running = true }
                 }
 
                 background: Rectangle {
@@ -204,19 +182,16 @@ FloatingWindow {
                 font.family: theme.fontFamily
                 font.pixelSize: 14
                 padding:8
-                
+
                 enter: Transition { NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 200; easing.type: Easing.OutQuad } }
                 exit: Transition { NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: 150; easing.type: Easing.InQuad } }
 
-                ML4WMenuItem { text: qsTr("ML4W OS Homepage"); onClicked: { appLauncher.command = ["xdg-open", "https://ml4w.com/os/"]; appLauncher.running = true } }
-                ML4WMenuItem { text: qsTr("ML4W OS GitHub"); onClicked: { appLauncher.command = ["xdg-open", "https://github.com/mylinuxforwork/dotfiles"]; appLauncher.running = true } }
-                ML4WMenuItem { text: qsTr("ML4W OS Changelog"); onClicked: { appLauncher.command = ["xdg-open", "https://github.com/mylinuxforwork/dotfiles/blob/main/CHANGELOG.md"]; appLauncher.running = true } }
-                ML4WMenuItem { text: qsTr("ML4W YouTube Channel"); onClicked: { appLauncher.command = ["xdg-open", "https://www.youtube.com/channel/UC0sUzmZ0CHvVCVrpRfGKZfw"]; appLauncher.running = true } }
-                ML4WMenuItem { text: qsTr("Get more Wallpapers"); onClicked: { appLauncher.command = ["xdg-open", "https://github.com/mylinuxforwork/wallpaper"]; appLauncher.running = true } }
-                ML4WMenuSeparator {}
-                ML4WMenuItem { text: qsTr("Hyprland Homepage"); onClicked: { appLauncher.command = ["xdg-open", "https://github.com/mylinuxforwork/wallpaper"]; appLauncher.running = true } }
-                ML4WMenuItem { text: qsTr("Hyprland Wiki"); onClicked: { appLauncher.command = ["xdg-open", "https://github.com/mylinuxforwork/wallpaper"]; appLauncher.running = true } }
-                ML4WMenuItem { text: qsTr("Update ML4W OS"); onClicked: { appLauncher.command = ["xdg-open", "https://github.com/mylinuxforwork/wallpaper"]; appLauncher.running = true } }
+                MyHyprMenuItem { text: qsTr("MyHyprlandRice GitHub"); onClicked: { appLauncher.command = ["xdg-open", "https://github.com/Yassine-El-Ghazi/myHyprlandRice"]; appLauncher.running = true } }
+                MyHyprMenuItem { text: qsTr("Local Documentation"); onClicked: { appLauncher.command = [Quickshell.env("HOME") + "/.config/myhypr/bin/myhyprctl", "docs"]; appLauncher.running = true } }
+                MyHyprMenuSeparator {}
+                MyHyprMenuItem { text: qsTr("Hyprland Homepage"); onClicked: { appLauncher.command = ["xdg-open", "https://hypr.land/"]; appLauncher.running = true } }
+                MyHyprMenuItem { text: qsTr("Hyprland Wiki"); onClicked: { appLauncher.command = ["xdg-open", "https://wiki.hypr.land/"]; appLauncher.running = true } }
+                MyHyprMenuItem { text: qsTr("Update Dotfiles"); onClicked: { appLauncher.command = ["kitty", "--class", "dotfiles-floating", "-e", Quickshell.env("HOME") + "/.config/myhypr/bin/myhyprctl", "update"]; appLauncher.running = true } }
 
                 background: Rectangle {
                     implicitWidth: 180
@@ -257,7 +232,7 @@ FloatingWindow {
                 anchors.margins: 10
                 spacing: 10
 
-                // --- MAIN HERO SECTION --- 
+                // --- MAIN HERO SECTION ---
                 ColumnLayout {
                     Layout.alignment: Qt.AlignHCenter
                     spacing: 10
@@ -265,8 +240,8 @@ FloatingWindow {
 
                     Image {
                         Layout.alignment: Qt.AlignHCenter
-                        source: "../shared/ml4w.svg"
-                        sourceSize.width: 100 
+                        source: "../shared/MyHyprLogo.svg"
+                        sourceSize.width: 100
                         sourceSize.height: 100
                         width: 100
                         height: 100
@@ -275,7 +250,7 @@ FloatingWindow {
 
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: "Welcome to ML4W OS"
+                        text: "Welcome to MyHyprlandRice"
                         font.family: theme.fontFamily
                         font.pixelSize: 28
                         font.bold: true
@@ -293,7 +268,7 @@ FloatingWindow {
 
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: "Version 2.12.0"
+                        text: "Standalone Edition"
                         font.family: theme.fontFamily
                         font.pixelSize: 16
                         color: theme.on_background
@@ -308,7 +283,7 @@ FloatingWindow {
                         Button {
                             text: "Dotfiles Settings"
                             onClicked: {
-                                appLauncher.command = ["qs", "-p", Quickshell.env("HOME") + "/.local/share/ml4w-dotfiles-settings/quickshell", "ipc", "call", "settings", "toggle"]
+                                appLauncher.command = ["qs", "ipc", "call", "settings", "toggle"]
                                 appLauncher.running = true
                             }
                             background: Rectangle {
@@ -324,13 +299,11 @@ FloatingWindow {
                             }
                         }
 
-                        // --- VISIBILITY BOUND TO GUARD PROPERTY ---
                         Button {
-                            text: "Hyprland Settings"
-                            visible: root.isHyprlandSettingsInstalled 
-                            
+                            text: "Hyprland Config"
+
                             onClicked: {
-                                appLauncher.command = ["flatpak", "run", "com.ml4w.hyprlandsettings"]
+                                appLauncher.command = ["gnome-text-editor", Quickshell.env("HOME") + "/.config/hypr/hyprland.lua"]
                                 appLauncher.running = true
                             }
                             background: Rectangle {
@@ -362,10 +335,10 @@ FloatingWindow {
                             ListElement { keys: "Super + Space"; desc: "to open the application launcher" }
                             ListElement { keys: "Super + Q"; desc: "to close the active window" }
                         }
-                        
+
                         delegate: RowLayout {
                             spacing: 15
-                            
+
                             Text {
                                 text: model.keys
                                 color: theme.primary
@@ -375,7 +348,7 @@ FloatingWindow {
                                 Layout.preferredWidth: 120
                                 horizontalAlignment: Text.AlignRight
                             }
-                            
+
                             Text {
                                 text: model.desc
                                 color: theme.on_background
@@ -392,8 +365,8 @@ FloatingWindow {
                         text: "All keybindings"
 
                         onClicked: {
-                            appLauncher.command = ["bash", "-c", Quickshell.env("HOME") + "/.config/hypr/scripts/keybindings.sh"]
-                            appLauncher.running = true                        
+                            appLauncher.command = [Quickshell.env("HOME") + "/.config/hypr/scripts/keybindings.sh"]
+                            appLauncher.running = true
                         }
 
                         background: Rectangle {
@@ -409,8 +382,8 @@ FloatingWindow {
                         }
                     }
                 }
-                
-                Item { Layout.fillHeight: true } 
+
+                Item { Layout.fillHeight: true }
 
                 // ==========================================
                 // BOTTOM BAR: SHOW ON STARTUP
@@ -432,23 +405,19 @@ FloatingWindow {
                     Switch {
                         id: autostartSwitch
                         Layout.alignment: Qt.AlignVCenter
-                        
+
                         implicitWidth: 48
                         implicitHeight: 26
 
                         property bool ready: false
 
                         Process {
-                            command: ["bash", "-c", "test -f ~/.cache/ml4w-welcome-autostart && echo exists || echo missing"]
+                            command: [Quickshell.env("HOME") + "/.config/myhypr/bin/settingsctl", "get", "welcome_on_startup"]
                             running: root.visible
                             stdout: StdioCollector {
                                 onStreamFinished: {
                                     let output = this.text.trim()
-                                    if (output === "exists") {
-                                        autostartSwitch.checked = false 
-                                    } else if (output === "missing") {
-                                        autostartSwitch.checked = true  
-                                    }
+                                    autostartSwitch.checked = (output === "True")
                                     autostartSwitch.ready = true
                                 }
                             }
@@ -458,7 +427,7 @@ FloatingWindow {
                             implicitWidth: 48
                             implicitHeight: 26
                             radius: 13
-                            
+
                             color: autostartSwitch.checked ? theme.primary : theme.background
                             border.color: theme.primary
                             border.width: 1
@@ -467,7 +436,7 @@ FloatingWindow {
                                 x: autostartSwitch.checked ? parent.width - width - 2 : 2
                                 y: 2
                                 width: 22
-                                height: 22 
+                                height: 22
                                 radius: 11
                                 color: autostartSwitch.checked ? theme.background : theme.on_primary
                                 Behavior on x { NumberAnimation { duration: 150 } }
@@ -476,17 +445,13 @@ FloatingWindow {
 
                         onClicked: {
                             if (!ready) return;
-                            
+
                             appLauncher.running = false
-                            if (checked) {
-                                appLauncher.command = ["rm", "-f", Quickshell.env("HOME") + "/.cache/ml4w-welcome-autostart"]
-                            } else {
-                                appLauncher.command = ["touch", Quickshell.env("HOME") + "/.cache/ml4w-welcome-autostart"]
-                            }
+                            appLauncher.command = [Quickshell.env("HOME") + "/.config/myhypr/bin/settingsctl", "set", "welcome_on_startup", checked ? "True" : "False"]
                             appLauncher.running = true
                         }
                     }
-                }                
+                }
             }
         }
     }

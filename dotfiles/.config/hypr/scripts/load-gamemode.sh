@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -Eeuo pipefail
 #                                      __   
 #   ___ ____ ___ _  ___ __ _  ___  ___/ /__ 
 #  / _ `/ _ `/  ' \/ -_)  ' \/ _ \/ _  / -_)
@@ -17,7 +18,7 @@ _loadGameMode() {
         keyword decoration:rounding 0"
 }
 
-if [ -f $HOME/.config/ml4w/settings/gamemode-enabled ]; then
+if [[ -f $HOME/.config/myhypr/settings/gamemode-enabled ]]; then
     _loadGameMode
     notify-send "Gamemode activated" "Animations and blur disabled"
 fi

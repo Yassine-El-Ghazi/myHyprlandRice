@@ -5,4 +5,4 @@ echo
 setsid hyprctl systeminfo
 echo
 echo "Press return to exit"
-read
+read -r

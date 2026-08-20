@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-# shellcheck source=lib.sh
+# shellcheck source=scripts/lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
 MODE=worktree
@@ -101,7 +101,9 @@ fi
 
 gitleaks_works() {
     local synthetic_token result
-    synthetic_token="github_pat_$(printf 'A%.0s' {1..82})"
+    # Build a deterministic fake AWS-shaped value at runtime so this file does
+    # not contain a literal secret signature while still exercising Gitleaks.
+    synthetic_token="AKIA$(printf '%s' QWERTYUIOPASDFGH)"
     set +e
     printf '%s\n' "$synthetic_token" | \
         gitleaks stdin --redact --no-banner >/dev/null 2>&1

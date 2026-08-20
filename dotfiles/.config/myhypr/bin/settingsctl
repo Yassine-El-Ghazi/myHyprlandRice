@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+"""Read and update declared MyHypr settings without evaluating shell code."""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shlex
+import stat
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any, NoReturn
+
+
+class SettingsError(RuntimeError):
+    pass
+
+
+HOME = Path.home().resolve()
+SCHEMA = Path(
+    os.environ.get(
+        "MYHYPR_SETTINGS_SCHEMA",
+        HOME / ".config" / "myhypr" / "settings-schema.json",
+    )
+).expanduser()
+ALLOWED_ROOT = Path(os.environ.get("MYHYPR_SETTINGS_ROOT", HOME)).expanduser().resolve()
+
+
+def fail(message: str) -> NoReturn:
+    raise SettingsError(message)
+
+
+def load_schema() -> list[dict[str, Any]]:
+    try:
+        data = json.loads(SCHEMA.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        fail(f"Unable to load settings schema {SCHEMA}: {error}")
+    if not isinstance(data, list):
+        fail("Settings schema root must be a list")
+    return data
+
+
+def find_setting(identifier: str) -> dict[str, Any]:
+    for group in load_schema():
+        for setting in group.get("settings", []):
+            if setting.get("id") == identifier:
+                return setting
+    fail(f"Unknown setting id: {identifier}")
+
+
+def target_path(raw_path: str) -> Path:
+    expanded = os.path.expandvars(os.path.expanduser(raw_path))
+    target = Path(expanded).resolve(strict=False)
+    try:
+        target.relative_to(ALLOWED_ROOT)
+    except ValueError:
+        fail(f"Setting target escapes the allowed root: {target}")
+    return target
+
+
+def capture_pattern(pattern: str, line: str) -> str | None:
+    if ".*" not in pattern:
+        return line if re.search(pattern, line) else None
+    capture = pattern.replace(".*", "(.*)", 1)
+    match = re.fullmatch(capture, line)
+    return match.group(1) if match else None
+
+
+def current_value(setting: dict[str, Any]) -> str:
+    target = target_path(str(setting["file"]))
+    default = str(setting.get("default", ""))
+    if not target.is_file():
+        return default
+
+    mode = setting.get("mode", "overwrite")
+    if mode == "overwrite":
+        return target.read_text(encoding="utf-8").strip()
+
+    pattern = str(setting.get("match", ""))
+    checkpoint = str(setting.get("checkpoint", ""))
+    checkpoint_seen = not checkpoint
+    for raw_line in target.read_text(encoding="utf-8").splitlines():
+        if not checkpoint_seen:
+            checkpoint_seen = re.search(checkpoint, raw_line) is not None
+            continue
+        captured = capture_pattern(pattern, raw_line)
+        if captured is not None:
+            return captured
+    return default
+
+
+def validate_value(setting: dict[str, Any], value: str) -> None:
+    if "\x00" in value or "\n" in value or "\r" in value:
+        fail("Settings values must fit on one line")
+    if setting.get("type") == "choose" and value not in setting.get("options", []):
+        fail(f"Value is not one of the declared options: {value}")
+
+
+def atomic_write(target: Path, content: str) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    existing_mode = stat.S_IMODE(target.stat().st_mode) if target.exists() else 0o600
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=target.parent,
+            prefix=f".{target.name}.",
+            delete=False,
+        ) as temporary:
+            temporary.write(content)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+            temporary_path = Path(temporary.name)
+        temporary_path.chmod(existing_mode)
+        os.replace(temporary_path, target)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
+def replace_value(setting: dict[str, Any], value: str) -> None:
+    target = target_path(str(setting["file"]))
+    mode = setting.get("mode", "overwrite")
+    if mode == "overwrite":
+        atomic_write(target, f"{value}\n")
+        return
+    if not target.is_file():
+        fail(f"Cannot replace a value in missing file: {target}")
+
+    pattern = str(setting.get("match", ""))
+    checkpoint = str(setting.get("checkpoint", ""))
+    replacement = pattern.replace(".*", value, 1)
+    checkpoint_seen = not checkpoint
+    replaced = False
+    output: list[str] = []
+    for line in target.read_text(encoding="utf-8").splitlines(keepends=True):
+        bare_line = line.rstrip("\r\n")
+        if not checkpoint_seen:
+            checkpoint_seen = re.search(checkpoint, bare_line) is not None
+        elif not replaced and re.search(pattern, bare_line):
+            newline = "\n" if line.endswith("\n") else ""
+            line = re.sub(pattern, lambda _match: replacement, bare_line, count=1) + newline
+            replaced = True
+        output.append(line)
+    if not replaced:
+        fail(f"Pattern for setting {setting['id']} was not found in {target}")
+    atomic_write(target, "".join(output))
+
+
+def run_post_command(setting: dict[str, Any]) -> None:
+    raw_command = str(setting.get("post_command", "")).strip()
+    if not raw_command:
+        return
+    arguments = shlex.split(os.path.expanduser(raw_command))
+    if not arguments:
+        return
+    subprocess.Popen(
+        arguments,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+
+def main(arguments: list[str]) -> int:
+    if len(arguments) not in {2, 3} or arguments[0] not in {"get", "set"}:
+        print("Usage: settingsctl get ID | settingsctl set ID VALUE", file=sys.stderr)
+        return 2
+    setting = find_setting(arguments[1])
+    if arguments[0] == "get":
+        if len(arguments) != 2:
+            return 2
+        print(current_value(setting), end="")
+        return 0
+    if len(arguments) != 3:
+        return 2
+    validate_value(setting, arguments[2])
+    replace_value(setting, arguments[2])
+    run_post_command(setting)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main(sys.argv[1:]))
+    except SettingsError as error:
+        print(f"settingsctl: {error}", file=sys.stderr)
+        raise SystemExit(1) from error

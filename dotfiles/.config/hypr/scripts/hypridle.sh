@@ -1,4 +1,5 @@
 #!/bin/bash
+set -Eeuo pipefail
 #    __ __              _    ____   
 #   / // /_ _____  ____(_)__/ / /__ 
 #  / _  / // / _ \/ __/ / _  / / -_)
@@ -10,13 +11,13 @@ SERVICE="hypridle"
 
 print_status() {
     if pgrep -x "$SERVICE" >/dev/null ; then
-        echo '{"text": "RUNNING", "class": "active", "tooltip": "Screen locking active\nLeft: Deactivate\nRight: Lock Screen"}'
+        printf '%s\n' '{"text": "RUNNING", "class": "active", "tooltip": "Screen locking active\nLeft: Deactivate\nRight: Lock Screen"}'
     else
-        echo '{"text": "NOT RUNNING", "class": "notactive", "tooltip": "Screen locking deactivated\nLeft: Activate\nRight: Lock Screen"}'
+        printf '%s\n' '{"text": "NOT RUNNING", "class": "notactive", "tooltip": "Screen locking deactivated\nLeft: Activate\nRight: Lock Screen"}'
     fi
 }
 
-case "$1" in
+case "${1:-}" in
     status)
         # Add a tiny delay to avoid race condition on startup
         sleep 0.2

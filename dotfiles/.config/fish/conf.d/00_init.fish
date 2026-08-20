@@ -23,7 +23,8 @@ for path_entry in $PATH
 end
 set -gx PATH $clean_path
 
-fish_add_path --path --move $HOME/.local/bin $HOME/.cargo/bin $HOME/go/bin /usr/lib/ccache/bin
+fish_add_path --path --move $HOME/.config/myhypr/bin $HOME/.local/bin \
+    $HOME/.cargo/bin $HOME/go/bin /usr/lib/ccache/bin
 
 if command -q go
     set -l go_path (go env GOPATH 2>/dev/null)

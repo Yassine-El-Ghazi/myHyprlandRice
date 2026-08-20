@@ -15,23 +15,19 @@ alias lt='eza -a --tree --level=1 --icons=always'
 alias shutdown='systemctl poweroff'
 alias v='$EDITOR'
 alias vim='$EDITOR'
-alias ts='~/.config/ml4w/scripts/arch/snapshot.sh'
+alias ts='~/.config/myhypr/scripts/arch/snapshot.sh'
 alias wifi='nmtui'
-alias cleanup='~/.config/ml4w/scripts/arch/cleanup.sh'
+alias cleanup='~/.config/myhypr/scripts/arch/cleanup.sh'
 
 # -----------------------------------------------------
-# ML4W Apps
+# MyHypr controls
 # -----------------------------------------------------
-alias ml4w='flatpak run com.ml4w.welcome'
-alias ml4w-settings='flatpak run com.ml4w.settings'
-alias ml4w-calendar='flatpak run com.ml4w.calendar'
-alias ml4w-hyprland='flatpak run com.ml4w.hyprlandsettings'
-alias ml4w-sidebar='flatpak run com.ml4w.sidebar'
-alias ml4w-options='ml4w-hyprland-setup -m options'
-alias ml4w-diagnosis='~/.config/hypr/scripts/diagnosis.sh'
-alias ml4w-hyprland-diagnosis='~/.config/hypr/scripts/diagnosis.sh'
-alias ml4w-qtile-diagnosis='~/.config/ml4w/qtile/scripts/diagnosis.sh'
-alias ml4w-update='~/.config/ml4w/scripts/installupdates.sh'
+alias myhypr='~/.config/myhypr/bin/myhyprctl welcome'
+alias myhypr-settings='~/.config/myhypr/bin/myhyprctl settings'
+alias myhypr-calendar='~/.config/myhypr/bin/myhyprctl calendar'
+alias myhypr-sidebar='~/.config/myhypr/bin/myhyprctl sidebar'
+alias myhypr-doctor='~/.config/myhypr/bin/myhyprctl doctor'
+alias myhypr-update='~/.config/myhypr/bin/myhyprctl update'
 
 # -----------------------------------------------------
 # Window Managers
@@ -55,7 +51,7 @@ alias gcheck="git checkout"
 # -----------------------------------------------------
 # Scripts
 # -----------------------------------------------------
-alias ascii='~/.config/ml4w/scripts/figlet.sh'
+alias ascii='~/.config/myhypr/scripts/figlet.sh'
 
 # -----------------------------------------------------
 # System

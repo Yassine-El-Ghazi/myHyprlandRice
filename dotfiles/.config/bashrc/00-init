@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # -----------------------------------------------------
 # INIT
 # -----------------------------------------------------
@@ -40,6 +41,7 @@ path_prepend /usr/lib/ccache/bin
 path_prepend "$HOME/go/bin"
 path_prepend "$HOME/.cargo/bin"
 path_prepend "$HOME/.local/bin"
+path_prepend "$HOME/.config/myhypr/bin"
 
 if command -v go >/dev/null 2>&1; then
     go_path="$(go env GOPATH 2>/dev/null)"

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -Eeuo pipefail
 #    _____    __                 __
 #   / __(_)__/ /__ ___  ___ ____/ /
 #  _\ \/ / _  / -_) _ \/ _ `/ _  / 
@@ -17,6 +18,8 @@ BOTTOM_GAP=100
 
 # --- Script Variables ---
 HIDE_REQUESTED=0
+INIT_REQUESTED=0
+declare -a INIT_COMMAND=()
 
 # --- Help Function ---
 show_help() {
@@ -32,6 +35,7 @@ show_help() {
     echo "  --width-max <px>       Override the maximum target width (Default: $TARGET_WIDTH_MAX)"
     echo "  --top-gap <px>         Override the top gap (Default: $TOP_GAP)"
     echo "  --bottom-gap <px>      Override the bottom gap (Default: $BOTTOM_GAP)"
+    echo "  --init -- COMMAND...   Launch and initially hide a sidepad app."
     echo "  --hide                 Force the window to the hidden state."
     echo "  --kill                 Kills the running app with WINDOW_CLASS."
     echo "  --test                 Test for running app with WINDOW_CLASS."
@@ -50,15 +54,21 @@ test_sidepad() {
 }
 
 init_sidepad() {
+    local -a command=("$@")
+
+    ((${#command[@]})) || {
+        printf 'The --init option requires an application command.\n' >&2
+        return 2
+    }
     # Check if the window already exists, if not launch it
     if ! hyprctl clients -j | jq -e --arg class "$WINDOW_CLASS" '.[] | select(.class == $class)' > /dev/null; then
         if [[ "$WINDOW_CLASS" == "dotfiles-sidepad" ]]; then
-            eval "$1 --class $WINDOW_CLASS" &
+            "${command[@]}" --class "$WINDOW_CLASS" &
         else
-            eval "$1" &
+            "${command[@]}" &
         fi
         # Wait for the window to appear, with a timeout
-        for i in {1..50}; do # ~2 seconds timeout
+        for _attempt in {1..50}; do # ~5 seconds timeout
             if hyprctl clients -j | jq -e --arg class "$WINDOW_CLASS" '.[] | select(.class == $class)' > /dev/null; then
                 break
             fi
@@ -68,11 +78,21 @@ init_sidepad() {
 }
 
 kill_sidepad() {
-    WINDOW_PID=$(hyprctl clients -j | jq -r --arg class "$WINDOW_CLASS" '.[] | select(.class == $class) | .pid')
-    if [ -n "$WINDOW_PID" ] && [ "$WINDOW_PID" -ne -1 ]; then
-        echo "Killing process with PID $WINDOW_PID for window class '$WINDOW_CLASS'."
-        kill "$WINDOW_PID"
-    else
+    local pid
+    local killed=0
+    local -a window_pids=()
+
+    mapfile -t window_pids < <(
+        hyprctl clients -j | jq -r --arg class "$WINDOW_CLASS" \
+            '.[] | select(.class == $class) | .pid | select(. > 0)'
+    )
+    for pid in "${window_pids[@]}"; do
+        [[ $pid =~ ^[0-9]+$ ]] || continue
+        printf "Killing process with PID %s for window class '%s'.\n" "$pid" "$WINDOW_CLASS"
+        kill "$pid"
+        killed=1
+    done
+    if [[ $killed -eq 0 ]]; then
         echo "Error: Window with class '$WINDOW_CLASS' not found or has no valid PID." >&2
     fi
     sleep 1
@@ -84,38 +104,45 @@ while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
         --class)
+            (($# >= 2)) || { printf '%s requires a value.\n' "$1" >&2; exit 2; }
             WINDOW_CLASS="$2"
-            shift; shift
+            shift 2
         ;;
 
         --hidden-gap)
+            (($# >= 2)) || { printf '%s requires a value.\n' "$1" >&2; exit 2; }
             HIDDEN_LEFT_GAP="$2"
-            shift; shift
+            shift 2
         ;;
 
         --visible-gap)
+            (($# >= 2)) || { printf '%s requires a value.\n' "$1" >&2; exit 2; }
             VISIBLE_LEFT_GAP="$2"
-            shift; shift
+            shift 2
         ;;
 
         --width)
+            (($# >= 2)) || { printf '%s requires a value.\n' "$1" >&2; exit 2; }
             TARGET_WIDTH="$2"
-            shift; shift
+            shift 2
         ;;
 
         --width-max)
+            (($# >= 2)) || { printf '%s requires a value.\n' "$1" >&2; exit 2; }
             TARGET_WIDTH_MAX="$2"
-            shift; shift
+            shift 2
         ;;
 
         --top-gap)
+            (($# >= 2)) || { printf '%s requires a value.\n' "$1" >&2; exit 2; }
             TOP_GAP="$2"
-            shift; shift
+            shift 2
         ;;
 
         --bottom-gap)
+            (($# >= 2)) || { printf '%s requires a value.\n' "$1" >&2; exit 2; }
             BOTTOM_GAP="$2"
-            shift; shift
+            shift 2
         ;;
 
         --hide)
@@ -133,10 +160,13 @@ while [[ $# -gt 0 ]]; do
         ;;
 
         --init)
-            SIDEPAD_APP="$2"
-            init_sidepad "$SIDEPAD_APP"
+            shift
+            [[ ${1:-} == -- ]] && shift
+            (($#)) || { printf '%s requires a command.\n' '--init' >&2; exit 2; }
+            INIT_COMMAND=("$@")
+            INIT_REQUESTED=1
             HIDE_REQUESTED=1
-            shift 2
+            break
         ;;
 
         -h|--help)
@@ -144,11 +174,24 @@ while [[ $# -gt 0 ]]; do
         ;;
 
         *)
-            # unknown option
-            shift
+            printf 'Unknown sidepad option: %s\n' "$1" >&2
+            exit 2
         ;;
     esac
 done
+
+for numeric_value in \
+    "$HIDDEN_LEFT_GAP" "$VISIBLE_LEFT_GAP" "$TARGET_WIDTH" \
+    "$TARGET_WIDTH_MAX" "$TOP_GAP" "$BOTTOM_GAP"; do
+    [[ $numeric_value =~ ^-?[0-9]+$ ]] || {
+        printf 'Sidepad dimensions must be integers.\n' >&2
+        exit 2
+    }
+done
+
+if [[ $INIT_REQUESTED -eq 1 ]]; then
+    init_sidepad "${INIT_COMMAND[@]}"
+fi
 
 # --- Get Window and Monitor Info ---
 WINDOW_INFO=$(hyprctl clients -j | jq --arg class "$WINDOW_CLASS" '.[] | select(.class == $class)')
@@ -159,12 +202,23 @@ if [ -z "$WINDOW_INFO" ]; then
     exit 1
 fi
 
-WINDOW_ADDRESS=$(echo "$WINDOW_INFO" | jq -r '.address')
-WINDOW_WIDTH=$(echo "$WINDOW_INFO" | jq -r '.size[0]')
-WINDOW_HEIGHT=$(echo "$WINDOW_INFO" | jq -r '.size[1]')
-WINDOW_X=$(echo "$WINDOW_INFO" | jq -r '.at[0]')
-WINDOW_Y=$(echo "$WINDOW_INFO" | jq -r '.at[1]')
-MONITOR_HEIGHT=$(echo "$MONITOR_INFO" | jq -r '.height')
+WINDOW_ADDRESS=$(jq -r '.address' <<< "$WINDOW_INFO")
+WINDOW_WIDTH=$(jq -r '.size[0]' <<< "$WINDOW_INFO")
+WINDOW_HEIGHT=$(jq -r '.size[1]' <<< "$WINDOW_INFO")
+WINDOW_X=$(jq -r '.at[0]' <<< "$WINDOW_INFO")
+WINDOW_Y=$(jq -r '.at[1]' <<< "$WINDOW_INFO")
+MONITOR_HEIGHT=$(jq -r '.height' <<< "$MONITOR_INFO")
+
+[[ $WINDOW_ADDRESS =~ ^0x[0-9A-Fa-f]+$ ]] || {
+    printf 'Hyprland returned an invalid window address.\n' >&2
+    exit 1
+}
+for numeric_value in "$WINDOW_WIDTH" "$WINDOW_HEIGHT" "$WINDOW_X" "$WINDOW_Y" "$MONITOR_HEIGHT"; do
+    [[ $numeric_value =~ ^-?[0-9]+$ ]] || {
+        printf 'Hyprland returned invalid window geometry.\n' >&2
+        exit 1
+    }
+done
 
 # --- Main Logic ---
 
