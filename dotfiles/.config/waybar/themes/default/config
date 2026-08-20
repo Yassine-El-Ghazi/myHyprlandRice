@@ -22,7 +22,7 @@
     "custom/myhypr-menu": {
         "on-click": "sleep 0.1 && ~/.config/myhypr/bin/myhyprctl sidebar",
         "on-click-right": "sleep 0.1 && ~/.config/myhypr/bin/myhyprctl welcome",
-        "format": " ",
+        "format": "󰍜",
         "tooltip": false
     },    
     // Waybar Themes

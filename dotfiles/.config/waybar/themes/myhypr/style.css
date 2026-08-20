@@ -242,11 +242,7 @@ window#waybar.empty #window {
 
 #custom-myhypr-menu {
     margin-right: 12px;
-    background-image: url("../assets/myhypr-icon.svg");
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: contain;
-    padding-right: 20px;
+    font-size: 18px;
 }
 
 #custom-chatgpt {
@@ -516,5 +512,4 @@ window#waybar.empty #window {
 #tray > .needs-attention {
     -gtk-icon-effect: highlight;
 }
-
 

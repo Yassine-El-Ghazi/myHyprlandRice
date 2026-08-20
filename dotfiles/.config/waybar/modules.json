@@ -57,7 +57,7 @@
   // MyHypr menu
   "custom/myhypr-menu": {
   "on-click": "qs ipc call sidebar toggle",
-  "format": "",
+  "format": "󰍜",
   "tooltip-format": "Open MyHypr menu"
   },
   // Empty
@@ -231,6 +231,7 @@
   "custom/system": {
     "format": "",
     "tooltip": false,
+    "on-click": "~/.config/myhypr/settings/system-monitor.sh",
     "on-scroll-up": "true",
     "on-scroll-down": "true"
   },

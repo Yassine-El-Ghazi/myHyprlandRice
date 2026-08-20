@@ -15,10 +15,6 @@
 
 @import '../style.css';
 
-#custom-myhypr-menu {
-    background-image: url("../../assets/myhypr-icon.svg");
-}
-
 #custom-chatgpt {
     background-image: url("../../assets/openai-white.svg");
 }

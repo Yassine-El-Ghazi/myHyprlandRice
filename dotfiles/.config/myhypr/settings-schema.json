@@ -190,13 +190,13 @@
       "mode": "overwrite",
       "default": "nautilus --new-window"
     },{
-      "name": "Default Network Manager",
+      "name": "Default Network Selector",
       "id": "default_networkmanager",
-      "instructions": "Enter the command to execute the network manager",
+      "instructions": "Enter the terminal command used to select and manage Wi-Fi networks",
       "file": "~/.config/myhypr/settings/networkmanager",
       "type": "textfield",
       "mode": "overwrite",
-      "default": "nm-connection-editor"
+      "default": "nmtui"
     },{
       "name": "Default Bluetooth Manager",
       "id": "default_bluetooth",

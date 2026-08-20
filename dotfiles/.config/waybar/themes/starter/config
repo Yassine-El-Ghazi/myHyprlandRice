@@ -12,7 +12,7 @@
     "spacing": 0,
     // Load Modules
     "include": [
-        "~/.config/waybar/themes/starter/modules.json"
+        "~/.config/waybar/modules.json"
     ],
     // Modules Left
     "modules-left": [

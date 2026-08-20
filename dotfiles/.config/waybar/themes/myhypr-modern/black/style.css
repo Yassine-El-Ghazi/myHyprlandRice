@@ -9,7 +9,3 @@
 @define-color background #000000;
 
 @import '../style.css';
- 
-#custom-myhypr-menu {
-    background-image: url("../../assets/myhypr-icon.svg");
-}

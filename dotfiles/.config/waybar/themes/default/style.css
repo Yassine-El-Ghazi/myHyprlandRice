@@ -37,10 +37,7 @@ window#waybar.chromium {
 
 #custom-myhypr-menu {
     margin-right: 15px;
-    background-image: url("../assets/myhypr-icon.svg");
-    background-repeat: no-repeat;
-    background-position: center;
-    padding-right: 20px;
+    font-size: 18px;
     margin-right: 0px;
 }
 

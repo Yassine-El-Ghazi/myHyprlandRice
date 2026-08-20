@@ -208,11 +208,7 @@ window#waybar.empty #window {
 
 #custom-myhypr-menu {
     margin-right: 12px;
-    background-image: url("../assets/myhypr-icon.svg");
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: contain;
-    padding-right: 24px;
+    font-size: 18px;
 }
 
 /* -----------------------------------------------------
@@ -458,4 +454,3 @@ label:focus {
 #network.disconnected {
     background-color: #f53c3c;
 }
-
