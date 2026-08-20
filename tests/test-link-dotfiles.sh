@@ -15,6 +15,13 @@ printf 'private shell setup\n' > "$TEST_HOME/.zshrc"
 HOME="$TEST_HOME" XDG_STATE_HOME="$TEST_HOME/.local/state" \
     "$REPO_ROOT/scripts/link-dotfiles.sh" \
     --target "$TEST_HOME" --backup-conflicts --yes >/dev/null
+
+# Reproduce an upgrade from the old layout: this selector used to be a Stow
+# link, but its tracked source moved into defaults in the standalone release.
+runtime_selector="$TEST_HOME/.config/hypr/conf/monitor.conf"
+ln -s -- "$REPO_ROOT/dotfiles/.config/hypr/conf/monitor.conf" "$runtime_selector"
+[[ -L $runtime_selector && ! -e $runtime_selector ]]
+
 HOME="$TEST_HOME" "$REPO_ROOT/scripts/seed-runtime.sh" \
     --target "$TEST_HOME" >/dev/null
 
@@ -24,7 +31,6 @@ HOME="$TEST_HOME" "$REPO_ROOT/scripts/seed-runtime.sh" \
 [[ $TEST_HOME/.config/hypr/hyprland.lua -ef \
     $REPO_ROOT/dotfiles/.config/hypr/hyprland.lua ]]
 
-runtime_selector="$TEST_HOME/.config/hypr/conf/monitor.conf"
 [[ -f $runtime_selector && ! -L $runtime_selector ]]
 cmp -s -- "$runtime_selector" \
     "$REPO_ROOT/defaults/.config/hypr/conf/monitor.conf"
@@ -45,6 +51,13 @@ HOME="$TEST_HOME" XDG_STATE_HOME="$TEST_HOME/.local/state" \
 HOME="$TEST_HOME" "$REPO_ROOT/scripts/seed-runtime.sh" \
     --target "$TEST_HOME" >/dev/null
 rg -q 'nwg-displays\.conf' "$runtime_selector"
+
+# Canonicalization must reject aliases for the filesystem root.
+if "$REPO_ROOT/scripts/seed-runtime.sh" \
+    --target /tmp/.. --dry-run >/dev/null 2>&1; then
+    printf 'Runtime seeder accepted a root-directory alias.\n' >&2
+    exit 1
+fi
 
 # Exercise the public orchestrator without mutating the disposable home.
 HOME="$TEST_HOME" XDG_STATE_HOME="$TEST_HOME/.local/state" \
