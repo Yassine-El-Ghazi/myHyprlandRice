@@ -186,7 +186,12 @@ if ((${#aur_packages[@]})); then
     fi
 
     info "Installing ${#aur_packages[@]} AUR package(s) with $aur_helper"
-    aur_args=("$aur_helper" -S --needed)
+    aur_args=("$aur_helper")
+    if [[ ! -t 0 && -n ${WAYLAND_DISPLAY:-${DISPLAY:-}} ]] && \
+        command -v pkexec >/dev/null 2>&1; then
+        aur_args+=(--sudo pkexec)
+    fi
+    aur_args+=(-S --needed)
     [[ $ASSUME_YES -eq 1 ]] && aur_args+=(--noconfirm)
     run "${aur_args[@]}" "${aur_packages[@]}"
 else

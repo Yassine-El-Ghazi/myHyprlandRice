@@ -33,6 +33,9 @@ printf '%s\n' \
     'exec "$@"' > "$FAKE_BIN/sudo"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
+    'exec "$@"' > "$FAKE_BIN/pkexec"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
     'destination=${!#}' \
     'mkdir -p -- "$destination"' \
     'printf "git %s\n" "$*" >> "$PACKAGE_TEST_LOG"' > "$FAKE_BIN/git"
@@ -41,7 +44,7 @@ printf '%s\n' \
     'printf "makepkg %s\n" "$*" >> "$PACKAGE_TEST_LOG"' \
     'printf "%s\n" "#!/usr/bin/env bash" "printf \"paru %s\\n\" \"\$*\" >> \"\$PACKAGE_TEST_LOG\"" > "$PACKAGE_TEST_BIN/paru"' \
     'chmod +x -- "$PACKAGE_TEST_BIN/paru"' > "$FAKE_BIN/makepkg"
-chmod +x -- "$FAKE_BIN/pacman" "$FAKE_BIN/sudo" "$FAKE_BIN/git" \
+chmod +x -- "$FAKE_BIN/pacman" "$FAKE_BIN/sudo" "$FAKE_BIN/pkexec" "$FAKE_BIN/git" \
     "$FAKE_BIN/makepkg"
 for command_name in bash chmod dirname mkdir mktemp rm; do
     ln -s -- "/usr/bin/$command_name" "$FAKE_BIN/$command_name"
@@ -59,14 +62,14 @@ fi
 
 "${runner[@]}" /usr/bin/env \
     PATH="$FAKE_BIN" \
-    WAYLAND_DISPLAY='' DISPLAY='' \
+    WAYLAND_DISPLAY=wayland-test DISPLAY=:1 \
     PACKAGE_TEST_BIN="$PACKAGE_TEST_BIN" PACKAGE_TEST_LOG="$PACKAGE_TEST_LOG" \
     "$REPO_ROOT/scripts/install-packages.sh" --profile core --yes
 
 rg -q '^git clone --depth 1 https://aur\.archlinux\.org/paru-bin\.git ' \
     "$PACKAGE_TEST_LOG"
 rg -q '^makepkg -si --needed --noconfirm$' "$PACKAGE_TEST_LOG"
-rg -q '^paru -S --needed --noconfirm oh-my-zsh-git oh-my-posh-bin$' \
+rg -q '^paru --sudo pkexec -S --needed --noconfirm oh-my-zsh-git oh-my-posh-bin$' \
     "$PACKAGE_TEST_LOG"
 
 printf 'AUR helper bootstrap output cannot corrupt the selected command.\n'
