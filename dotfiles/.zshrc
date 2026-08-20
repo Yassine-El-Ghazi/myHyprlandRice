@@ -15,7 +15,14 @@
 # -----------------------------------------------------
 # Load modular configuration
 # -----------------------------------------------------
-for config_file in "$HOME"/.config/zshrc/*(.N); do
+# Keep per-user commands available even if the modular directory is absent.
+# 00-init normalizes and de-duplicates the final path when it is present.
+export PATH="$HOME/.local/bin:$PATH"
+
+for config_file in "$HOME"/.config/zshrc/*(N); do
+    # Stow may link each module individually. Test the resolved target instead
+    # of using the `.` glob qualifier, which silently excludes symlinks.
+    [[ -f "$config_file" && -r "$config_file" ]] || continue
     override_file="$HOME/.config/zshrc/custom/${config_file:t}"
     if [[ -f "$override_file" ]]; then
         source "$override_file"

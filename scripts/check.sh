@@ -129,6 +129,7 @@ else
 fi
 
 run_check 'Git whitespace checks' git diff --check
+run_check 'Zsh module loader behavior' "$REPO_ROOT/tests/test-zsh-loader.sh"
 run_check 'Dynamic monitor behavior' "$REPO_ROOT/tests/test-toggle-refresh.sh"
 
 if [[ $QUICK -eq 0 ]]; then
