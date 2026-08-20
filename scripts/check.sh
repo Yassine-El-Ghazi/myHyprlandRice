@@ -138,6 +138,7 @@ run_check 'Package bootstrap behavior' "$REPO_ROOT/tests/test-install-packages.s
 run_check 'Arch maintenance helper safety' "$REPO_ROOT/tests/test-arch-helpers.sh"
 run_check 'Stow and bootstrap behavior' "$REPO_ROOT/tests/test-link-dotfiles.sh"
 run_check 'System integration behavior' "$REPO_ROOT/tests/test-configure-system.sh"
+run_check 'Graphical session service isolation' "$REPO_ROOT/tests/test-session-services.sh"
 run_check 'Local settings editor behavior' python "$REPO_ROOT/tests/test-settingsctl.py"
 run_check 'Standalone dependency guards' "$REPO_ROOT/tests/test-standalone.sh"
 run_check 'Desktop control behavior' "$REPO_ROOT/tests/test-desktopctl.sh"

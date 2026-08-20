@@ -259,12 +259,28 @@ if command -v systemctl >/dev/null 2>&1; then
             notice "$service is not active"
     done
     if [[ $PROFILE == desktop || $PROFILE == full ]]; then
-        if systemctl --user is-enabled elephant.service >/dev/null 2>&1 && \
-            systemctl --user is-active elephant.service >/dev/null 2>&1; then
-            ok 'Elephant user service is enabled and active'
-        else
-            problem 'Elephant user service is not enabled and active'
+        if [[ -n ${WAYLAND_DISPLAY:-}${DISPLAY:-} ]]; then
+            if systemctl --user is-active myhypr-session.target >/dev/null 2>&1; then
+                ok 'MyHypr graphical-session target is active'
+            else
+                problem 'MyHypr graphical-session target is not active'
+            fi
         fi
+        for service in elephant.service walker.service; do
+            service_unit="$HOME/.config/systemd/user/$service"
+            if [[ -f $service_unit ]]; then
+                ok "$service is installed for the MyHypr session"
+            else
+                problem "$service is not installed for the MyHypr session"
+            fi
+            if [[ -n ${WAYLAND_DISPLAY:-}${DISPLAY:-} ]]; then
+                if systemctl --user is-active "$service" >/dev/null 2>&1; then
+                    ok "$service is active"
+                else
+                    problem "$service is not active in this graphical session"
+                fi
+            fi
+        done
     fi
 fi
 

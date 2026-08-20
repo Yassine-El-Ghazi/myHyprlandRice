@@ -126,6 +126,6 @@ if local_file then
 end
 
 hl.on("hyprland.start", function()
-    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
+    hl.exec_cmd("~/.config/myhypr/scripts/start-session-services.sh")
     hl.exec_cmd("quickshell -p ~/.config/quickshell/shell.qml")
 end)

@@ -88,10 +88,6 @@ if [[ $INSTALL_PACKAGES -eq 1 ]]; then
     "$REPO_ROOT/scripts/install-packages.sh" --profile "$PROFILE" "${common_args[@]}"
 fi
 
-if [[ $CONFIGURE_SYSTEM -eq 1 && ( $PROFILE == desktop || $PROFILE == full ) ]]; then
-    "$REPO_ROOT/scripts/configure-system.sh" "${common_args[@]}"
-fi
-
 "$REPO_ROOT/scripts/migrate-namespace.sh" "${common_args[@]}"
 "$REPO_ROOT/scripts/migrate-local.sh" "${common_args[@]}"
 
@@ -104,6 +100,10 @@ if [[ $LINK_DOTFILES -eq 1 ]]; then
     seed_args=()
     [[ $DRY_RUN -eq 1 ]] && seed_args+=(--dry-run)
     "$REPO_ROOT/scripts/seed-runtime.sh" "${seed_args[@]}"
+fi
+
+if [[ $CONFIGURE_SYSTEM -eq 1 && ( $PROFILE == desktop || $PROFILE == full ) ]]; then
+    "$REPO_ROOT/scripts/configure-system.sh" "${common_args[@]}"
 fi
 
 if [[ $INSTALL_HOOKS -eq 1 ]]; then

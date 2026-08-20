@@ -1,0 +1,5 @@
+[Unit]
+Description=MyHypr graphical session
+Documentation=https://github.com/Yassine-El-Ghazi/myHyprlandRice
+After=graphical-session-pre.target
+Requires=elephant.service walker.service

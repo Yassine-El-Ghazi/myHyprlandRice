@@ -1,0 +1,11 @@
+[Unit]
+Description=Elephant application search data service
+Documentation=https://github.com/abenz1267/elephant
+PartOf=myhypr-session.target
+After=graphical-session-pre.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/elephant
+Restart=on-failure
+RestartSec=1s

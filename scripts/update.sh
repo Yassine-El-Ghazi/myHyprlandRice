@@ -55,6 +55,9 @@ link_args=(--backup-conflicts)
 [[ $ASSUME_YES -eq 1 ]] && link_args+=(--yes)
 "$REPO_ROOT/scripts/link-dotfiles.sh" "${link_args[@]}"
 "$REPO_ROOT/scripts/seed-runtime.sh"
+if [[ $PROFILE == desktop || $PROFILE == full ]]; then
+    "$REPO_ROOT/scripts/configure-system.sh" "${repair_args[@]}"
+fi
 "$REPO_ROOT/scripts/doctor.sh" --profile "$PROFILE"
 
 success 'Dotfiles and declared dependencies are up to date.'

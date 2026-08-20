@@ -81,4 +81,11 @@ HOME="$TEST_HOME" XDG_STATE_HOME="$TEST_HOME/.local/state" \
     "$REPO_ROOT/bootstrap.sh" --profile desktop --dry-run --yes \
     --no-packages --no-system >/dev/null
 
+# Fresh installs must link the tracked user units before configuring them.
+link_line=$(rg -n -m 1 'scripts/link-dotfiles\.sh' \
+    "$REPO_ROOT/bootstrap.sh" | cut -d: -f1)
+system_line=$(rg -n -m 1 'scripts/configure-system\.sh' \
+    "$REPO_ROOT/bootstrap.sh" | cut -d: -f1)
+((link_line < system_line))
+
 printf 'Stow linking, backups, runtime seeds, and bootstrap dry-run passed.\n'

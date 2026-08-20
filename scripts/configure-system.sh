@@ -40,16 +40,59 @@ else
     success 'Required NetworkManager and Bluetooth services are active.'
 fi
 
-if command -v elephant >/dev/null 2>&1; then
-    if ! systemctl --user is-enabled elephant.service >/dev/null 2>&1; then
-        info 'Enabling the Elephant data service for graphical sessions'
-        run elephant service enable
+require_command elephant
+require_command walker
+
+user_unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+tracked_user_unit_dir="$REPO_ROOT/dotfiles/.config/systemd/user"
+user_units=(elephant.service walker.service)
+managed_user_units=(myhypr-session.target "${user_units[@]}")
+
+for unit in "${managed_user_units[@]}"; do
+    if [[ $DRY_RUN -eq 1 ]]; then
+        [[ -f $tracked_user_unit_dir/$unit ]] || \
+            die "Tracked user unit is missing: $tracked_user_unit_dir/$unit"
+    else
+        [[ -f $user_unit_dir/$unit ]] || \
+            die "User unit is not linked: $user_unit_dir/$unit (run scripts/link-dotfiles.sh first)"
     fi
-    if ! systemctl --user is-active elephant.service >/dev/null 2>&1; then
-        info 'Starting the Elephant data service for this session'
-        run systemctl --user start elephant.service
+done
+
+run systemctl --user daemon-reload
+
+retired_wants_dirs=(
+    "$user_unit_dir/graphical-session.target.wants"
+    "$user_unit_dir/myhypr-session.target.wants"
+)
+for wants_dir in "${retired_wants_dirs[@]}"; do
+    for unit in "${user_units[@]}"; do
+        retired_link="$wants_dir/$unit"
+        [[ -L $retired_link ]] || continue
+        if [[ -e $retired_link && $retired_link -ef $user_unit_dir/$unit ]]; then
+            info "Removing redundant user-service link: ${wants_dir##*/}/$unit"
+            run unlink "$retired_link"
+        else
+            warn "Preserving unexpected user-service link: $retired_link"
+        fi
+    done
+done
+
+if [[ -n ${WAYLAND_DISPLAY:-}${DISPLAY:-} ]]; then
+    info 'Starting the graphical-session user services'
+    run "$REPO_ROOT/dotfiles/.config/myhypr/scripts/start-session-services.sh"
+    if [[ $DRY_RUN -eq 0 ]]; then
+        for unit in "${user_units[@]}"; do
+            systemctl --user is-active "$unit" >/dev/null 2>&1 || \
+                die "User service failed to start: $unit"
+        done
     fi
-    success 'Elephant user service is enabled and running.'
+    if [[ $DRY_RUN -eq 0 ]]; then
+        systemctl --user is-active myhypr-session.target >/dev/null 2>&1 || \
+            die 'MyHypr graphical-session target failed to start'
+    fi
+    success 'Elephant and Walker user services are managed and running.'
+else
+    success 'Elephant and Walker user services are installed for the next graphical session.'
 fi
 
 if command -v xdg-user-dirs-update >/dev/null 2>&1; then

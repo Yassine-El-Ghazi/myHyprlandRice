@@ -5,10 +5,10 @@ set -Eeuo pipefail
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/myhypr-system-test.XXXXXXXX")
 FAKE_BIN="$TEST_ROOT/bin"
-export SYSTEM_TEST_STATE="$TEST_ROOT/services-enabled"
-export SYSTEM_TEST_ELEPHANT_ENABLED="$TEST_ROOT/elephant-enabled"
-export SYSTEM_TEST_ELEPHANT_ACTIVE="$TEST_ROOT/elephant-active"
+TEST_HOME="$TEST_ROOT/home"
+export SYSTEM_TEST_STATE_DIR="$TEST_ROOT/state"
 export SYSTEM_TEST_LOG="$TEST_ROOT/commands.log"
+export SYSTEM_TEST_USER_UNIT_DIR="$TEST_HOME/.config/systemd/user"
 
 cleanup() {
     case $TEST_ROOT in
@@ -17,52 +17,99 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p -- "$FAKE_BIN"
+mkdir -p -- \
+    "$FAKE_BIN" \
+    "$SYSTEM_TEST_STATE_DIR" \
+    "$SYSTEM_TEST_USER_UNIT_DIR/graphical-session.target.wants" \
+    "$SYSTEM_TEST_USER_UNIT_DIR/myhypr-session.target.wants"
+for unit in myhypr-session.target elephant.service walker.service; do
+    ln -s -- "$REPO_ROOT/dotfiles/.config/systemd/user/$unit" \
+        "$SYSTEM_TEST_USER_UNIT_DIR/$unit"
+done
+for wants_dir in graphical-session.target.wants myhypr-session.target.wants; do
+    for unit in elephant.service walker.service; do
+        ln -s -- "../$unit" "$SYSTEM_TEST_USER_UNIT_DIR/$wants_dir/$unit"
+    done
+done
+
 printf '%s\n' \
     '#!/usr/bin/env bash' \
+    'log() { printf "systemctl" >> "$SYSTEM_TEST_LOG"; printf " <%s>" "$@" >> "$SYSTEM_TEST_LOG"; printf "\n" >> "$SYSTEM_TEST_LOG"; }' \
     'if [[ ${1:-} == --user ]]; then' \
     '  case ${2:-} in' \
-    '    is-enabled) [[ -f $SYSTEM_TEST_ELEPHANT_ENABLED ]] ;;' \
-    '    is-active) [[ -f $SYSTEM_TEST_ELEPHANT_ACTIVE ]] ;;' \
-    '    start) : > "$SYSTEM_TEST_ELEPHANT_ACTIVE"; printf "systemctl %s\\n" "$*" >> "$SYSTEM_TEST_LOG" ;;' \
+    '    daemon-reload|import-environment) log "$@" ;;' \
+    '    is-active) [[ -f $SYSTEM_TEST_STATE_DIR/${3}.active ]] ;;' \
+    '    start)' \
+    '      log "$@"' \
+    '      for unit in "${@:3}"; do' \
+    '        : > "$SYSTEM_TEST_STATE_DIR/${unit}.active"' \
+    '        if [[ $unit == myhypr-session.target ]]; then' \
+    '          : > "$SYSTEM_TEST_STATE_DIR/elephant.service.active"' \
+    '          : > "$SYSTEM_TEST_STATE_DIR/walker.service.active"' \
+    '        fi' \
+    '      done' \
+    '      ;;' \
     '    *) exit 2 ;;' \
     '  esac' \
     '  exit' \
     'fi' \
-    'case $1 in' \
-    '  is-enabled|is-active) [[ -f $SYSTEM_TEST_STATE ]] ;;' \
-    '  enable) : > "$SYSTEM_TEST_STATE"; printf "systemctl %s\\n" "$*" >> "$SYSTEM_TEST_LOG" ;;' \
+    'case ${1:-} in' \
+    '  is-enabled|is-active) [[ -f $SYSTEM_TEST_STATE_DIR/system-services-ready ]] ;;' \
+    '  enable) : > "$SYSTEM_TEST_STATE_DIR/system-services-ready"; log "$@" ;;' \
     '  *) exit 2 ;;' \
     'esac' > "$FAKE_BIN/systemctl"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
     '[[ ${1:-} == -v || ${1:-} == -n ]] && exit 0' \
     'exec "$@"' > "$FAKE_BIN/sudo"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$FAKE_BIN/elephant"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$FAKE_BIN/walker"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
-    '[[ ${1:-} == service && ${2:-} == enable ]] || exit 2' \
-    ': > "$SYSTEM_TEST_ELEPHANT_ENABLED"' \
-    'printf "elephant %s\\n" "$*" >> "$SYSTEM_TEST_LOG"' \
-    > "$FAKE_BIN/elephant"
+    'printf "dbus-update-activation-environment" >> "$SYSTEM_TEST_LOG"' \
+    'printf " <%s>" "$@" >> "$SYSTEM_TEST_LOG"' \
+    'printf "\n" >> "$SYSTEM_TEST_LOG"' \
+    > "$FAKE_BIN/dbus-update-activation-environment"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
-    'printf "xdg-user-dirs-update\\n" >> "$SYSTEM_TEST_LOG"' \
+    'printf "xdg-user-dirs-update\n" >> "$SYSTEM_TEST_LOG"' \
     > "$FAKE_BIN/xdg-user-dirs-update"
-chmod +x -- "$FAKE_BIN/systemctl" "$FAKE_BIN/sudo" "$FAKE_BIN/elephant" \
-    "$FAKE_BIN/xdg-user-dirs-update"
+chmod +x -- "$FAKE_BIN"/*
 
-WAYLAND_DISPLAY='' DISPLAY='' PATH="$FAKE_BIN:$PATH" \
-    "$REPO_ROOT/scripts/configure-system.sh" --yes >/dev/null
-[[ -f $SYSTEM_TEST_STATE ]]
-rg -q '^systemctl enable --now NetworkManager\.service bluetooth\.service$' "$SYSTEM_TEST_LOG"
-rg -q '^elephant service enable$' "$SYSTEM_TEST_LOG"
-rg -q '^systemctl --user start elephant\.service$' "$SYSTEM_TEST_LOG"
+run_configure() {
+    HOME="$TEST_HOME" \
+    DISPLAY='' \
+    WAYLAND_DISPLAY=wayland-test \
+    HYPRLAND_INSTANCE_SIGNATURE=hypr-test \
+    XDG_CURRENT_DESKTOP=Hyprland \
+    XDG_SESSION_TYPE=wayland \
+    PATH="$FAKE_BIN:/usr/bin:/bin" \
+        "$REPO_ROOT/scripts/configure-system.sh" --yes >/dev/null
+}
+
+run_configure
+[[ -f $SYSTEM_TEST_STATE_DIR/system-services-ready ]]
+[[ -f $SYSTEM_TEST_STATE_DIR/myhypr-session.target.active ]]
+[[ -f $SYSTEM_TEST_STATE_DIR/elephant.service.active ]]
+[[ -f $SYSTEM_TEST_STATE_DIR/walker.service.active ]]
+rg -q '^systemctl <enable> <--now> <NetworkManager\.service> <bluetooth\.service>$' \
+    "$SYSTEM_TEST_LOG"
+rg -q '^systemctl <--user> <start> <myhypr-session\.target>$' \
+    "$SYSTEM_TEST_LOG"
+if rg -q '^systemctl <--user> <enable>' "$SYSTEM_TEST_LOG"; then
+    printf 'Static MyHypr dependencies unexpectedly used systemctl enable.\n' >&2
+    exit 1
+fi
 rg -q '^xdg-user-dirs-update$' "$SYSTEM_TEST_LOG"
+for wants_dir in graphical-session.target.wants myhypr-session.target.wants; do
+    [[ ! -e $SYSTEM_TEST_USER_UNIT_DIR/$wants_dir/elephant.service ]]
+    [[ ! -e $SYSTEM_TEST_USER_UNIT_DIR/$wants_dir/walker.service ]]
+done
 
-before=$(wc -l < "$SYSTEM_TEST_LOG")
-WAYLAND_DISPLAY='' DISPLAY='' PATH="$FAKE_BIN:$PATH" \
-    "$REPO_ROOT/scripts/configure-system.sh" --yes >/dev/null
-after=$(wc -l < "$SYSTEM_TEST_LOG")
-((after == before + 1)) # Only the idempotent user-directory refresh reruns.
+system_enable_count=$(rg -c '^systemctl <enable> <--now>' "$SYSTEM_TEST_LOG")
+run_configure
+[[ $(rg -c '^systemctl <enable> <--now>' "$SYSTEM_TEST_LOG") -eq \
+    $system_enable_count ]]
+[[ $(rg -c '^xdg-user-dirs-update$' "$SYSTEM_TEST_LOG") -eq 2 ]]
 
-printf 'Required service configuration is automatic and idempotent.\n'
+printf 'Required system and graphical-session services are automatic and idempotent.\n'
