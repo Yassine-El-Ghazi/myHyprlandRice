@@ -11,6 +11,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
+mkdir -p -- "$TEST_HOME/.config/hypr/conf/retired"
+ln -s -- "$REPO_ROOT/dotfiles/.config/hypr/conf/retired/legacy.conf" \
+    "$TEST_HOME/.config/hypr/conf/retired/legacy.conf"
+[[ -L $TEST_HOME/.config/hypr/conf/retired/legacy.conf && \
+    ! -e $TEST_HOME/.config/hypr/conf/retired/legacy.conf ]]
+
 printf 'private shell setup\n' > "$TEST_HOME/.zshrc"
 HOME="$TEST_HOME" XDG_STATE_HOME="$TEST_HOME/.local/state" \
     "$REPO_ROOT/scripts/link-dotfiles.sh" \
@@ -30,6 +36,7 @@ HOME="$TEST_HOME" "$REPO_ROOT/scripts/seed-runtime.sh" \
 [[ -L $TEST_HOME/.config/hypr/hyprland.lua ]]
 [[ $TEST_HOME/.config/hypr/hyprland.lua -ef \
     $REPO_ROOT/dotfiles/.config/hypr/hyprland.lua ]]
+[[ ! -e $TEST_HOME/.config/hypr/conf/retired ]]
 
 [[ -f $runtime_selector && ! -L $runtime_selector ]]
 cmp -s -- "$runtime_selector" \
@@ -41,6 +48,11 @@ mapfile -t backups < <(
 )
 [[ ${#backups[@]} -eq 1 ]]
 [[ $(<"${backups[0]}") == 'private shell setup' ]]
+mapfile -t retired_links < <(
+    find "$TEST_HOME/.local/state/myhyprlandrice/backups" \
+        -type l -path '*/.config/hypr/conf/retired/legacy.conf' -print
+)
+[[ ${#retired_links[@]} -eq 1 ]]
 
 # Restowing and seeding a second time must preserve mutable runtime state.
 printf 'source = ~/.config/hypr/conf/monitors/nwg-displays.conf\n' \
@@ -56,6 +68,11 @@ rg -q 'nwg-displays\.conf' "$runtime_selector"
 if "$REPO_ROOT/scripts/seed-runtime.sh" \
     --target /tmp/.. --dry-run >/dev/null 2>&1; then
     printf 'Runtime seeder accepted a root-directory alias.\n' >&2
+    exit 1
+fi
+if "$REPO_ROOT/scripts/link-dotfiles.sh" \
+    --target /tmp/.. --dry-run >/dev/null 2>&1; then
+    printf 'Dotfile linker accepted a root-directory alias.\n' >&2
     exit 1
 fi
 

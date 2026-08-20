@@ -57,12 +57,12 @@ while (($#)); do
 done
 
 require_command git
+require_command readlink
+require_command realpath
 require_command stow
 [[ -d $PACKAGE_ROOT ]] || die "Missing Stow package: $PACKAGE_ROOT"
 
-if [[ $TARGET != /* ]]; then
-    TARGET="$(cd -- "$(dirname -- "$TARGET")" && pwd -P)/$(basename -- "$TARGET")"
-fi
+TARGET=$(realpath -m -- "$TARGET")
 [[ $TARGET != / ]] || die 'Refusing to use / as a Stow target.'
 
 if [[ ! -d $TARGET ]]; then
@@ -132,6 +132,27 @@ while IFS= read -r -d '' tracked_path; do
     fi
 done < <(git -C "$REPO_ROOT" ls-files -z -- dotfiles)
 
+is_stale_managed_link() {
+    local link_path=$1
+    local link_target resolved_target
+
+    [[ -L $link_path && ! -e $link_path ]] || return 1
+    link_target=$(readlink -- "$link_path")
+    if [[ $link_target != /* ]]; then
+        link_target="$(dirname -- "$link_path")/$link_target"
+    fi
+    resolved_target=$(realpath -m -- "$link_target")
+    [[ $resolved_target == "$PACKAGE_ROOT/"* ]]
+}
+
+declare -a stale_managed_links=()
+if [[ -d $TARGET/.config ]]; then
+    while IFS= read -r -d '' link_path; do
+        is_stale_managed_link "$link_path" || continue
+        stale_managed_links+=("${link_path#"$TARGET/"}")
+    done < <(find "$TARGET/.config" -type l -print0)
+fi
+
 backup_base=${XDG_STATE_HOME:-$TARGET/.local/state}/myhyprlandrice/backups
 backup_dir="$backup_base/$(timestamp)"
 declare -a moved_conflicts=()
@@ -147,14 +168,21 @@ restore_conflicts() {
     done
 }
 
-if ((${#conflicts[@]})); then
-    warn "Found ${#conflicts[@]} target conflict(s):"
-    printf '  %s\n' "${conflicts[@]}" >&2
+backup_paths=("${conflicts[@]}" "${stale_managed_links[@]}")
+if ((${#backup_paths[@]})); then
+    if ((${#conflicts[@]})); then
+        warn "Found ${#conflicts[@]} target conflict(s):"
+        printf '  %s\n' "${conflicts[@]}" >&2
+    fi
+    if ((${#stale_managed_links[@]})); then
+        warn "Found ${#stale_managed_links[@]} retired managed link(s):"
+        printf '  %s\n' "${stale_managed_links[@]}" >&2
+    fi
     [[ $BACKUP_CONFLICTS -eq 1 ]] || \
         die 'Re-run with --backup-conflicts to preserve and replace them.'
     confirm "Back up these paths under $backup_dir?"
 
-    for relative in "${conflicts[@]}"; do
+    for relative in "${backup_paths[@]}"; do
         source_path="$TARGET/$relative"
         destination="$backup_dir/$relative"
         if [[ $DRY_RUN -eq 1 ]]; then
@@ -183,6 +211,16 @@ if ! stow --simulate "${stow_args[@]}"; then
 fi
 
 run stow "${stow_args[@]}"
+
+# Retired links are archived above. Remove only their now-empty parent
+# directories, stopping before the shared ~/.config directory.
+for relative in "${stale_managed_links[@]}"; do
+    parent_directory=$(dirname -- "$TARGET/$relative")
+    while [[ $parent_directory == "$TARGET/.config/"* ]]; do
+        rmdir -- "$parent_directory" 2>/dev/null || break
+        parent_directory=$(dirname -- "$parent_directory")
+    done
+done
 
 # These files can exist inside the package after migrating an older folded
 # Stow layout. Move them into the now-normal target directories exactly once.
