@@ -77,7 +77,7 @@ rg -q '^git clone --depth 1 https://aur\.archlinux\.org/paru-bin\.git ' \
     "$PACKAGE_TEST_LOG"
 rg -q '^makepkg -si --needed --noconfirm$' "$PACKAGE_TEST_LOG"
 [[ $(rg -c '^sudo -n -v$' "$PACKAGE_TEST_LOG") -eq 1 ]]
-rg -q '^paru --sudoloop -S --needed --noconfirm oh-my-zsh-git oh-my-posh-bin$' \
+rg -q '^paru --sudoloop --useask -S --needed --noconfirm oh-my-zsh-git oh-my-posh-bin$' \
     "$PACKAGE_TEST_LOG"
 if rg -q 'pkexec|(^|[[:space:]])--sudo([[:space:]]|$)' "$PACKAGE_TEST_LOG"; then
     printf 'Unexpected per-transaction authorization command found.\n' >&2

@@ -187,7 +187,7 @@ if ((${#aur_packages[@]})); then
     info "Installing ${#aur_packages[@]} AUR package(s) with $aur_helper"
     # AUR packages must be built as the regular user. The helper's sudo loop
     # keeps the single credential acquired above valid for package installs.
-    aur_args=("$aur_helper" --sudoloop -S --needed)
+    aur_args=("$aur_helper" --sudoloop --useask -S --needed)
     [[ $ASSUME_YES -eq 1 ]] && aur_args+=(--noconfirm)
     run "${aur_args[@]}" "${aur_packages[@]}"
 else
