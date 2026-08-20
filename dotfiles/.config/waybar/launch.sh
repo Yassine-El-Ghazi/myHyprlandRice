@@ -62,7 +62,7 @@ fi
 
 instance_signature=${HYPRLAND_INSTANCE_SIGNATURE:-}
 if [[ -z $instance_signature ]]; then
-    instance_signature=$(hyprctl instances -j | jq -er '.[0].instance')
+    instance_signature=$(hyprctl -j instances | jq -er '.[0].instance')
 fi
 
 printf 'Launching Waybar theme %s.\n' "$theme_spec"

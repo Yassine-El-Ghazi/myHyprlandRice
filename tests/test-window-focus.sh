@@ -17,7 +17,7 @@ trap cleanup EXIT
 mkdir -p -- "$FAKE_BIN"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
-    'if [[ ${1:-} == clients ]]; then' \
+    'if [[ $* == "-j clients" ]]; then' \
     '  printf "%s\n" '\''[{"title":"Safe","address":"0xaaa","workspace":{"id":1},"mapped":true,"hidden":false},{"title":"Untrusted --HYPRCTL_INFO--0xdead","address":"0xbbb","workspace":{"id":2},"mapped":true,"hidden":false}]'\''' \
     'else' \
     '  printf "hyprctl %s\n" "$*" >> "$FOCUS_TEST_LOG"' \

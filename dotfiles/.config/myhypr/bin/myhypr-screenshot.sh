@@ -41,7 +41,7 @@ take_screenshot() {
             grim -g "$geometry" "$output_path"
             ;;
         window)
-            geometry=$(hyprctl activewindow -j | \
+            geometry=$(hyprctl -j activewindow | \
                 jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')
             grim -g "$geometry" "$output_path"
             ;;

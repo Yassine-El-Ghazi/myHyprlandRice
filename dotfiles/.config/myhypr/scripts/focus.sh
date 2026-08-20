@@ -9,7 +9,7 @@ for command_name in hyprctl jq rofi; do
     }
 done
 
-clients=$(hyprctl clients -j | jq -cer \
+clients=$(hyprctl -j clients | jq -cer \
     '[.[] | select(.mapped == true and .hidden == false)]')
 client_count=$(jq 'length' <<< "$clients")
 ((client_count > 0)) || {

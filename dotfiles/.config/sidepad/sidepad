@@ -44,7 +44,7 @@ show_help() {
 }
 
 test_sidepad() {
-    if ! hyprctl clients -j | jq -e --arg class "$WINDOW_CLASS" '.[] | select(.class == $class)' > /dev/null; then
+    if ! hyprctl -j clients | jq -e --arg class "$WINDOW_CLASS" '.[] | select(.class == $class)' > /dev/null; then
         echo "1"
         return 1
     else
@@ -61,7 +61,7 @@ init_sidepad() {
         return 2
     }
     # Check if the window already exists, if not launch it
-    if ! hyprctl clients -j | jq -e --arg class "$WINDOW_CLASS" '.[] | select(.class == $class)' > /dev/null; then
+    if ! hyprctl -j clients | jq -e --arg class "$WINDOW_CLASS" '.[] | select(.class == $class)' > /dev/null; then
         if [[ "$WINDOW_CLASS" == "dotfiles-sidepad" ]]; then
             "${command[@]}" --class "$WINDOW_CLASS" &
         else
@@ -69,7 +69,7 @@ init_sidepad() {
         fi
         # Wait for the window to appear, with a timeout
         for _attempt in {1..50}; do # ~5 seconds timeout
-            if hyprctl clients -j | jq -e --arg class "$WINDOW_CLASS" '.[] | select(.class == $class)' > /dev/null; then
+            if hyprctl -j clients | jq -e --arg class "$WINDOW_CLASS" '.[] | select(.class == $class)' > /dev/null; then
                 break
             fi
             sleep 0.1
@@ -83,7 +83,7 @@ kill_sidepad() {
     local -a window_pids=()
 
     mapfile -t window_pids < <(
-        hyprctl clients -j | jq -r --arg class "$WINDOW_CLASS" \
+        hyprctl -j clients | jq -r --arg class "$WINDOW_CLASS" \
             '.[] | select(.class == $class) | .pid | select(. > 0)'
     )
     for pid in "${window_pids[@]}"; do
@@ -194,8 +194,8 @@ if [[ $INIT_REQUESTED -eq 1 ]]; then
 fi
 
 # --- Get Window and Monitor Info ---
-WINDOW_INFO=$(hyprctl clients -j | jq --arg class "$WINDOW_CLASS" '.[] | select(.class == $class)')
-MONITOR_INFO=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true)')
+WINDOW_INFO=$(hyprctl -j clients | jq --arg class "$WINDOW_CLASS" '.[] | select(.class == $class)')
+MONITOR_INFO=$(hyprctl -j monitors | jq -r '.[] | select(.focused == true)')
 
 if [ -z "$WINDOW_INFO" ]; then
     echo "Error: Window with class '$WINDOW_CLASS' not found. Is the window open?"

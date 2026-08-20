@@ -37,6 +37,13 @@ if rg -n --hidden '(bash|sh)[[:space:]]+-c' \
     exit 1
 fi
 
+if rg -n --hidden \
+    'hyprctl[[:space:]]+(clients|monitors|activewindow|activeworkspace|instances|layers)[[:space:]]+-j' \
+    dotfiles; then
+    printf 'A Hyprland helper still uses the obsolete JSON-flag ordering.\n' >&2
+    exit 1
+fi
+
 rg -q 'require\("conf\.myhypr"\)' dotfiles/.config/hypr/hyprland.lua
 rg -q 'SettingsWindow[[:space:]]*\{' dotfiles/.config/quickshell/shell.qml
 rg -q 'settingsctl' dotfiles/.config/quickshell/SettingsApp/SettingsWindow.qml

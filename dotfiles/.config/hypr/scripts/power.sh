@@ -11,7 +11,7 @@ terminate_clients() {
 	local deadline pid
 	local -a client_pids=()
 
-	mapfile -t client_pids < <(hyprctl clients -j | jq -r '.[].pid | select(. > 1)' | sort -nu)
+	mapfile -t client_pids < <(hyprctl -j clients | jq -r '.[].pid | select(. > 1)' | sort -nu)
 	for pid in "${client_pids[@]}"; do
 		[[ $pid =~ ^[0-9]+$ && $pid -ne $$ ]] || continue
 		printf ':: Sending SIGTERM to PID %s\n' "$pid"

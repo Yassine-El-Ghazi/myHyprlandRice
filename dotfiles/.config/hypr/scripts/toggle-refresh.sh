@@ -27,7 +27,7 @@ trap cleanup EXIT
 
 monitor_json=''
 for _attempt in 1 2 3 4 5; do
-    if hyprctl monitors -j 2>/dev/null | \
+    if hyprctl -j monitors 2>/dev/null | \
         jq -ce 'map(select(.focused))[0] // .[0]' > "$query_file" 2>/dev/null; then
         monitor_json=$(<"$query_file")
         break
