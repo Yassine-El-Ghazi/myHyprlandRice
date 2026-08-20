@@ -23,7 +23,10 @@ printf '%s\n' \
     '  enable) : > "$SYSTEM_TEST_STATE"; printf "systemctl %s\\n" "$*" >> "$SYSTEM_TEST_LOG" ;;' \
     '  *) exit 2 ;;' \
     'esac' > "$FAKE_BIN/systemctl"
-printf '%s\n' '#!/usr/bin/env bash' 'exec "$@"' > "$FAKE_BIN/sudo"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    '[[ ${1:-} == -v || ${1:-} == -n ]] && exit 0' \
+    'exec "$@"' > "$FAKE_BIN/sudo"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
     'printf "xdg-user-dirs-update\\n" >> "$SYSTEM_TEST_LOG"' \

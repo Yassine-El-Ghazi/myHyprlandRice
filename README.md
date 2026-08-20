@@ -32,7 +32,7 @@ installer, Flatpak remote, or hosted settings service is required at runtime.
 ## Requirements
 
 - Arch Linux, CachyOS, or another Arch-based distribution
-- A regular user with `sudo` or graphical `pkexec` authorization
+- A regular user with `sudo` authorization
 - An internet connection for first-time package installation
 - Git for cloning the repository
 
@@ -66,6 +66,8 @@ preferences and only installs or links what is missing.
 1. Resolves the selected package profile from `packages/arch/`.
 2. Installs repository packages, then uses `paru` or `yay` for AUR packages.
    If neither exists, it can build `paru-bin` in a disposable directory.
+   Privileged work shares one terminal authentication; AUR builds never run
+   as root.
 3. Enables and starts NetworkManager and Bluetooth for desktop profiles.
 4. Creates standard XDG user directories.
 5. Archives recognized legacy state and stale local tool shadows.

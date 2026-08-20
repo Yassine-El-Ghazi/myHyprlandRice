@@ -117,14 +117,13 @@ for spec in "${specs[@]}"; do
     fi
 done
 
+if ((${#repo_packages[@]} || ${#aur_packages[@]})); then
+    ensure_sudo_session
+fi
+
 if ((${#repo_packages[@]})); then
     info "Installing ${#repo_packages[@]} repository package(s)"
-    privilege_command=(sudo)
-    if [[ ! -t 0 && -n ${WAYLAND_DISPLAY:-${DISPLAY:-}} ]] && \
-        command -v pkexec >/dev/null 2>&1; then
-        privilege_command=(pkexec)
-    fi
-    pacman_args=("${privilege_command[@]}" pacman -S --needed)
+    pacman_args=(sudo pacman -S --needed)
     [[ $ASSUME_YES -eq 1 ]] && pacman_args+=(--noconfirm)
     run "${pacman_args[@]}" "${repo_packages[@]}"
 else
@@ -186,12 +185,9 @@ if ((${#aur_packages[@]})); then
     fi
 
     info "Installing ${#aur_packages[@]} AUR package(s) with $aur_helper"
-    aur_args=("$aur_helper")
-    if [[ ! -t 0 && -n ${WAYLAND_DISPLAY:-${DISPLAY:-}} ]] && \
-        command -v pkexec >/dev/null 2>&1; then
-        aur_args+=(--sudo pkexec)
-    fi
-    aur_args+=(-S --needed)
+    # AUR packages must be built as the regular user. The helper's sudo loop
+    # keeps the single credential acquired above valid for package installs.
+    aur_args=("$aur_helper" --sudoloop -S --needed)
     [[ $ASSUME_YES -eq 1 ]] && aur_args+=(--noconfirm)
     run "${aur_args[@]}" "${aur_packages[@]}"
 else

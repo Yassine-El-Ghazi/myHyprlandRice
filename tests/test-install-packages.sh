@@ -30,10 +30,9 @@ printf '%s\n' \
     'esac' > "$FAKE_BIN/pacman"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
+    'printf "sudo %s\n" "$*" >> "$PACKAGE_TEST_LOG"' \
+    '[[ ${1:-} == -v || ${1:-} == -n ]] && exit 0' \
     'exec "$@"' > "$FAKE_BIN/sudo"
-printf '%s\n' \
-    '#!/usr/bin/env bash' \
-    'exec "$@"' > "$FAKE_BIN/pkexec"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
     'destination=${!#}' \
@@ -44,7 +43,7 @@ printf '%s\n' \
     'printf "makepkg %s\n" "$*" >> "$PACKAGE_TEST_LOG"' \
     'printf "%s\n" "#!/usr/bin/env bash" "printf \"paru %s\\n\" \"\$*\" >> \"\$PACKAGE_TEST_LOG\"" > "$PACKAGE_TEST_BIN/paru"' \
     'chmod +x -- "$PACKAGE_TEST_BIN/paru"' > "$FAKE_BIN/makepkg"
-chmod +x -- "$FAKE_BIN/pacman" "$FAKE_BIN/sudo" "$FAKE_BIN/pkexec" "$FAKE_BIN/git" \
+chmod +x -- "$FAKE_BIN/pacman" "$FAKE_BIN/sudo" "$FAKE_BIN/git" \
     "$FAKE_BIN/makepkg"
 for command_name in bash chmod dirname mkdir mktemp rm; do
     ln -s -- "/usr/bin/$command_name" "$FAKE_BIN/$command_name"
@@ -69,7 +68,12 @@ fi
 rg -q '^git clone --depth 1 https://aur\.archlinux\.org/paru-bin\.git ' \
     "$PACKAGE_TEST_LOG"
 rg -q '^makepkg -si --needed --noconfirm$' "$PACKAGE_TEST_LOG"
-rg -q '^paru --sudo pkexec -S --needed --noconfirm oh-my-zsh-git oh-my-posh-bin$' \
+[[ $(rg -c '^sudo -n -v$' "$PACKAGE_TEST_LOG") -eq 1 ]]
+rg -q '^paru --sudoloop -S --needed --noconfirm oh-my-zsh-git oh-my-posh-bin$' \
     "$PACKAGE_TEST_LOG"
+if rg -q 'pkexec|(^|[[:space:]])--sudo([[:space:]]|$)' "$PACKAGE_TEST_LOG"; then
+    printf 'Unexpected per-transaction authorization command found.\n' >&2
+    exit 1
+fi
 
-printf 'AUR helper bootstrap output cannot corrupt the selected command.\n'
+printf 'AUR helper bootstrap uses one sudo session without corrupting the command.\n'

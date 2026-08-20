@@ -34,12 +34,8 @@ done
 if ((${#missing_state[@]})); then
     warn "Required desktop services need activation: ${missing_state[*]}"
     confirm 'Enable and start the required desktop services?'
-    privilege_command=(sudo)
-    if [[ ! -t 0 && -n ${WAYLAND_DISPLAY:-${DISPLAY:-}} ]] && \
-        command -v pkexec >/dev/null 2>&1; then
-        privilege_command=(pkexec)
-    fi
-    run "${privilege_command[@]}" systemctl enable --now "${missing_state[@]}"
+    ensure_sudo_session
+    run sudo systemctl enable --now "${missing_state[@]}"
 else
     success 'Required NetworkManager and Bluetooth services are active.'
 fi

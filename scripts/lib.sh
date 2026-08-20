@@ -65,6 +65,27 @@ require_command() {
     command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"
 }
 
+ensure_sudo_session() {
+    if [[ ${MYHYPR_SUDO_SESSION_READY:-0} == 1 ]]; then
+        return
+    fi
+
+    require_command sudo
+    if [[ ${DRY_RUN:-0} -eq 1 ]]; then
+        print_command sudo -v
+        return
+    fi
+
+    if [[ -t 0 ]]; then
+        info 'Authenticating once for privileged changes'
+        sudo -v
+    elif ! sudo -n -v >/dev/null 2>&1; then
+        die 'Administrator authentication is required. Re-run this command in a terminal.'
+    fi
+
+    export MYHYPR_SUDO_SESSION_READY=1
+}
+
 timestamp() {
     date -u +'%Y%m%dT%H%M%SZ'
 }
