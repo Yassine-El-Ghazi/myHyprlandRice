@@ -16,20 +16,10 @@ waybar
 quickshell
 rofi
 walker|walker-bin
-# Walker's data service and every provider enabled in the shipped config.
-# Split packages coexist with the base package; elephant-all also satisfies
-# these declarations through virtual provisions.
-elephant
-elephant-desktopapplications
-elephant-calc
-elephant-runner
-elephant-menus
-elephant-websearch
-elephant-providerlist
-elephant-files
-elephant-symbols
-elephant-todo
-elephant-clipboard
+# Elephant providers are Go plugins and must be compiled with exactly the same
+# toolchain as the core. This atomic package builds the service and all official
+# providers together, avoiding runtime ABI mismatches between split packages.
+elephant-all
 swaync
 nwg-dock-hyprland
 nwg-look

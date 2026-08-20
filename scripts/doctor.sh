@@ -109,6 +109,11 @@ if [[ $PROFILE == desktop || $PROFILE == full ]]; then
         else
             ok 'Walker and all configured Elephant providers are installed'
         fi
+        if pacman -Qq elephant-all >/dev/null 2>&1; then
+            ok 'Elephant core and providers use one ABI-compatible build'
+        else
+            problem 'Elephant split packages can be ABI-incompatible; install elephant-all'
+        fi
     fi
 fi
 if [[ $PROFILE == full ]]; then

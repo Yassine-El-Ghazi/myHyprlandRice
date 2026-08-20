@@ -15,6 +15,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
+desktop_manifest="$REPO_ROOT/packages/arch/desktop.txt"
+[[ $(rg -c '^elephant-all$' "$desktop_manifest") -eq 1 ]]
+if rg -q '^elephant$|^elephant-(calc|clipboard|desktopapplications|files|menus|providerlist|runner|symbols|todo|websearch)$' \
+    "$desktop_manifest"; then
+    printf 'Elephant core and providers must be declared as one ABI-compatible build.\n' >&2
+    exit 1
+fi
+
 mkdir -p -- "$FAKE_BIN"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
@@ -76,4 +84,4 @@ if rg -q 'pkexec|(^|[[:space:]])--sudo([[:space:]]|$)' "$PACKAGE_TEST_LOG"; then
     exit 1
 fi
 
-printf 'AUR helper bootstrap uses one sudo session without corrupting the command.\n'
+printf 'Package bootstrap preserves one sudo session and ABI-compatible plugins.\n'

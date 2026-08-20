@@ -100,6 +100,8 @@ Useful switches:
 Manifest entries can declare alternatives with `package-a|package-b`. An
 already satisfied package or virtual provision wins; otherwise an official
 repository package is preferred before the first AUR alternative.
+Elephant is installed through its atomic `elephant-all` build so its Go plugin
+providers cannot drift from the core service ABI.
 
 ## MyHypr controls
 
