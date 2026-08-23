@@ -32,18 +32,18 @@ local function remove_tag(window, tag)
 end
 
 local function enable_window(window)
-    if not window.mapped or window.hidden then return end
+    if not window.mapped or not window.visible then return end
     if not window.floating then
         -- Record provenance before changing layout so a later failure cannot lose it.
         add_tag(window, CONVERTED_TAG)
-        dispatch_or_error(hl.dsp.window.float({ action = "set", window = window }))
+        dispatch_or_error(hl.dsp.window.float({ action = "enable", window = window }))
     end
     add_tag(window, MODE_TAG)
 end
 
 local function disable_window(window)
     if has_tag(window, CONVERTED_TAG) then
-        dispatch_or_error(hl.dsp.window.float({ action = "unset", window = window }))
+        dispatch_or_error(hl.dsp.window.float({ action = "disable", window = window }))
         remove_tag(window, CONVERTED_TAG)
     end
     remove_tag(window, MODE_TAG)
