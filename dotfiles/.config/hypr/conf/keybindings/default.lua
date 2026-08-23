@@ -9,6 +9,7 @@
 local mainMod = "SUPER"
 local HYPRSCRIPTS = "~/.config/hypr/scripts"
 local SCRIPTS = "~/.config/myhypr/scripts"
+local runtime_actions = require("conf.runtime_actions")
 
 -- Applications
 hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd("~/.config/myhypr/settings/terminal.sh"))
@@ -31,7 +32,7 @@ hl.bind(mainMod .. " + SHIFT + Q", hl.dsp.window.close())
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }))
 hl.bind(mainMod .. " + M", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }))
 hl.bind(mainMod .. " + T", hl.dsp.window.float({ action = "toggle" }))
-hl.bind(mainMod .. " + SHIFT + T", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/toggleallfloat.sh"))
+hl.bind(mainMod .. " + SHIFT + T", runtime_actions.toggle_all_float)
 --bind = $mainMod, J, togglesplit                                                             # Toggle split
 hl.bind(mainMod .. " + left", hl.dsp.focus({ direction = "left" }))
 hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))

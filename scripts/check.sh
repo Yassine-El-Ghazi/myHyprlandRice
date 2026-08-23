@@ -129,6 +129,7 @@ else
 fi
 
 run_check 'Git whitespace checks' git diff --check
+run_check 'Stateful all-float runtime action' lua "$REPO_ROOT/tests/test-runtime-actions.lua"
 run_check 'Zsh module loader behavior' "$REPO_ROOT/tests/test-zsh-loader.sh"
 run_check 'Dynamic monitor behavior' "$REPO_ROOT/tests/test-toggle-refresh.sh"
 run_check 'Cursor zoom behavior' "$REPO_ROOT/tests/test-cursor-zoom.sh"
