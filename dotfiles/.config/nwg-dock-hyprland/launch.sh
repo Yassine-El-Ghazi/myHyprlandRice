@@ -9,13 +9,14 @@ theme=modern
     printf 'Invalid dock theme: %s\n' "$theme" >&2
     exit 1
 }
-style="$CONFIG_ROOT/nwg-dock-hyprland/themes/$theme/style.css"
+style_relative="themes/$theme/style.css"
+style="$CONFIG_ROOT/nwg-dock-hyprland/$style_relative"
 [[ -f $style ]] || {
     printf 'Dock theme is unavailable: %s\n' "$style" >&2
     exit 1
 }
 
-pkill -x nwg-dock-hyprland >/dev/null 2>&1 || true
+pkill -f -- '(^|/)nwg-dock-hyprland([[:space:]]|$)' >/dev/null 2>&1 || true
 [[ ! -f $SETTINGS_ROOT/dock-disabled ]] || {
     printf 'Dock is disabled by the runtime setting.\n'
     exit 0
@@ -24,7 +25,7 @@ sleep 0.3
 
 arguments=(
     -i 32 -w 5 -mb 10 -x
-    -s "$style"
+    -s "$style_relative"
     -c "$CONFIG_ROOT/hypr/scripts/launcher.sh"
 )
 [[ ! -f $SETTINGS_ROOT/dock-autohide ]] || arguments=(-d "${arguments[@]}")
