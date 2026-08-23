@@ -106,3 +106,6 @@
 /dotfiles/.config/walker/colors.css
 /dotfiles/.config/waybar/colors.css
 /dotfiles/.config/wlogout/colors.css
+
+# Isolated local development worktrees
+/.worktrees/
