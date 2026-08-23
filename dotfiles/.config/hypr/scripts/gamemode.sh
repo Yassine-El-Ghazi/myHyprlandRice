@@ -37,6 +37,6 @@ if [[ -f $WALLPAPER_AUTOMATION ]]; then
     "$CONFIG_ROOT/hypr/scripts/wallpaper-automation.sh"
 fi
 
-hyprctl --batch 'keyword animations:enabled 0; keyword decoration:shadow:enabled 0; keyword decoration:blur:enabled 0; keyword general:gaps_in 0; keyword general:gaps_out 0; keyword general:border_size 1; keyword decoration:active_opacity 1; keyword decoration:inactive_opacity 1; keyword decoration:fullscreen_opacity 1; keyword decoration:rounding 0'
+hyprctl eval 'hl.config({ animations = { enabled = false }, decoration = { shadow = { enabled = false }, blur = { enabled = false }, active_opacity = 1, inactive_opacity = 1, fullscreen_opacity = 1, rounding = 0 }, general = { gaps_in = 0, gaps_out = 0, border_size = 1 } })'
 : > "$ENABLED_MARKER"
 notify-send 'Gamemode activated' 'Animations and blur disabled'
