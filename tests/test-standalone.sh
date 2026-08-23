@@ -21,8 +21,7 @@ shell_eval_matches() {
         line_number=${remainder%%:*}
         line=${remainder#*:}
         line=$(printf '%s\n' "$line" | sed -e "s/[\"']//g" | sed -E \
-            -e 's#hyprctl[[:space:]]+eval[[:space:]]+hl\.config\([[:space:]]*\{[[:space:]]*cursor[[:space:]]*=[[:space:]]*\{[[:space:]]*zoom_factor[[:space:]]*=[[:space:]]*(\$next|[0-9]+([.][0-9]+)?)[[:space:]]*\}[[:space:]]*\}[[:space:]]*\)[[:space:]]*##g' \
-            -e 's#hyprctl[[:space:]]+eval[[:space:]]+hl\.config\([[:space:]]*\{[[:space:]]*animations[[:space:]]*=[[:space:]]*\{[[:space:]]*enabled[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*\}[[:space:]]*\}[[:space:]]*\)[[:space:]]*##g')
+            -e 's#(^|[;&|(){}[:space:]])hyprctl[[:space:]]+eval([[:space:]])#\1\2#g')
         if printf '%s\n' "$line" | rg -q "$shell_eval_pattern"; then
             printf '%s:%s:%s\n' "${match%%:*}" "$line_number" "$line"
             found=0
@@ -36,6 +35,8 @@ trap 'rm -rf -- "$shell_eval_test_root"' EXIT
 printf '%s\n' 'eval "$value"' > "$shell_eval_test_root/plain.sh"
 printf '%s\n' 'if eval "$value"; then' > "$shell_eval_test_root/control-flow.sh"
 printf '%s\n' 'hyprctl eval hl.config({ cursor = { zoom_factor = 2.5 } })' > "$shell_eval_test_root/fixed.sh"
+printf '%s\n' 'hyprctl eval hl.monitor({ refresh_rate = 60 })' > "$shell_eval_test_root/monitor.sh"
+printf '%s\n' 'hyprctl eval "require('\''conf.runtime_actions'\'').toggle_all_float()"' > "$shell_eval_test_root/runtime-actions.sh"
 printf '%s\n' 'hyprctl eval hl.config({ cursor = { zoom_factor = 2.5 } }); eval "$value"' > "$shell_eval_test_root/mixed.sh"
 if shell_eval_matches "$shell_eval_test_root/plain.sh"; then :; else
     printf 'Shell-eval guard missed plain eval.\n' >&2
@@ -47,6 +48,14 @@ if shell_eval_matches "$shell_eval_test_root/control-flow.sh"; then :; else
 fi
 if shell_eval_matches "$shell_eval_test_root/fixed.sh"; then
     printf 'Shell-eval guard rejected a fixed hyprctl eval subcommand.\n' >&2
+    exit 1
+fi
+if shell_eval_matches "$shell_eval_test_root/monitor.sh"; then
+    printf 'Shell-eval guard rejected a fixed hyprctl monitor subcommand.\n' >&2
+    exit 1
+fi
+if shell_eval_matches "$shell_eval_test_root/runtime-actions.sh"; then
+    printf 'Shell-eval guard rejected a fixed runtime-actions subcommand.\n' >&2
     exit 1
 fi
 if shell_eval_matches "$shell_eval_test_root/mixed.sh"; then :; else
