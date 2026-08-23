@@ -37,4 +37,4 @@ selected_address=$(jq -er ".[$selected_index].address" <<< "$clients")
     exit 1
 }
 
-exec hyprctl dispatch focuswindow "address:$selected_address"
+exec hyprctl dispatch "hl.dsp.focus({ window = 'address:$selected_address' })"

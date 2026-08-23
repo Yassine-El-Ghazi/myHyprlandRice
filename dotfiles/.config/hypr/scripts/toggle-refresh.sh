@@ -70,12 +70,23 @@ case $action in
         ;;
 esac
 
+[[ $name =~ ^[[:alnum:]_.:-]+$ ]] || { printf 'Invalid monitor name.\n' >&2; exit 1; }
+[[ $width =~ ^[1-9][0-9]*$ && $height =~ ^[1-9][0-9]*$ ]] || { printf 'Invalid monitor dimensions.\n' >&2; exit 1; }
+[[ $position =~ ^-?[0-9]+x-?[0-9]+$ ]] || { printf 'Invalid monitor position.\n' >&2; exit 1; }
+[[ $scale =~ ^[0-9]+([.][0-9]+)?$ ]] || { printf 'Invalid monitor scale.\n' >&2; exit 1; }
+[[ $transform =~ ^[0-7]$ ]] || { printf 'Invalid monitor transform.\n' >&2; exit 1; }
+[[ $target_rate =~ ^[0-9]+([.][0-9]+)?$ ]] || { printf 'Invalid refresh rate.\n' >&2; exit 1; }
+((width <= 16384 && height <= 16384 && ${#name} <= 128)) || { printf 'Monitor data exceeds supported bounds.\n' >&2; exit 1; }
+awk -v scale="$scale" -v rate="$target_rate" 'BEGIN { exit !(scale > 0 && rate > 0) }' || {
+    printf 'Monitor scale and refresh rate must be positive.\n' >&2
+    exit 1
+}
+
 if awk -v current="$current_rate" -v target="$target_rate" \
     'BEGIN { difference = current - target; if (difference < 0) difference = -difference; exit difference < 0.01 ? 0 : 1 }'; then
     hyprctl notify 5 1800 'rgb(89b4fa)' "$name is already at ${target_rate}Hz"
     exit 0
 fi
 
-monitor_rule="$name,${width}x${height}@${target_rate},$position,$scale,transform,$transform"
-hyprctl keyword monitor "$monitor_rule"
+hyprctl eval "hl.monitor({ output = '$name', mode = '${width}x${height}@${target_rate}', position = '$position', scale = $scale, transform = $transform })"
 hyprctl notify 5 2500 'rgb(a6e3a1)' "$name switched to ${target_rate}Hz"
