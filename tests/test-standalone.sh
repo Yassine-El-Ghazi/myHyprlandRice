@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016
 set -Eeuo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -9,8 +10,51 @@ if rg -n -i 'ml4w|mylinuxforwork' dotfiles defaults; then
     exit 1
 fi
 
-shell_eval_pattern='(^|[;&|][[:space:]]*)[[:space:]]*(builtin[[:space:]]+|command[[:space:]]+)?eval[[:space:]]'
-if rg -n "$shell_eval_pattern" \
+shell_eval_pattern='(^|[;&|(){}[:space:]])[[:space:]]*(builtin[[:space:]]+|command[[:space:]]+)?eval[[:space:]]'
+
+shell_eval_matches() {
+    local matches match remainder line_number line found=1
+    matches=$(rg -n "$shell_eval_pattern" "$@" || true)
+    [[ -n $matches ]] || return 1
+    while IFS= read -r match; do
+        remainder=${match#*:}
+        line_number=${remainder%%:*}
+        line=${remainder#*:}
+        line=$(printf '%s\n' "$line" | sed -e "s/[\"']//g" | sed -E \
+            -e 's#hyprctl[[:space:]]+eval[[:space:]]+hl\.config\([[:space:]]*\{[[:space:]]*cursor[[:space:]]*=[[:space:]]*\{[[:space:]]*zoom_factor[[:space:]]*=[[:space:]]*(\$next|[0-9]+([.][0-9]+)?)[[:space:]]*\}[[:space:]]*\}[[:space:]]*\)[[:space:]]*##g' \
+            -e 's#hyprctl[[:space:]]+eval[[:space:]]+hl\.config\([[:space:]]*\{[[:space:]]*animations[[:space:]]*=[[:space:]]*\{[[:space:]]*enabled[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*\}[[:space:]]*\}[[:space:]]*\)[[:space:]]*##g')
+        if printf '%s\n' "$line" | rg -q "$shell_eval_pattern"; then
+            printf '%s:%s:%s\n' "${match%%:*}" "$line_number" "$line"
+            found=0
+        fi
+    done <<< "$matches"
+    return "$found"
+}
+
+shell_eval_test_root=$(mktemp -d "${TMPDIR:-/tmp}/myhypr-shell-eval-test.XXXXXXXX")
+trap 'rm -rf -- "$shell_eval_test_root"' EXIT
+printf '%s\n' 'eval "$value"' > "$shell_eval_test_root/plain.sh"
+printf '%s\n' 'if eval "$value"; then' > "$shell_eval_test_root/control-flow.sh"
+printf '%s\n' 'hyprctl eval hl.config({ cursor = { zoom_factor = 2.5 } })' > "$shell_eval_test_root/fixed.sh"
+printf '%s\n' 'hyprctl eval hl.config({ cursor = { zoom_factor = 2.5 } }); eval "$value"' > "$shell_eval_test_root/mixed.sh"
+if shell_eval_matches "$shell_eval_test_root/plain.sh"; then :; else
+    printf 'Shell-eval guard missed plain eval.\n' >&2
+    exit 1
+fi
+if shell_eval_matches "$shell_eval_test_root/control-flow.sh"; then :; else
+    printf 'Shell-eval guard missed control-flow eval.\n' >&2
+    exit 1
+fi
+if shell_eval_matches "$shell_eval_test_root/fixed.sh"; then
+    printf 'Shell-eval guard rejected a fixed hyprctl eval subcommand.\n' >&2
+    exit 1
+fi
+if shell_eval_matches "$shell_eval_test_root/mixed.sh"; then :; else
+    printf 'Shell-eval guard missed a second shell eval.\n' >&2
+    exit 1
+fi
+
+if shell_eval_matches \
     dotfiles/.config/myhypr dotfiles/.config/sidepad dotfiles/.config/hypr/scripts; then
     printf 'Tracked desktop helpers still evaluate runtime text as shell code.\n' >&2
     exit 1
