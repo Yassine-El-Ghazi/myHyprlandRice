@@ -24,6 +24,7 @@ printf '%s\n' \
     '      multi) printf "%s\\n" '\''[{"address":"0xaaa","workspace":{"id":2}},{"address":"0xbbb","workspace":{"id":2}},{"address":"0xccc","workspace":{"id":4}}]'\'' ;;' \
     '      empty) printf "%s\\n" '\''[{"address":"0xccc","workspace":{"id":4}}]'\'' ;;' \
     '      failed) exit 42 ;;' \
+    '      invalid-json) printf "%s\\n" '\''[{"address":"0xaaa"'\'' ;;' \
     '      malformed) printf "%s\\n" '\''[{"address":"0xaaa","workspace":{"id":2}},{"address":"0xnothex","workspace":{"id":2}}]'\'' ;;' \
     '    esac' \
     '    ;;' \
@@ -50,6 +51,13 @@ mapfile -t calls < "$WORKSPACE_MOVE_LOG"
 : > "$WORKSPACE_MOVE_LOG"
 if WORKSPACE_MOVE_SCENARIO=failed PATH="$FAKE_BIN:/usr/bin:/bin" "$helper" 7; then
     printf 'Workspace helper accepted a failed client query.\n' >&2
+    exit 1
+fi
+[[ ! -s $WORKSPACE_MOVE_LOG ]]
+
+: > "$WORKSPACE_MOVE_LOG"
+if WORKSPACE_MOVE_SCENARIO=invalid-json PATH="$FAKE_BIN:/usr/bin:/bin" "$helper" 7; then
+    printf 'Workspace helper accepted malformed client JSON.\n' >&2
     exit 1
 fi
 [[ ! -s $WORKSPACE_MOVE_LOG ]]
