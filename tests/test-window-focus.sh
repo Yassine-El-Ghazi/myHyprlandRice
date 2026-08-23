@@ -30,6 +30,6 @@ chmod +x -- "$FAKE_BIN/hyprctl" "$FAKE_BIN/rofi"
 
 HOME="$TEST_ROOT/user-root" PATH="$FAKE_BIN:/usr/bin:/bin" \
     "$REPO_ROOT/dotfiles/.config/myhypr/scripts/focus.sh"
-rg -q '^hyprctl dispatch focuswindow address:0xbbb$' "$FOCUS_TEST_LOG"
+rg -Fqx "hyprctl dispatch hl.dsp.focus({ window = 'address:0xbbb' })" "$FOCUS_TEST_LOG"
 
 printf 'Window selection treats titles as display-only data.\n'

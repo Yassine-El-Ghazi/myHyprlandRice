@@ -7,9 +7,9 @@ if [[ ${1:-} == -j ]]; then
 fi
 case ${1:-} in
     monitors)
-        command cat -- "$SCRIPT_DIR/../fixtures/hypr-monitors.json"
+        command cat -- "${TEST_HYPRCTL_FIXTURE:-$SCRIPT_DIR/../fixtures/hypr-monitors.json}"
         ;;
-    keyword|notify)
+    eval|notify)
         printf '%s\n' "$*" >> "${TEST_HYPRCTL_LOG:?}"
         ;;
     *)
