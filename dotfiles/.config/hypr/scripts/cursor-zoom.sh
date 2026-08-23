@@ -27,4 +27,4 @@ case ${1:-} in
         ;;
 esac
 
-exec hyprctl keyword cursor:zoom_factor "$next"
+exec hyprctl eval "hl.config({ cursor = { zoom_factor = $next } })"
