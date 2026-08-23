@@ -9,7 +9,8 @@ if rg -n -i 'ml4w|mylinuxforwork' dotfiles defaults; then
     exit 1
 fi
 
-if rg -n '(^|[^[:alnum:]_])eval[[:space:]]' \
+shell_eval_pattern='(^|[;&|][[:space:]]*)[[:space:]]*(builtin[[:space:]]+|command[[:space:]]+)?eval[[:space:]]'
+if rg -n "$shell_eval_pattern" \
     dotfiles/.config/myhypr dotfiles/.config/sidepad dotfiles/.config/hypr/scripts; then
     printf 'Tracked desktop helpers still evaluate runtime text as shell code.\n' >&2
     exit 1

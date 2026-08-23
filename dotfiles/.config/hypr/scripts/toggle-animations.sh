@@ -10,10 +10,10 @@ if [[ -r $selector && $(<"$selector") == *disabled* ]]; then
 else
     mkdir -p -- "$cache_root"
     if [[ -f $cache_file ]]; then
-        hyprctl keyword animations:enabled true
+        hyprctl eval 'hl.config({ animations = { enabled = true } })'
         rm -f -- "$cache_file"
     else
-        hyprctl keyword animations:enabled false
+        hyprctl eval 'hl.config({ animations = { enabled = false } })'
         : > "$cache_file"
     fi
 fi

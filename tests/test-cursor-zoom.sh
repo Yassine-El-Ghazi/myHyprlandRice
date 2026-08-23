@@ -26,9 +26,9 @@ PATH="$FAKE_BIN:/usr/bin:/bin" "$helper" increase
 PATH="$FAKE_BIN:/usr/bin:/bin" "$helper" decrease
 PATH="$FAKE_BIN:/usr/bin:/bin" "$helper" reset
 
-rg -q '^hyprctl keyword cursor:zoom_factor 2\.5$' "$ZOOM_TEST_LOG"
-rg -q '^hyprctl keyword cursor:zoom_factor 1\.5$' "$ZOOM_TEST_LOG"
-rg -q '^hyprctl keyword cursor:zoom_factor 1$' "$ZOOM_TEST_LOG"
+rg -Fqx 'hyprctl eval hl.config({ cursor = { zoom_factor = 2.5 } })' "$ZOOM_TEST_LOG"
+rg -Fqx 'hyprctl eval hl.config({ cursor = { zoom_factor = 1.5 } })' "$ZOOM_TEST_LOG"
+rg -Fqx 'hyprctl eval hl.config({ cursor = { zoom_factor = 1 } })' "$ZOOM_TEST_LOG"
 
 if PATH="$FAKE_BIN:/usr/bin:/bin" "$helper" invalid >/dev/null 2>&1; then
     printf 'Invalid zoom action was accepted.\n' >&2
