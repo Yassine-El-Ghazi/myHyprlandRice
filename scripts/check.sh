@@ -131,6 +131,8 @@ else
 fi
 
 run_check 'Git whitespace checks' git diff --check
+run_check 'Staged snapshot and history audit behavior' \
+    "$REPO_ROOT/tests/test-audit.sh"
 run_check 'Validation tool and runtime isolation' \
     "$REPO_ROOT/tests/test-validation-environment.sh"
 run_check 'Stateful all-float runtime action' lua "$REPO_ROOT/tests/test-runtime-actions.lua"
