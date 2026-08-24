@@ -32,7 +32,9 @@ config_file="$HOME/.config/hypr/conf/keybindings/$variant"
 # -----------------------------------------------------
 launcher=rofi
 launcher_file="$HOME/.config/myhypr/settings/launcher"
-[[ -r $launcher_file ]] && IFS= read -r launcher < "$launcher_file"
+if [[ -r $launcher_file ]]; then
+    IFS= read -r launcher < "$launcher_file" || true
+fi
 
 # -----------------------------------------------------
 # Path to keybindings config file
