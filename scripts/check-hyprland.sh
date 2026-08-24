@@ -8,6 +8,8 @@ source "$SCRIPT_DIR/lib.sh"
 require_command Hyprland
 
 audit_home=$(mktemp -d "${TMPDIR:-/tmp}/myhyprlandrice-hypr.XXXXXXXX")
+runtime_dir="$audit_home/runtime"
+mkdir -m 0700 -- "$runtime_dir"
 cleanup() {
     case $audit_home in
         "${TMPDIR:-/tmp}"/myhyprlandrice-hypr.*) rm -rf -- "$audit_home" ;;
@@ -28,6 +30,7 @@ verify() {
     local output
     tested=$((tested + 1))
     output=$(HOME="$audit_home" XDG_CONFIG_HOME="$audit_home/.config" \
+        XDG_RUNTIME_DIR="$runtime_dir" \
         Hyprland --verify-config --config "$config" 2>&1) || true
     if ! grep -q '^config ok$' <<< "$output"; then
         printf 'FAIL: %s\n%s\n' "$label" "$output" >&2

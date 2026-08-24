@@ -115,8 +115,10 @@ else
     skip 'python is unavailable'
 fi
 
-if command -v qmllint >/dev/null 2>&1; then
-    run_check 'Quickshell entrypoint syntax' qmllint dotfiles/.config/quickshell/shell.qml
+qml_linter=''
+if qml_linter=$(resolve_executable qmllint /usr/lib/qt6/bin/qmllint); then
+    run_check 'Quickshell entrypoint syntax' \
+        "$qml_linter" dotfiles/.config/quickshell/shell.qml
 else
     skip 'qmllint is unavailable'
 fi
@@ -129,6 +131,8 @@ else
 fi
 
 run_check 'Git whitespace checks' git diff --check
+run_check 'Validation tool and runtime isolation' \
+    "$REPO_ROOT/tests/test-validation-environment.sh"
 run_check 'Stateful all-float runtime action' lua "$REPO_ROOT/tests/test-runtime-actions.lua"
 run_check 'Zsh module loader behavior' "$REPO_ROOT/tests/test-zsh-loader.sh"
 run_check 'Dynamic monitor behavior' "$REPO_ROOT/tests/test-toggle-refresh.sh"
