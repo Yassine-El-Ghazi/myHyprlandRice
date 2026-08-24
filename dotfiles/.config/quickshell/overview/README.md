@@ -14,13 +14,9 @@ A standalone workspace overview module for Hyprland using Quickshell - shows all
 
 ---
 
-## 📸 Preview
+## Overview behavior
 
-![Overview Screenshot](assets/image.png)
-
-https://github.com/user-attachments/assets/9c3d2488-1c24-4cdd-84cd-87c4397d02a8
-
-> *Workspace overview showing live window previews with drag-and-drop support*
+The workspace overview shows live window previews with drag-and-drop support.
 
 ---
 
