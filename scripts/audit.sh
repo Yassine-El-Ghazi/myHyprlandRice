@@ -64,18 +64,31 @@ read_file() {
 }
 
 run_quick_validation() {
+    local git_local_env_output git_variable
+    local -a git_local_env=()
+
     if [[ $MODE != staged ]]; then
         "$SCRIPT_DIR/check.sh" --quick
         return
     fi
 
-    audit_snapshot=$(mktemp -d "${TMPDIR:-/tmp}/myhypr-audit-index.XXXXXXXX")
-    git checkout-index --all --prefix="$audit_snapshot/"
+    git_local_env_output=$(git rev-parse --local-env-vars) || return 1
+    mapfile -t git_local_env <<< "$git_local_env_output" || return 1
+    audit_snapshot=$(mktemp -d "${TMPDIR:-/tmp}/myhypr-audit-index.XXXXXXXX") || \
+        return 1
+    case $audit_snapshot in
+        "${TMPDIR:-/tmp}"/myhypr-audit-index.*) ;;
+        *) return 1 ;;
+    esac
+    git checkout-index --all --prefix="$audit_snapshot/" || return 1
     (
-        cd -- "$audit_snapshot"
-        git init -q
-        git -c core.hooksPath=/dev/null add -A
-        "$audit_snapshot/scripts/check.sh" --quick
+        for git_variable in "${git_local_env[@]}"; do
+            unset "$git_variable" || exit 1
+        done
+        cd -- "$audit_snapshot" || exit 1
+        git init -q || exit 1
+        git -c core.hooksPath=/dev/null add -A || exit 1
+        "$audit_snapshot/scripts/check.sh" --quick || exit 1
     )
 }
 
@@ -210,9 +223,7 @@ else
     git diff --check || failures=$((failures + 1))
 fi
 
-if ! run_quick_validation; then
-    failures=$((failures + 1))
-fi
+run_quick_validation
 
 if [[ $failures -gt 0 ]]; then
     die "$failures audit finding(s) must be resolved before committing."

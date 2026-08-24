@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016
 set -Eeuo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 while IFS= read -r git_variable; do
     unset "$git_variable"
 done < <(git rev-parse --local-env-vars)
+REAL_GIT=$(command -v git)
+REAL_MKTEMP=$(command -v mktemp)
 TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/myhypr-audit-test.XXXXXXXX")
 cleanup() {
     case $TEST_ROOT in
@@ -44,7 +47,8 @@ setup_repo() {
 
 case_name=${1:-all}
 case $case_name in
-    all|staged-invalid|staged-valid|history) ;;
+    all|staged-invalid|staged-valid|history|hook-environment|setup-mktemp|\
+        setup-checkout|setup-cd|setup-init|setup-add) ;;
     *) fail "unknown case: $case_name" ;;
 esac
 
@@ -96,6 +100,119 @@ if [[ $case_name == all || $case_name == history ]]; then
         "$repo_history/scripts/audit.sh" --history >"$TEST_ROOT/history.log" 2>&1; then
         fail 'history-only privacy findings were missed'
     fi
-    rg -Fq 'history-private.txt' "$TEST_ROOT/history.log"
-    rg -Fq 'history-unsafe.sh' "$TEST_ROOT/history.log"
+    rg -Fq 'Machine-specific absolute home path exists in Git history: history-private.txt' \
+        "$TEST_ROOT/history.log" || fail 'history home-path category warning was missing'
+    rg -Fq 'Unsafe dotfiles pattern exists in Git history: history-unsafe.sh' \
+        "$TEST_ROOT/history.log" || fail 'history unsafe-pattern category warning was missing'
+    if rg -Fq "$private_value" "$TEST_ROOT/history.log"; then
+        fail 'history audit disclosed matched private content'
+    fi
+    if rg -Fq "$unsafe_value" "$TEST_ROOT/history.log"; then
+        fail 'history audit disclosed matched unsafe content'
+    fi
 fi
+
+if [[ $case_name == all || $case_name == hook-environment ]]; then
+    repo_hook="$TEST_ROOT/hook-environment"
+    setup_repo "$repo_hook"
+    printf 'index snapshot\n' > "$repo_hook/staged-only.txt"
+    git -C "$repo_hook" add staged-only.txt
+    printf 'worktree edit\n' > "$repo_hook/staged-only.txt"
+
+    outer_head=$(git -C "$repo_hook" rev-parse HEAD)
+    outer_index=$(git -C "$repo_hook" write-tree)
+    outer_blob=$(git -C "$repo_hook" rev-parse :staged-only.txt)
+    PATH="$repo_hook/bin:/usr/bin:/bin" \
+        GIT_DIR="$repo_hook/.git" GIT_WORK_TREE="$repo_hook" \
+        GIT_INDEX_FILE="$repo_hook/.git/index" \
+        "$repo_hook/scripts/audit.sh" --staged || \
+        fail 'staged audit failed under hook-local Git variables'
+    [[ $(git -C "$repo_hook" rev-parse HEAD) == "$outer_head" ]] || \
+        fail 'staged audit changed the outer repository HEAD'
+    [[ $(git -C "$repo_hook" write-tree) == "$outer_index" ]] || \
+        fail 'staged audit changed the outer repository index'
+    [[ $(git -C "$repo_hook" rev-parse :staged-only.txt) == "$outer_blob" ]] || \
+        fail 'staged audit changed the outer repository staged blob'
+fi
+
+run_setup_failure_case() {
+    local step=$1
+    local repo="$TEST_ROOT/setup-$step"
+    local setup_log="$TEST_ROOT/setup-$step.commands"
+    local missing_snapshot="${TMPDIR:-/tmp}/myhypr-audit-index.missing-$step-$$"
+    local injected_step=$step
+    local status
+
+    [[ $step != checkout ]] || injected_step=checkout-index
+
+    setup_repo "$repo"
+    printf 'staged audit trigger\n' > "$repo/staged-marker.txt"
+    git -C "$repo" add staged-marker.txt
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'set -Eeuo pipefail' \
+        'step=' \
+        'case " $* " in' \
+        '    *" checkout-index "*) step=checkout-index ;;' \
+        '    *" init "*) step=init ;;' \
+        '    *" add "*) step=add ;;' \
+        'esac' \
+        'if [[ -n $step ]]; then' \
+        '    printf '\''%s\n'\'' "$step" >> "$AUDIT_SETUP_LOG"' \
+        'fi' \
+        'if [[ $AUDIT_FAIL_STEP == "$step" ]]; then' \
+        '    exit 42' \
+        'fi' \
+        'if [[ $AUDIT_FAIL_STEP == mktemp && $step == checkout-index ]]; then' \
+        '    exit 43' \
+        'fi' \
+        'if [[ $AUDIT_FAIL_STEP == cd && $step == checkout-index ]]; then' \
+        '    exit 0' \
+        'fi' \
+        'exec "$AUDIT_REAL_GIT" "$@"' > "$repo/bin/git"
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'set -Eeuo pipefail' \
+        'case " $* " in' \
+        '    *myhypr-audit-index*)' \
+        '        case $AUDIT_FAIL_STEP in' \
+        '            mktemp) exit 42 ;;' \
+        '            cd) printf '\''%s\n'\'' "$AUDIT_MISSING_SNAPSHOT"; exit 0 ;;' \
+        '        esac' \
+        '        ;;' \
+        'esac' \
+        'exec "$AUDIT_REAL_MKTEMP" "$@"' > "$repo/bin/mktemp"
+    chmod +x -- "$repo/bin/git" "$repo/bin/mktemp"
+
+    set +e
+    PATH="$repo/bin:/usr/bin:/bin" \
+        AUDIT_FAIL_STEP="$injected_step" AUDIT_SETUP_LOG="$setup_log" \
+        AUDIT_MISSING_SNAPSHOT="$missing_snapshot" \
+        AUDIT_REAL_GIT="$REAL_GIT" AUDIT_REAL_MKTEMP="$REAL_MKTEMP" \
+        "$repo/scripts/audit.sh" --staged >/dev/null 2>&1
+    status=$?
+    set -e
+    [[ $status -ne 0 ]] || fail "$step setup failure was accepted"
+
+    case $step in
+        mktemp)
+            [[ ! -s $setup_log ]] || fail 'snapshot export ran after mktemp failed'
+            ;;
+        checkout|cd)
+            if rg -q '^(init|add)$' "$setup_log"; then
+                fail "snapshot repository setup continued after $step failed"
+            fi
+            ;;
+        init)
+            if rg -q '^add$' "$setup_log"; then
+                fail 'snapshot index setup continued after init failed'
+            fi
+            ;;
+    esac
+}
+
+for setup_step in mktemp checkout cd init add; do
+    if [[ $case_name == all || $case_name == setup-$setup_step ]]; then
+        run_setup_failure_case "$setup_step"
+    fi
+done
