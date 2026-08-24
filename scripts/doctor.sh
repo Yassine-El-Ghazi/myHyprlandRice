@@ -225,6 +225,15 @@ else
     problem 'Hyprland Lua entrypoint is missing'
 fi
 
+if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+    if hyprctl dispatch 'hl.dsp.no_op()' >/dev/null 2>&1 && \
+        hyprctl eval 'assert(type(hl.config) == "function" and type(hl.monitor) == "function" and type(hl.dsp.window.move) == "function")' >/dev/null 2>&1; then
+        ok 'Hyprland typed Lua runtime API is available'
+    else
+        problem 'Hyprland typed Lua runtime API is unavailable'
+    fi
+fi
+
 legacy_runtime_paths=(
     "$HOME/.config/ml4w"
     "$HOME/.config/ml4w-dotfiles-settings"

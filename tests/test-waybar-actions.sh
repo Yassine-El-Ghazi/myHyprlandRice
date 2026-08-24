@@ -47,6 +47,10 @@ expected_monitor="terminal --class dotfiles-floating -e $CONFIG_ROOT/myhypr/bin/
     fail 'resource usage does not launch the configured monitor in a terminal'
 
 modules="$REPO_ROOT/dotfiles/.config/waybar/modules.json"
+rg -Fq "\"on-scroll-up\": \"hyprctl dispatch \\\"hl.dsp.focus({ workspace = 'r-1' })\\\"\"" "$modules" || \
+    fail 'workspace scroll-up does not use typed focus'
+rg -Fq "\"on-scroll-down\": \"hyprctl dispatch \\\"hl.dsp.focus({ workspace = 'r+1' })\\\"\"" "$modules" || \
+    fail 'workspace scroll-down does not use typed focus'
 system_module=$(sed -n '/"custom\/system": {/,/^  },/p' "$modules")
 [[ $system_module == *'"on-click": "~/.config/myhypr/settings/system-monitor.sh"'* ]] || \
     fail 'the visible hardware module has no click action'
