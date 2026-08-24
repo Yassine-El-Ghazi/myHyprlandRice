@@ -5,7 +5,10 @@ local MODE_TAG = "myhypr-allfloat-mode"
 local CONVERTED_TAG = "myhypr-allfloat-converted"
 
 local function has_tag(window, wanted)
-    for _, tag in ipairs(window.tags or {}) do
+    local tags = window.tags
+    if type(tags) == "string" then return tags == wanted end
+    if type(tags) ~= "table" then return false end
+    for _, tag in ipairs(tags) do
         if tag == wanted then return true end
     end
     return false
@@ -15,7 +18,7 @@ local function dispatch_or_error(action)
     local result = hl.dispatch(action)
     if type(result) ~= "table" or result.ok ~= true then
         local message = type(result) == "table" and result.error or nil
-        error(message or "Hyprland rejected an all-float action", 0)
+        assert(false, message or "Hyprland rejected an all-float action")
     end
 end
 
