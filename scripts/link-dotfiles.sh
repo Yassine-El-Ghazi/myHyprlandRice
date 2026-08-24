@@ -75,6 +75,8 @@ fi
 
 declare -a conflicts=()
 declare -A checked_dirs=()
+declare -a tracked_relatives=()
+declare -A preexisting_managed_links=()
 
 same_target() {
     local source=$1
@@ -127,6 +129,10 @@ while IFS= read -r -d '' tracked_path; do
     check_parent_dirs "$relative" || continue
 
     target_path="$TARGET/$relative"
+    tracked_relatives+=("$relative")
+    if [[ -L $target_path ]] && same_target "$source_path" "$target_path"; then
+        preexisting_managed_links["$relative"]=$(readlink -- "$target_path")
+    fi
     if [[ -e $target_path || -L $target_path ]]; then
         same_target "$source_path" "$target_path" || conflicts+=("$relative")
     fi
@@ -158,14 +164,84 @@ backup_dir="$backup_base/$(timestamp)"
 declare -a moved_conflicts=()
 
 restore_conflicts() {
-    local relative source_path target_path
-    for relative in "${moved_conflicts[@]}"; do
+    local index relative source_path target_path
+    local restoration_failed=0
+
+    for ((index = ${#moved_conflicts[@]} - 1; index >= 0; index--)); do
+        relative=${moved_conflicts[$index]}
         source_path="$backup_dir/$relative"
         target_path="$TARGET/$relative"
         [[ -e $source_path || -L $source_path ]] || continue
+        if [[ -e $target_path || -L $target_path ]]; then
+            warn "Rollback target is occupied; recover $relative from $backup_dir"
+            restoration_failed=1
+            continue
+        fi
         mkdir -p -- "$(dirname -- "$target_path")"
-        mv -- "$source_path" "$target_path"
+        if ! mv -- "$source_path" "$target_path"; then
+            warn "Could not restore $relative; recover it from $backup_dir"
+            restoration_failed=1
+        fi
     done
+    return "$restoration_failed"
+}
+
+is_link_into_package() {
+    local link_path=$1
+    local link_target resolved_target
+    [[ -L $link_path ]] || return 1
+    link_target=$(readlink -- "$link_path")
+    if [[ $link_target != /* ]]; then
+        link_target="$(dirname -- "$link_path")/$link_target"
+    fi
+    resolved_target=$(realpath -m -- "$link_target")
+    [[ $resolved_target == "$PACKAGE_ROOT/"* ]]
+}
+
+remove_transaction_links() {
+    local relative target_path parent_directory
+    local cleanup_failed=0
+    for relative in "${tracked_relatives[@]}"; do
+        [[ -z ${preexisting_managed_links[$relative]+x} ]] || continue
+        target_path="$TARGET/$relative"
+        is_link_into_package "$target_path" || continue
+        if ! rm -- "$target_path"; then
+            warn "Could not remove transaction-created link: $relative"
+            cleanup_failed=1
+            continue
+        fi
+        parent_directory=$(dirname -- "$target_path")
+        while [[ $parent_directory == "$TARGET/"* && $parent_directory != "$TARGET" ]]; do
+            rmdir -- "$parent_directory" 2>/dev/null || break
+            parent_directory=$(dirname -- "$parent_directory")
+        done
+    done
+    return "$cleanup_failed"
+}
+
+restore_preexisting_links() {
+    local relative target_path expected_target parent_directory
+    local restoration_failed=0
+    for relative in "${!preexisting_managed_links[@]}"; do
+        target_path="$TARGET/$relative"
+        expected_target=${preexisting_managed_links[$relative]}
+        if [[ -L $target_path ]] && \
+            same_target "$PACKAGE_ROOT/$relative" "$target_path"; then
+            continue
+        fi
+        if [[ -e $target_path || -L $target_path ]]; then
+            warn "Pre-existing managed-link path is occupied during rollback: $relative"
+            restoration_failed=1
+            continue
+        fi
+        parent_directory=$(dirname -- "$target_path")
+        mkdir -p -- "$parent_directory"
+        if ! ln -s -- "$expected_target" "$target_path"; then
+            warn "Could not restore pre-existing managed link: $relative"
+            restoration_failed=1
+        fi
+    done
+    return "$restoration_failed"
 }
 
 backup_paths=("${conflicts[@]}" "${stale_managed_links[@]}")
@@ -210,7 +286,24 @@ if ! stow --simulate "${stow_args[@]}"; then
     die 'Stow simulation failed; backed-up conflicts were restored.'
 fi
 
-run stow "${stow_args[@]}"
+print_command stow "${stow_args[@]}"
+set +e
+stow "${stow_args[@]}"
+stow_status=$?
+set -e
+if [[ $stow_status -ne 0 ]]; then
+    rollback_failed=0
+    remove_transaction_links || rollback_failed=1
+    restore_preexisting_links || rollback_failed=1
+    restore_conflicts || rollback_failed=1
+    if [[ $rollback_failed -ne 0 ]]; then
+        warn "Rollback was incomplete; recover remaining files from $backup_dir"
+    else
+        info 'Failed Stow transaction was rolled back.'
+    fi
+    warn "Stow transaction failed with status $stow_status."
+    exit "$stow_status"
+fi
 
 # Retired links are archived above. Remove only their now-empty parent
 # directories, stopping before the shared ~/.config directory.
