@@ -64,13 +64,17 @@ take_instant_area() {
 }
 
 # Handle instant flags
-if [[ ${1:-} == "--instant" ]]; then
-    take_instant_full
-    exit 0
-elif [[ "$1" == "--instant-area" ]]; then
-    take_instant_area
-    exit 0
-fi
+mode=${1:-}
+case $mode in
+    --instant)
+        take_instant_full
+        exit 0
+        ;;
+    --instant-area)
+        take_instant_area
+        exit 0
+        ;;
+esac
 
 # Options
 option_1="Immediate"

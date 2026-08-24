@@ -159,6 +159,7 @@ run_check 'Welcome startup setting behavior' "$REPO_ROOT/tests/test-welcome-sett
 run_check 'Local settings editor behavior' python "$REPO_ROOT/tests/test-settingsctl.py"
 run_check 'Standalone dependency guards' "$REPO_ROOT/tests/test-standalone.sh"
 run_check 'Desktop control behavior' "$REPO_ROOT/tests/test-desktopctl.sh"
+run_check 'Screenshot optional-mode behavior' "$REPO_ROOT/tests/test-screenshot.sh"
 run_check 'Desktop theme application' "$REPO_ROOT/tests/test-desktop-themes.sh"
 run_check 'Waybar theme behavior' "$REPO_ROOT/tests/test-waybar-themes.sh"
 run_check 'Waybar desktop actions' "$REPO_ROOT/tests/test-waybar-actions.sh"
