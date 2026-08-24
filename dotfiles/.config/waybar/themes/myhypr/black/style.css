@@ -14,7 +14,3 @@
 @define-color iconcolor #000000;
 
 @import '../style.css';
-
-#custom-chatgpt {
-    background-image: url("../../assets/openai-black.svg");
-}
