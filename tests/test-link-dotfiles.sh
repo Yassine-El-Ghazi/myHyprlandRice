@@ -140,6 +140,8 @@ if should_run_case parent-conflict; then
     PARENT_ORIGINAL="$PARENT_ROOT/original-kitty"
     mkdir -p -- "$PARENT_HOME/.config" "$PARENT_BIN" "$PARENT_ORIGINAL"
     printf 'original kitty directory\n' > "$PARENT_ORIGINAL/state"
+    ln -s -- "$REPO_ROOT/dotfiles/.config/kitty/kitty.conf" \
+        "$PARENT_ORIGINAL/kitty.conf"
     ln -s -- "$PARENT_ORIGINAL" "$PARENT_HOME/.config/kitty"
 
     export STOW_PARTIAL_SOURCE="$REPO_ROOT/dotfiles/.config/kitty/kitty.conf"
@@ -210,6 +212,45 @@ if should_run_case folded-link; then
     [[ -L $FOLDED_HOME/.config/kitty && \
         $FOLDED_HOME/.config/kitty -ef "$REPO_ROOT/dotfiles/.config/kitty" ]] || {
         printf 'Folded managed directory link was not restored after failed Stow.\n' >&2
+        exit 1
+    }
+fi
+
+if should_run_case folded-empty-directory; then
+    EMPTY_FOLDED_ROOT="$TEST_HOME/folded-empty-directory"
+    EMPTY_FOLDED_HOME="$EMPTY_FOLDED_ROOT/home"
+    EMPTY_FOLDED_BIN="$EMPTY_FOLDED_ROOT/bin"
+    mkdir -p -- "$EMPTY_FOLDED_HOME/.config" "$EMPTY_FOLDED_BIN"
+    ln -s -- "$REPO_ROOT/dotfiles/.config/kitty" \
+        "$EMPTY_FOLDED_HOME/.config/kitty"
+
+    export STOW_FOLDED_TARGET="$EMPTY_FOLDED_HOME/.config/kitty"
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'for argument in "$@"; do' \
+        '    [[ $argument == --simulate ]] && exit 0' \
+        'done' \
+        'rm -f -- "$STOW_FOLDED_TARGET"' \
+        'mkdir -p -- "$STOW_FOLDED_TARGET"' \
+        'exit 47' > "$EMPTY_FOLDED_BIN/stow"
+    chmod +x -- "$EMPTY_FOLDED_BIN/stow"
+
+    set +e
+    HOME="$EMPTY_FOLDED_HOME" XDG_STATE_HOME="$EMPTY_FOLDED_HOME/.local/state" \
+        PATH="$EMPTY_FOLDED_BIN:/usr/bin:/bin" \
+        "$REPO_ROOT/scripts/link-dotfiles.sh" --target "$EMPTY_FOLDED_HOME" \
+        --backup-conflicts --yes >/dev/null 2>&1
+    empty_folded_status=$?
+    set -e
+    [[ $empty_folded_status -eq 47 ]] || {
+        printf 'Empty folded-directory rollback returned %s instead of 47.\n' \
+            "$empty_folded_status" >&2
+        exit 1
+    }
+    [[ -L $EMPTY_FOLDED_HOME/.config/kitty && \
+        $EMPTY_FOLDED_HOME/.config/kitty -ef \
+            "$REPO_ROOT/dotfiles/.config/kitty" ]] || {
+        printf 'Empty replacement directory blocked folded-link restoration.\n' >&2
         exit 1
     }
 fi

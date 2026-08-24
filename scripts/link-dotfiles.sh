@@ -132,12 +132,13 @@ while IFS= read -r -d '' tracked_path; do
 
     target_path="$TARGET/$relative"
     tracked_relatives+=("$relative")
-    if [[ -L $target_path ]] && same_target "$source_path" "$target_path"; then
-        preexisting_managed_links["$relative"]=$(readlink -- "$target_path")
-    fi
 
     has_parent_conflict "$relative" && continue
     check_parent_dirs "$relative" || continue
+
+    if [[ -L $target_path ]] && same_target "$source_path" "$target_path"; then
+        preexisting_managed_links["$relative"]=$(readlink -- "$target_path")
+    fi
 
     if [[ -e $target_path || -L $target_path ]]; then
         same_target "$source_path" "$target_path" || conflicts+=("$relative")
@@ -234,6 +235,9 @@ restore_preexisting_links() {
         if [[ -L $target_path ]] && \
             same_target "$PACKAGE_ROOT/$relative" "$target_path"; then
             continue
+        fi
+        if [[ -d $PACKAGE_ROOT/$relative && -d $target_path && ! -L $target_path ]]; then
+            rmdir -- "$target_path" 2>/dev/null || true
         fi
         if [[ -e $target_path || -L $target_path ]]; then
             warn "Pre-existing managed-link path is occupied during rollback: $relative"
