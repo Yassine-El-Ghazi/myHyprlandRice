@@ -65,6 +65,24 @@ require_command() {
     command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"
 }
 
+resolve_executable() {
+    local command_name=$1
+    local candidate resolved
+    shift
+
+    if resolved=$(command -v -- "$command_name" 2>/dev/null); then
+        printf '%s\n' "$resolved"
+        return 0
+    fi
+    for candidate in "$@"; do
+        if [[ -x $candidate ]]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
 ensure_sudo_session() {
     if [[ ${MYHYPR_SUDO_SESSION_READY:-0} == 1 ]]; then
         return
