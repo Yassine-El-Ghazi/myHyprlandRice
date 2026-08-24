@@ -7,6 +7,14 @@ source "$SCRIPT_DIR/lib.sh"
 
 MODE=worktree
 RUN_HISTORY=0
+audit_snapshot=''
+cleanup() {
+    [[ -n $audit_snapshot ]] || return 0
+    case $audit_snapshot in
+        "${TMPDIR:-/tmp}"/myhypr-audit-index.*) rm -rf -- "$audit_snapshot" ;;
+    esac
+}
+trap cleanup EXIT
 
 while (($#)); do
     case $1 in
@@ -53,6 +61,22 @@ read_file() {
     else
         command cat -- "$file"
     fi
+}
+
+run_quick_validation() {
+    if [[ $MODE != staged ]]; then
+        "$SCRIPT_DIR/check.sh" --quick
+        return
+    fi
+
+    audit_snapshot=$(mktemp -d "${TMPDIR:-/tmp}/myhypr-audit-index.XXXXXXXX")
+    git checkout-index --all --prefix="$audit_snapshot/"
+    (
+        cd -- "$audit_snapshot"
+        git init -q
+        git -c core.hooksPath=/dev/null add -A
+        "$audit_snapshot/scripts/check.sh" --quick
+    )
 }
 
 for file in "${files[@]}"; do
@@ -160,6 +184,15 @@ if [[ $RUN_HISTORY -eq 1 ]]; then
             warn "Potential secret content exists in Git history: $path"
             history_findings=$((history_findings + 1))
         fi
+        if git cat-file blob "$object" | rg -I -q --pcre2 "$home_pattern"; then
+            warn "Machine-specific absolute home path exists in Git history: $path"
+            history_findings=$((history_findings + 1))
+        fi
+        if [[ $path != scripts/audit.sh ]] && \
+            git cat-file blob "$object" | rg -I -q -e "$unsafe_pattern"; then
+            warn "Unsafe dotfiles pattern exists in Git history: $path"
+            history_findings=$((history_findings + 1))
+        fi
     done < <(git rev-list --objects --all)
     failures=$((failures + history_findings))
 
@@ -177,7 +210,7 @@ else
     git diff --check || failures=$((failures + 1))
 fi
 
-if ! "$SCRIPT_DIR/check.sh" --quick; then
+if ! run_quick_validation; then
     failures=$((failures + 1))
 fi
 
