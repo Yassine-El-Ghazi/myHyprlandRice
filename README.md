@@ -228,4 +228,7 @@ MyHyprlandRice is independently maintained. Required attribution for inherited
 GPL-licensed code and assets is preserved in [NOTICE](NOTICE); it does not imply
 an active runtime, update, service, or repository dependency.
 
+Path-level image sources, licenses, trademark notices, and local modifications
+are listed in [ASSETS.md](ASSETS.md).
+
 Licensed under [GNU GPL version 3](LICENSE).

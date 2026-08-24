@@ -195,10 +195,6 @@ window#waybar.empty #window {
 
 #custom-chatgpt {
     margin-right: 10px;
-    background-image: url("../assets/ai-icon-20.png");
-    background-repeat: no-repeat;
-    background-position: center;
-    padding-right: 23px;
 }
 
 #custom-waybarthemes,#custom-system {
@@ -210,15 +206,6 @@ window#waybar.empty #window {
     margin-right: 12px;
     font-size: 18px;
 }
-
-#custom-myhypr-hyprland-settings {
-    margin-right: 12px;
-    background-image: url("../assets/hyprland-icon-20.png");
-    background-repeat: no-repeat;
-    background-position: center;
-    padding-right: 16px;
-}
-
 
 /* -----------------------------------------------------
  * Idle Inhibitor
