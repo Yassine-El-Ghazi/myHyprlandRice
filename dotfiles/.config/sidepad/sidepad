@@ -220,6 +220,16 @@ for numeric_value in "$WINDOW_WIDTH" "$WINDOW_HEIGHT" "$WINDOW_X" "$WINDOW_Y" "$
     }
 done
 
+apply_geometry() {
+    local width_delta=$1
+    local height_delta=$2
+    local x_delta=$3
+    local y_delta=$4
+
+    hyprctl dispatch "hl.dsp.window.resize({ x = $width_delta, y = $height_delta, relative = true, window = 'address:$WINDOW_ADDRESS' })"
+    hyprctl dispatch "hl.dsp.window.move({ x = $x_delta, y = $y_delta, relative = true, window = 'address:$WINDOW_ADDRESS' })"
+}
+
 # --- Main Logic ---
 
 # Case 1: --hide flag is used, unconditionally hide the window.
@@ -232,7 +242,7 @@ if [[ "$HIDE_REQUESTED" -eq 1 ]]; then
         TARGET_HEIGHT=$(( MONITOR_HEIGHT - TOP_GAP - BOTTOM_GAP ))
         HEIGHT_CHANGE=$(( TARGET_HEIGHT - WINDOW_HEIGHT ))
 
-        hyprctl --batch "dispatch resizewindowpixel $WIDTH_CHANGE $HEIGHT_CHANGE,address:$WINDOW_ADDRESS; dispatch movewindowpixel $PIXELS_TO_MOVE_X $PIXELS_TO_MOVE_Y,address:$WINDOW_ADDRESS"
+        apply_geometry "$WIDTH_CHANGE" "$HEIGHT_CHANGE" "$PIXELS_TO_MOVE_X" "$PIXELS_TO_MOVE_Y"
         echo "Operation completed."
     else
         echo "Window is already hidden."
@@ -249,7 +259,7 @@ if (( WINDOW_X < 0 )); then
     TARGET_HEIGHT=$(( MONITOR_HEIGHT - TOP_GAP - BOTTOM_GAP ))
     HEIGHT_CHANGE=$(( TARGET_HEIGHT - WINDOW_HEIGHT ))
 
-    hyprctl --batch "dispatch resizewindowpixel $WIDTH_CHANGE $HEIGHT_CHANGE,address:$WINDOW_ADDRESS; dispatch movewindowpixel $PIXELS_TO_MOVE_X $PIXELS_TO_MOVE_Y,address:$WINDOW_ADDRESS"
+    apply_geometry "$WIDTH_CHANGE" "$HEIGHT_CHANGE" "$PIXELS_TO_MOVE_X" "$PIXELS_TO_MOVE_Y"
     echo "Operation completed."
 
 # Case 3: Window is visible, so toggle its width and correct its position.
@@ -271,6 +281,6 @@ else
         WIDTH_CHANGE=$(( TARGET_WIDTH - WINDOW_WIDTH ))
     fi
 
-    hyprctl --batch "dispatch resizewindowpixel $WIDTH_CHANGE $HEIGHT_CHANGE,address:$WINDOW_ADDRESS; dispatch movewindowpixel $PIXELS_TO_MOVE_X $PIXELS_TO_MOVE_Y,address:$WINDOW_ADDRESS"
+    apply_geometry "$WIDTH_CHANGE" "$HEIGHT_CHANGE" "$PIXELS_TO_MOVE_X" "$PIXELS_TO_MOVE_Y"
     echo "Operation completed."
 fi
