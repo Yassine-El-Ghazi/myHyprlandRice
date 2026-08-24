@@ -137,6 +137,7 @@ run_check 'Animation toggle behavior' "$REPO_ROOT/tests/test-toggle-animations.s
 run_check 'Gamemode runtime configuration' "$REPO_ROOT/tests/test-gamemode.sh"
 run_check 'Window focus behavior' "$REPO_ROOT/tests/test-window-focus.sh"
 run_check 'Workspace movement behavior' "$REPO_ROOT/tests/test-workspace-move.sh"
+run_check 'Sidepad typed geometry behavior' "$REPO_ROOT/tests/test-sidepad-runtime.sh"
 run_check 'Namespace migration behavior' "$REPO_ROOT/tests/test-migrate-namespace.sh"
 run_check 'Package bootstrap behavior' "$REPO_ROOT/tests/test-install-packages.sh"
 run_check 'Arch maintenance helper safety' "$REPO_ROOT/tests/test-arch-helpers.sh"
