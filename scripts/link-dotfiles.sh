@@ -111,7 +111,11 @@ check_parent_dirs() {
         target_dir="$TARGET/$partial"
 
         if [[ -L $target_dir ]]; then
-            same_target "$source_dir" "$target_dir" || conflicts+=("$partial")
+            if same_target "$source_dir" "$target_dir"; then
+                preexisting_managed_links["$partial"]=$(readlink -- "$target_dir")
+            else
+                conflicts+=("$partial")
+            fi
         elif [[ -e $target_dir && ! -d $target_dir ]]; then
             conflicts+=("$partial")
         fi
@@ -125,14 +129,16 @@ while IFS= read -r -d '' tracked_path; do
     [[ $relative == .stow-local-ignore ]] && continue
     source_path="$REPO_ROOT/$tracked_path"
     [[ -e $source_path || -L $source_path ]] || continue
-    has_parent_conflict "$relative" && continue
-    check_parent_dirs "$relative" || continue
 
     target_path="$TARGET/$relative"
     tracked_relatives+=("$relative")
     if [[ -L $target_path ]] && same_target "$source_path" "$target_path"; then
         preexisting_managed_links["$relative"]=$(readlink -- "$target_path")
     fi
+
+    has_parent_conflict "$relative" && continue
+    check_parent_dirs "$relative" || continue
+
     if [[ -e $target_path || -L $target_path ]]; then
         same_target "$source_path" "$target_path" || conflicts+=("$relative")
     fi
