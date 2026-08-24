@@ -13,6 +13,9 @@ local MODE_TAG = "myhypr-allfloat-mode"
 local CONVERTED_TAG = "myhypr-allfloat-converted"
 
 local function tag_index(window, wanted)
+    if type(window.tags) == "string" then
+        return window.tags == wanted and 1 or nil
+    end
     for index, tag in ipairs(window.tags or {}) do
         if tag == wanted then return index end
     end
@@ -51,6 +54,9 @@ hl = {
         elseif action.kind == "tag" then
             local prefix = action.opts.tag:sub(1, 1)
             local tag = action.opts.tag:sub(2)
+            if type(window.tags) == "string" then
+                window.tags = { window.tags }
+            end
             window.tags = window.tags or {}
             local index = tag_index(window, tag)
             if prefix == "+" and not index then
@@ -161,6 +167,34 @@ local after_removed = { mapped = true, visible = true, floating = false, tags = 
 all_windows[#all_windows + 1] = after_removed
 callbacks["window.open"](after_removed)
 assert(not after_removed.floating and not has_tag(after_removed, MODE_TAG) and not has_tag(after_removed, CONVERTED_TAG))
+
+local shadowed_error = { mapped = true, visible = true, floating = false, tags = {} }
+local workspace_eight = make_workspace(8, { shadowed_error })
+active_workspace = workspace_eight
+local original_error = error
+successes_before = success_notifications()
+failures_before = failure_notifications()
+error = "shadowed global error"
+forced_failure = function(action) return action.kind == "float" end
+result = runtime_actions.toggle_all_float()
+forced_failure = nil
+error = original_error
+assert(result.ok == false)
+assert(type(result.error) == "string" and result.error:find("forced float failure", 1, true),
+    "expected dispatcher rejection, got: " .. tostring(result.error))
+assert(success_notifications() == successes_before)
+assert(failure_notifications() == failures_before + 1)
+
+local string_tagged = { mapped = true, visible = true, floating = true, tags = MODE_TAG }
+local workspace_seven = make_workspace(7, { string_tagged })
+active_workspace = workspace_seven
+package.loaded["conf.runtime_actions"] = nil
+callbacks = {}
+runtime_actions = require("conf.runtime_actions")
+result = runtime_actions.toggle_all_float()
+assert(result.ok)
+assert(string_tagged.floating)
+assert(not has_tag(string_tagged, MODE_TAG))
 
 local failing = { mapped = true, visible = true, floating = false, tags = {} }
 local workspace_three = make_workspace(3, { failing })
