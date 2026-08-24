@@ -109,10 +109,14 @@ end
 local function failure_notifications()
     local count = 0
     for _, command in ipairs(notifications) do
-        if command:find("All-float action failed", 1, true) then count = count + 1 end
+        if command:find("notify-send -u critical 'All-float action failed'", 1, true) then count = count + 1 end
     end
     return count
 end
+
+notifications[#notifications + 1] = "notify-send 'All-float action failed' 'Hyprland rejected the workspace transition'"
+assert(failure_notifications() == 0, "non-critical all-float notification must not count as a critical failure")
+notifications[#notifications] = nil
 
 local tiled = { mapped = true, visible = true, floating = false, tags = {} }
 local intentional_float = { mapped = true, visible = true, floating = true, tags = {} }
