@@ -100,6 +100,14 @@ local function success_notifications()
     return count
 end
 
+local function failure_notifications()
+    local count = 0
+    for _, command in ipairs(notifications) do
+        if command:find("All-float action failed", 1, true) then count = count + 1 end
+    end
+    return count
+end
+
 local tiled = { mapped = true, visible = true, floating = false, tags = {} }
 local intentional_float = { mapped = true, visible = true, floating = true, tags = {} }
 local non_visible = { mapped = true, visible = false, floating = false, tags = {} }
@@ -158,16 +166,19 @@ local failing = { mapped = true, visible = true, floating = false, tags = {} }
 local workspace_three = make_workspace(3, { failing })
 active_workspace = workspace_three
 local successes_before = success_notifications()
+local failures_before = failure_notifications()
 forced_failure = function(action) return action.kind == "float" end
 result = runtime_actions.toggle_all_float()
 forced_failure = nil
 assert(result.ok == false)
 assert(success_notifications() == successes_before)
+assert(failure_notifications() == failures_before + 1)
 
 local provenance = { mapped = true, visible = true, floating = false, tags = {} }
 local workspace_four = make_workspace(4, { provenance })
 active_workspace = workspace_four
 successes_before = success_notifications()
+failures_before = failure_notifications()
 forced_failure = function(action)
     return action.kind == "tag" and action.opts.tag == "+" .. CONVERTED_TAG
 end
@@ -178,11 +189,13 @@ assert(not provenance.floating)
 assert(not has_tag(provenance, CONVERTED_TAG))
 assert(not has_tag(provenance, MODE_TAG))
 assert(success_notifications() == successes_before)
+assert(failure_notifications() == failures_before + 1)
 
 local partial = { mapped = true, visible = true, floating = false, tags = {} }
 local workspace_five = make_workspace(5, { partial })
 active_workspace = workspace_five
 successes_before = success_notifications()
+failures_before = failure_notifications()
 forced_failure = function(action)
     return action.kind == "tag" and action.opts.tag == "+" .. MODE_TAG
 end
@@ -193,6 +206,7 @@ assert(partial.floating)
 assert(has_tag(partial, CONVERTED_TAG))
 assert(not has_tag(partial, MODE_TAG))
 assert(success_notifications() == successes_before)
+assert(failure_notifications() == failures_before + 1)
 
 assert(runtime_actions.toggle_all_float().ok)
 assert(partial.floating and has_tag(partial, MODE_TAG) and has_tag(partial, CONVERTED_TAG))
@@ -206,6 +220,7 @@ assert(runtime_actions.toggle_all_float().ok)
 assert(disable_retry.floating and has_tag(disable_retry, MODE_TAG) and has_tag(disable_retry, CONVERTED_TAG))
 
 successes_before = success_notifications()
+failures_before = failure_notifications()
 forced_failure = function(action)
     return action.kind == "tag" and action.opts.tag == "-" .. CONVERTED_TAG
 end
@@ -215,9 +230,18 @@ assert(result.ok == false)
 assert(not disable_retry.floating)
 assert(has_tag(disable_retry, MODE_TAG) and has_tag(disable_retry, CONVERTED_TAG))
 assert(success_notifications() == successes_before)
+assert(failure_notifications() == failures_before + 1)
 
 assert(runtime_actions.toggle_all_float().ok)
 assert(not disable_retry.floating)
 assert(not has_tag(disable_retry, MODE_TAG) and not has_tag(disable_retry, CONVERTED_TAG))
+
+active_workspace = nil
+successes_before = success_notifications()
+failures_before = failure_notifications()
+result = runtime_actions.toggle_all_float()
+assert(result.ok == false and result.error == "No active workspace")
+assert(success_notifications() == successes_before)
+assert(failure_notifications() == failures_before + 1)
 
 print("Stateful all-float preserves intentional windows and survives reload markers.")
