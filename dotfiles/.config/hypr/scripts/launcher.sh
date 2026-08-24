@@ -6,7 +6,9 @@ set -Eeuo pipefail
 # -----------------------------------------------------
 launcher_file="$HOME/.config/myhypr/settings/launcher"
 launcher=rofi
-[[ -r $launcher_file ]] && IFS= read -r launcher < "$launcher_file"
+if [[ -r $launcher_file ]]; then
+    IFS= read -r launcher < "$launcher_file" || true
+fi
 
 # Use Walker
 _launch_walker() {

@@ -53,7 +53,9 @@ used_wallpaper=$wallpaper
 effect=off
 
 if [[ -r $effect_setting ]]; then
-    IFS= read -r effect < "$effect_setting" || effect=off
+    configured_effect=
+    IFS= read -r configured_effect < "$effect_setting" || true
+    [[ -z $configured_effect ]] || effect=$configured_effect
 fi
 
 if [[ $effect != off ]]; then
@@ -101,7 +103,9 @@ command -v pywalfox >/dev/null 2>&1 && pywalfox update
 swaync-client -rs
 
 blur=50x30
-[[ -r $blur_setting ]] && IFS= read -r blur < "$blur_setting"
+if [[ -r $blur_setting ]]; then
+    IFS= read -r blur < "$blur_setting" || true
+fi
 [[ $blur =~ ^[0-9]+x[0-9]+$ ]] || {
     printf 'Invalid blur setting: %s\n' "$blur" >&2
     exit 1
