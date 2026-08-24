@@ -52,6 +52,13 @@ env "${test_env[@]}" "$helper" || fail 'no-argument flow failed'
 rg -Fq 'Take screenshot' "$SCREENSHOT_TEST_LOG" || fail 'interactive selector was not reached'
 [[ ! -e $TEST_HOME/Screenshots/shot.png ]] || fail 'interactive probe captured the real screen path'
 
+: > "$SCREENSHOT_TEST_LOG"
+env "${test_env[@]}" "$helper" --unknown || fail 'unknown-argument flow failed'
+rg -Fq 'Take screenshot' "$SCREENSHOT_TEST_LOG" || \
+    fail 'unknown argument did not reach the interactive selector'
+[[ ! -e $TEST_HOME/Screenshots/shot.png ]] || \
+    fail 'unknown argument captured the real screen path'
+
 env "${test_env[@]}" "$helper" --instant || fail 'instant full capture failed'
 rg -Fq "grim <$TEST_HOME/Screenshots/shot.png>" "$SCREENSHOT_TEST_LOG" || \
     fail 'instant full capture used unexpected arguments'
