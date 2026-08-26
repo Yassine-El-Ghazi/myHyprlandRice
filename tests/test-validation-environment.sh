@@ -44,16 +44,31 @@ test_hyprland_runtime() {
         '[[ -d $XDG_RUNTIME_DIR ]] || exit 71' \
         '[[ $(stat -c %a "$XDG_RUNTIME_DIR") == 700 ]] || exit 72' \
         '[[ $XDG_RUNTIME_DIR == "$HOME/runtime" ]] || exit 73' \
+        'case ${FAKE_EUID:-0} in' \
+        '    0) [[ " $* " == *" --i-am-really-stupid "* ]] || exit 74 ;;' \
+        '    *) [[ " $* " != *" --i-am-really-stupid "* ]] || exit 76 ;;' \
+        'esac' \
         'printf "%s\n" "$XDG_RUNTIME_DIR" >> "$HYPRLAND_ENV_LOG"' \
         'printf "config ok\n"' \
         > "$FAKE_BIN/Hyprland"
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        '[[ "$1" == -u ]] || exit 75' \
+        'printf "%s\n" "${FAKE_EUID:-0}"' \
+        > "$FAKE_BIN/id"
     chmod +x -- "$FAKE_BIN/Hyprland"
-    env -u XDG_RUNTIME_DIR PATH="$FAKE_BIN:/usr/bin:/bin" \
+    chmod +x -- "$FAKE_BIN/id"
+    FAKE_EUID=0 env -u XDG_RUNTIME_DIR PATH="$FAKE_BIN:/usr/bin:/bin" \
         "$REPO_ROOT/scripts/check-hyprland.sh" >/dev/null
     [[ $(wc -l < "$HYPRLAND_ENV_LOG") -eq 56 ]] || \
-        fail 'not every Hyprland variant received the private runtime directory'
+        fail 'not every root Hyprland variant received the private runtime directory'
     [[ $(sort -u "$HYPRLAND_ENV_LOG" | wc -l) -eq 1 ]] || \
         fail 'Hyprland variants used inconsistent runtime directories'
+    : > "$HYPRLAND_ENV_LOG"
+    FAKE_EUID=1000 env -u XDG_RUNTIME_DIR PATH="$FAKE_BIN:/usr/bin:/bin" \
+        "$REPO_ROOT/scripts/check-hyprland.sh" >/dev/null
+    [[ $(wc -l < "$HYPRLAND_ENV_LOG") -eq 56 ]] || \
+        fail 'not every non-root Hyprland variant received the private runtime directory'
 }
 
 case ${1:-all} in
