@@ -26,6 +26,8 @@ Before publishing a new clone or release, also scan reachable history:
 ./scripts/audit.sh --history
 ```
 
-The audit checks sensitive filenames, high-confidence credential signatures, unsafe credential storage, machine-specific home paths, large additions, whitespace, and configuration syntax. Gitleaks is used only after it detects a synthetic test secret; the built-in scanner remains active even when Gitleaks is unavailable or broken.
+The audit checks sensitive filenames, high-confidence credential signatures, unsafe credential storage, machine-specific home paths, the complete published index for files over 10 MiB and exact digest-bound exceptions, whitespace, and configuration syntax. Gitleaks is used only after it detects a synthetic test secret; the built-in scanner remains active even when Gitleaks is unavailable or broken.
+
+When a verified file must exceed 10 MiB, `.audit-large-files` records one exception per line using four tab-separated fields: the file's SHA-256 digest, byte count, repository path, and rationale. The file is absent when no exception is required; path-only, stale, mismatched, or unnecessary exceptions are rejected.
 
 Never commit `.env` files, private keys, browser profiles, shell history, host-specific `local.lua`, or application-generated state. Treat migration and conflict archives under `~/.local/state/myhyprlandrice/` as private local data; they are intentionally ignored and must not be published.

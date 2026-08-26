@@ -131,6 +131,7 @@ else
 fi
 
 run_check 'Git whitespace checks' git diff --check
+run_check 'Asset provenance manifest' "$REPO_ROOT/tests/test-assets.sh"
 run_check 'Staged snapshot and history audit behavior' \
     "$REPO_ROOT/tests/test-audit.sh"
 run_check 'Validation tool and runtime isolation' \

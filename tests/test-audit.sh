@@ -47,7 +47,7 @@ setup_repo() {
 
 case_name=${1:-all}
 case $case_name in
-    all|staged-invalid|staged-valid|history|hook-environment|setup-mktemp|\
+    all|staged-invalid|staged-valid|history|large-files|hook-environment|setup-mktemp|\
         setup-checkout|setup-cd|setup-init|setup-add) ;;
     *) fail "unknown case: $case_name" ;;
 esac
@@ -216,3 +216,125 @@ for setup_step in mktemp checkout cd init add; do
         run_setup_failure_case "$setup_step"
     fi
 done
+
+if [[ $case_name == all || $case_name == large-files ]]; then
+    repo_large="$TEST_ROOT/large-files"
+    large_log="$TEST_ROOT/large-files.log"
+    setup_repo "$repo_large"
+    truncate -s $((10 * 1024 * 1024 + 1)) "$repo_large/large.bin"
+    git -C "$repo_large" add large.bin
+    git -C "$repo_large" -c user.name='Audit Fixture' \
+        -c user.email='audit@example.invalid' commit -qm 'add existing large file'
+    printf 'changed\n' > "$repo_large/fixture.txt"
+    git -C "$repo_large" add fixture.txt
+    if PATH="$repo_large/bin:/usr/bin:/bin" \
+        "$repo_large/scripts/audit.sh" --staged >/dev/null 2>&1; then
+        fail 'complete-index policy missed an existing oversized file'
+    fi
+
+    git -C "$repo_large" mv large.bin 'large file.bin'
+    large_path='large file.bin'
+    large_sha=$(sha256sum "$repo_large/$large_path" | cut -d' ' -f1)
+    large_size=$(stat -c %s "$repo_large/$large_path")
+    printf '%s\t%s\t%s\t%s\n' "$large_sha" "$large_size" "$large_path" \
+        'Deterministic audit fixture' > "$repo_large/.audit-large-files"
+    git -C "$repo_large" add .audit-large-files
+    PATH="$repo_large/bin:/usr/bin:/bin" \
+        "$repo_large/scripts/audit.sh" --staged >/dev/null || \
+        fail 'exact large-file exception for a spaced path was rejected'
+
+    if [[ ${large_sha:0:1} == 0 ]]; then
+        bad_sha="1${large_sha:1}"
+    else
+        bad_sha="0${large_sha:1}"
+    fi
+    private_reason='private-rationale-marker-must-not-leak'
+    printf '%s\t%s\t%s\t%s\n' "$bad_sha" "$large_size" "$large_path" \
+        "$private_reason" > "$repo_large/.audit-large-files"
+    git -C "$repo_large" add .audit-large-files
+    if PATH="$repo_large/bin:/usr/bin:/bin" \
+        "$repo_large/scripts/audit-large-files.sh" --staged >"$large_log" 2>&1; then
+        fail 'digest-mismatched large-file exception was accepted'
+    fi
+    if rg -Fq "$private_reason" "$large_log"; then
+        fail 'large-file audit disclosed exception rationale content'
+    fi
+
+    printf '%s\t%s\t%s\t%s\n' "$large_sha" "$((large_size + 1))" "$large_path" \
+        'Wrong-size audit fixture' > "$repo_large/.audit-large-files"
+    git -C "$repo_large" add .audit-large-files
+    if PATH="$repo_large/bin:/usr/bin:/bin" \
+        "$repo_large/scripts/audit-large-files.sh" --staged >/dev/null 2>&1; then
+        fail 'size-mismatched large-file exception was accepted'
+    fi
+
+    printf '%s\t%s\t%s\n' "$large_sha" "$large_size" "$large_path" \
+        > "$repo_large/.audit-large-files"
+    git -C "$repo_large" add .audit-large-files
+    if PATH="$repo_large/bin:/usr/bin:/bin" \
+        "$repo_large/scripts/audit-large-files.sh" --staged >/dev/null 2>&1; then
+        fail 'three-field large-file exception was accepted'
+    fi
+
+    printf '%s\t%s\t%s\t%s\n' 'not-a-sha256-digest' "$large_size" "$large_path" \
+        'Malformed audit fixture' > "$repo_large/.audit-large-files"
+    git -C "$repo_large" add .audit-large-files
+    if PATH="$repo_large/bin:/usr/bin:/bin" \
+        "$repo_large/scripts/audit-large-files.sh" --staged >/dev/null 2>&1; then
+        fail 'malformed large-file exception was accepted'
+    fi
+
+    printf '%s\t%s\t%s\t%s\n' "$large_sha" "$large_size" "$large_path" \
+        'Deterministic audit fixture' > "$repo_large/.audit-large-files"
+    printf '%s\t%s\t%s\t%s\n' "$large_sha" "$large_size" "$large_path" \
+        'Duplicate audit fixture' >> "$repo_large/.audit-large-files"
+    git -C "$repo_large" add .audit-large-files
+    if PATH="$repo_large/bin:/usr/bin:/bin" \
+        "$repo_large/scripts/audit-large-files.sh" --staged >/dev/null 2>&1; then
+        fail 'duplicate large-file exception was accepted'
+    fi
+
+    printf '%s\t%s\t%s\t%s\n' "$large_sha" "$large_size" "$large_path" \
+        'Deterministic audit fixture' > "$repo_large/.audit-large-files"
+    printf '%s\t%s\t%s\t%s\n' "$large_sha" "$large_size" 'stale.bin' \
+        'Stale audit fixture' >> "$repo_large/.audit-large-files"
+    git -C "$repo_large" add .audit-large-files
+    if PATH="$repo_large/bin:/usr/bin:/bin" \
+        "$repo_large/scripts/audit-large-files.sh" --staged >/dev/null 2>&1; then
+        fail 'stale large-file exception was accepted'
+    fi
+
+    printf '%s\t%s\t%s\t%s\n' "$large_sha" "$large_size" 'large.bin' \
+        'Renamed audit fixture' > "$repo_large/.audit-large-files"
+    git -C "$repo_large" add .audit-large-files
+    if PATH="$repo_large/bin:/usr/bin:/bin" \
+        "$repo_large/scripts/audit-large-files.sh" --staged >/dev/null 2>&1; then
+        fail 'renamed large-file exception was accepted'
+    fi
+
+    printf 'small\n' > "$repo_large/small.bin"
+    small_sha=$(sha256sum "$repo_large/small.bin" | cut -d' ' -f1)
+    small_size=$(stat -c %s "$repo_large/small.bin")
+    printf '%s\t%s\t%s\t%s\n' "$large_sha" "$large_size" "$large_path" \
+        'Deterministic audit fixture' > "$repo_large/.audit-large-files"
+    printf '%s\t%s\t%s\t%s\n' "$small_sha" "$small_size" 'small.bin' \
+        'Unnecessary audit fixture exception' >> "$repo_large/.audit-large-files"
+    git -C "$repo_large" add .audit-large-files small.bin
+    if PATH="$repo_large/bin:/usr/bin:/bin" \
+        "$repo_large/scripts/audit-large-files.sh" --staged >/dev/null 2>&1; then
+        fail 'unnecessary below-threshold exception was accepted'
+    fi
+
+    for unsafe_path in '../outside.bin' '/tmp/outside.bin' \
+        'nested/../outside.bin' './large file.bin' 'nested//outside.bin'; do
+        printf '%s\t%s\t%s\t%s\n' "$large_sha" "$large_size" "$large_path" \
+            'Deterministic audit fixture' > "$repo_large/.audit-large-files"
+        printf '%s\t%s\t%s\t%s\n' "$large_sha" "$large_size" "$unsafe_path" \
+            'Unsafe-path audit fixture' >> "$repo_large/.audit-large-files"
+        git -C "$repo_large" add .audit-large-files
+        if PATH="$repo_large/bin:/usr/bin:/bin" \
+            "$repo_large/scripts/audit-large-files.sh" --staged >/dev/null 2>&1; then
+            fail "path-unsafe large-file exception was accepted: $unsafe_path"
+        fi
+    done
+fi
