@@ -24,6 +24,10 @@ cp -a -- "$REPO_ROOT/dotfiles/.config/hypr" "$audit_home/.config/hypr"
 config="$audit_home/.config/hypr/hyprland.lua"
 failures=0
 tested=0
+hyprland_root_args=()
+if [[ $(command id -u) == 0 ]]; then
+    hyprland_root_args+=(--i-am-really-stupid)
+fi
 
 verify() {
     local label=$1
@@ -31,7 +35,7 @@ verify() {
     tested=$((tested + 1))
     output=$(HOME="$audit_home" XDG_CONFIG_HOME="$audit_home/.config" \
         XDG_RUNTIME_DIR="$runtime_dir" \
-        Hyprland --verify-config --config "$config" 2>&1) || true
+        Hyprland "${hyprland_root_args[@]}" --verify-config --config "$config" 2>&1) || true
     if ! grep -q '^config ok$' <<< "$output"; then
         printf 'FAIL: %s\n%s\n' "$label" "$output" >&2
         failures=$((failures + 1))
