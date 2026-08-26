@@ -220,9 +220,10 @@ Remove managed links while retaining packages and all mutable state:
 
 The local pre-commit hook runs `./scripts/audit.sh --staged`. The scanner checks
 sensitive filenames, credential signatures, unsafe credential storage,
-machine-specific home paths, unexpected large files, whitespace, and the full
-quick validation suite. See [SECURITY.md](SECURITY.md) for reporting guidance
-and [CONTRIBUTING.md](CONTRIBUTING.md) for repository rules.
+machine-specific home paths, all files over 10 MiB unless a digest-bound
+exception is documented, whitespace, and the full quick validation suite. See
+[SECURITY.md](SECURITY.md) for reporting guidance and
+[CONTRIBUTING.md](CONTRIBUTING.md) for repository rules.
 
 MyHyprlandRice is independently maintained. Required attribution for inherited
 GPL-licensed code and assets is preserved in [NOTICE](NOTICE); it does not imply

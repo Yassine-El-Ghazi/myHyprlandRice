@@ -47,11 +47,6 @@ else
     files=("${existing_files[@]}")
 fi
 
-if ((${#files[@]} == 0)); then
-    success 'Nothing to audit.'
-    exit 0
-fi
-
 failures=0
 
 read_file() {
@@ -126,14 +121,10 @@ for file in "${files[@]}"; do
     fi
 done
 
-if [[ $MODE == staged ]]; then
-    while IFS= read -r -d '' file; do
-        size=$(git cat-file -s ":$file")
-        if ((size > 10 * 1024 * 1024)); then
-            warn "New file exceeds 10 MiB; use Git LFS or document an exception: $file"
-            failures=$((failures + 1))
-        fi
-    done < <(git diff --cached --name-only -z --diff-filter=A)
+large_file_args=()
+[[ $MODE != staged ]] || large_file_args+=(--staged)
+if ! "$SCRIPT_DIR/audit-large-files.sh" "${large_file_args[@]}"; then
+    failures=$((failures + 1))
 fi
 
 gitleaks_works() {
