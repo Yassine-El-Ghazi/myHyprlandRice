@@ -136,6 +136,8 @@ run_check 'Staged snapshot and history audit behavior' \
     "$REPO_ROOT/tests/test-audit.sh"
 run_check 'Validation tool and runtime isolation' \
     "$REPO_ROOT/tests/test-validation-environment.sh"
+run_check 'Private baseline evidence behavior' \
+    "$REPO_ROOT/tests/test-baseline-evidence.sh"
 run_check 'Stateful all-float runtime action' lua "$REPO_ROOT/tests/test-runtime-actions.lua"
 run_check 'Zsh module loader behavior' "$REPO_ROOT/tests/test-zsh-loader.sh"
 run_check 'Dynamic monitor behavior' "$REPO_ROOT/tests/test-toggle-refresh.sh"
