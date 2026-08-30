@@ -290,12 +290,23 @@ _maintenance_tx_validate() {
 }
 
 _maintenance_tx_require_active() {
-    local requested=$1 active
+    local requested=$1 active fd lock_file lock_target lock_canonical lock_id
 
     _maintenance_tx_validate "$requested" || return 1
     [[ -n ${MYHYPR_TRANSACTION_DIR:-} ]] || return 1
     active=$(realpath -e -- "$MYHYPR_TRANSACTION_DIR" 2>/dev/null) || return 1
-    [[ $_MAINTENANCE_VALIDATED_TX_DIR == "$active" ]]
+    [[ $_MAINTENANCE_VALIDATED_TX_DIR == "$active" ]] || return 1
+
+    fd=${MYHYPR_MAINTENANCE_LOCK_FD:-}
+    [[ $fd =~ ^[0-9]+$ && -e /proc/$$/fd/$fd ]] || return 1
+    lock_file="$MAINTENANCE_RUNTIME_ROOT/maintenance.lock"
+    _maintenance_validate_owned_file "$lock_file" || return 1
+    lock_target=$(readlink -f -- "/proc/$$/fd/$fd" 2>/dev/null) || return 1
+    lock_canonical=$(realpath -e -- "$lock_file" 2>/dev/null) || return 1
+    [[ $lock_target == "$lock_canonical" ]] || return 1
+    flock -n "$fd" || return 75
+    IFS= read -r lock_id < "$lock_file" || return 1
+    [[ $lock_id == "${_MAINTENANCE_VALIDATED_TX_DIR##*/}" ]]
 }
 
 maintenance_journal_update() {
