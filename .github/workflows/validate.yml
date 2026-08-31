@@ -22,8 +22,8 @@ jobs:
       - name: Install validation dependencies
         run: >-
           pacman -Syu --noconfirm --needed
-          bash fish git gitleaks hyprland jq lua python qt6-declarative
-          ripgrep shellcheck stow zsh
+          bash bubblewrap fish git gitleaks hyprland jq lua python
+          qt6-declarative ripgrep shellcheck stow util-linux zsh
 
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -31,8 +31,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Prepare unprivileged validation account
+        run: |
+          useradd --create-home --user-group myhypr-validator
+          chown --recursive --no-dereference \
+            myhypr-validator:myhypr-validator "$GITHUB_WORKSPACE"
+
       - name: Validate every configuration variant
-        run: ./scripts/check.sh --require-tools
+        run: |
+          validator_home=$(getent passwd myhypr-validator | cut -d: -f6)
+          runuser --user myhypr-validator -- env HOME="$validator_home" \
+            ./scripts/check.sh --require-tools
 
       - name: Audit worktree and history
-        run: ./scripts/audit.sh --history
+        run: |
+          validator_home=$(getent passwd myhypr-validator | cut -d: -f6)
+          runuser --user myhypr-validator -- env HOME="$validator_home" \
+            ./scripts/audit.sh --history

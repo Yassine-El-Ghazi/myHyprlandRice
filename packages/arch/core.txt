@@ -3,6 +3,8 @@ base-devel
 git
 stow
 rsync
+bubblewrap
+util-linux
 curl
 wget
 unzip

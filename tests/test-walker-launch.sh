@@ -43,6 +43,7 @@ chmod +x -- "$FAKE_BIN/elephant" "$FAKE_BIN/walker"
 # A path-like setting must be rejected and fall back to the local MyHypr theme.
 printf '../../outside\n' > "$TEST_HOME/.config/myhypr/settings/walker-theme"
 HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
+    XDG_CONFIG_HOME="$TEST_HOME/.config" \
     "$REPO_ROOT/dotfiles/.config/walker/launch.sh" --keep-open
 rg -q '^elephant daemon$' "$WALKER_TEST_LOG"
 rg -q '^walker <-t> <myhypr> <--keep-open>$' "$WALKER_TEST_LOG"
@@ -50,6 +51,7 @@ rg -q '^walker <-t> <myhypr> <--keep-open>$' "$WALKER_TEST_LOG"
 # A declared local theme is accepted without restarting an available service.
 printf 'glass\n' > "$TEST_HOME/.config/myhypr/settings/walker-theme"
 HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
+    XDG_CONFIG_HOME="$TEST_HOME/.config" \
     "$REPO_ROOT/dotfiles/.config/walker/launch.sh"
 [[ $(rg -c '^elephant daemon$' "$WALKER_TEST_LOG") -eq 1 ]]
 rg -q '^walker <-t> <glass>$' "$WALKER_TEST_LOG"

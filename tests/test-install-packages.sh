@@ -16,6 +16,29 @@ cleanup() {
 trap cleanup EXIT
 
 desktop_manifest="$REPO_ROOT/packages/arch/desktop.txt"
+core_manifest="$REPO_ROOT/packages/arch/core.txt"
+validation_workflow="$REPO_ROOT/.github/workflows/validate.yml"
+for maintenance_package in bubblewrap util-linux; do
+    rg -Fxq "$maintenance_package" "$core_manifest" || {
+        printf 'Core profile is missing maintenance sandbox package: %s\n' \
+            "$maintenance_package" >&2
+        exit 1
+    }
+    rg -q "(^|[[:space:]])${maintenance_package}([[:space:]]|$)" \
+        "$validation_workflow" || {
+        printf 'CI is missing maintenance sandbox package: %s\n' \
+            "$maintenance_package" >&2
+        exit 1
+    }
+done
+rg -q 'runuser --user myhypr-validator' "$validation_workflow" || {
+    printf 'CI maintenance validation is not explicitly unprivileged.\n' >&2
+    exit 1
+}
+rg -q 'chown --recursive --no-dereference' "$validation_workflow" || {
+    printf 'CI ownership preparation may dereference repository symlinks.\n' >&2
+    exit 1
+}
 [[ $(rg -c '^elephant-all$' "$desktop_manifest") -eq 1 ]]
 if rg -q '^elephant$|^elephant-(calc|clipboard|desktopapplications|files|menus|providerlist|runner|symbols|todo|websearch)$' \
     "$desktop_manifest"; then

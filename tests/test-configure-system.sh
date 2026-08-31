@@ -78,6 +78,7 @@ chmod +x -- "$FAKE_BIN"/*
 
 run_configure() {
     HOME="$TEST_HOME" \
+    XDG_CONFIG_HOME="$TEST_HOME/.config" \
     DISPLAY='' \
     WAYLAND_DISPLAY=wayland-test \
     HYPRLAND_INSTANCE_SIGNATURE=hypr-test \

@@ -144,6 +144,8 @@ run_check 'Universal maintenance recovery behavior' \
     "$REPO_ROOT/tests/test-maintenance-recovery.sh"
 run_check 'Snapshot recovery provider behavior' \
     "$REPO_ROOT/tests/test-maintenance-snapshot.sh"
+run_check 'Incoming Git candidate behavior' \
+    "$REPO_ROOT/tests/test-maintenance-git.sh"
 run_check 'Stateful all-float runtime action' lua "$REPO_ROOT/tests/test-runtime-actions.lua"
 run_check 'Zsh module loader behavior' "$REPO_ROOT/tests/test-zsh-loader.sh"
 run_check 'Dynamic monitor behavior' "$REPO_ROOT/tests/test-toggle-refresh.sh"
