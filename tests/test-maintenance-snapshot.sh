@@ -304,7 +304,7 @@ incomplete_tx=$MYHYPR_TRANSACTION_DIR
 set +e
 incomplete_output=$(PATH="$SNAPPER_BIN:$COMMON_BIN:$HOST_COMMAND_PATH" \
     SNAPSHOT_TEST_SCENARIO=snapper-root ASSUME_YES=0 \
-    snapshot_create "$incomplete_tx" snapper 2>&1)
+    snapshot_create "$incomplete_tx" snapper </dev/null 2>&1)
 incomplete_status=$?
 set -e
 [[ $incomplete_status -eq 2 ]] || \

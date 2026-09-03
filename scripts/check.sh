@@ -148,6 +148,10 @@ run_check 'Incoming Git candidate behavior' \
     "$REPO_ROOT/tests/test-maintenance-git.sh"
 run_check 'Postflight health evidence behavior' \
     "$REPO_ROOT/tests/test-maintenance-postflight.sh"
+run_check 'Maintenance preflight behavior' \
+    "$REPO_ROOT/tests/test-maintenance-preflight.sh"
+run_check 'Transactional dotfiles maintenance behavior' \
+    "$REPO_ROOT/tests/test-maintenance-dotfiles.sh"
 run_check 'Stateful all-float runtime action' lua "$REPO_ROOT/tests/test-runtime-actions.lua"
 run_check 'Zsh module loader behavior' "$REPO_ROOT/tests/test-zsh-loader.sh"
 run_check 'Dynamic monitor behavior' "$REPO_ROOT/tests/test-toggle-refresh.sh"

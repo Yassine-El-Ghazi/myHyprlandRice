@@ -94,7 +94,7 @@ fi
     PATH="$FAKE_BIN" \
     WAYLAND_DISPLAY=wayland-test DISPLAY=:1 \
     PACKAGE_TEST_BIN="$PACKAGE_TEST_BIN" PACKAGE_TEST_LOG="$PACKAGE_TEST_LOG" \
-    "$REPO_ROOT/scripts/install-packages.sh" --profile core --yes
+    "$REPO_ROOT/scripts/install-packages.sh" --profile core --yes </dev/null
 
 rg -q '^git clone --depth 1 https://aur\.archlinux\.org/paru-bin\.git ' \
     "$PACKAGE_TEST_LOG"

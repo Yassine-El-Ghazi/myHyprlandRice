@@ -78,58 +78,67 @@ _recovery_blocking_parent() {
 }
 
 _recovery_build_scope() {
-    local repo_root=$1 target_home=$2 output=$3 path relative blocking
+    local repo_root=$1 target_home=$2 output=$3 candidate_root=${4:-}
+    local inventory_root path relative blocking
     local defaults_inventory tracked_inventory inventory_error=0
+    local -a inventory_roots=("$repo_root")
     local -A candidates=() final=()
 
+    [[ -z $candidate_root ]] || inventory_roots+=("$candidate_root")
     defaults_inventory=$(mktemp "$(dirname -- "$output")/.defaults.XXXXXXXX") || return 1
     tracked_inventory=$(mktemp "$(dirname -- "$output")/.tracked.XXXXXXXX") || {
         rm -f -- "$defaults_inventory"
         return 1
     }
-    if [[ -d $repo_root/defaults ]]; then
-        if ! find -P "$repo_root/defaults" -type f -print0 > "$defaults_inventory"; then
+    for inventory_root in "${inventory_roots[@]}"; do
+        : > "$defaults_inventory"
+        : > "$tracked_inventory"
+        if [[ -d $inventory_root/defaults ]]; then
+            if ! find -P "$inventory_root/defaults" -type f -print0 \
+                > "$defaults_inventory"; then
+                rm -f -- "$defaults_inventory" "$tracked_inventory"
+                return 1
+            fi
+            while IFS= read -r -d '' path; do
+                relative=${path#"$inventory_root/defaults/"}
+                if ! recovery_validate_relative "$relative"; then
+                    inventory_error=1
+                    break
+                fi
+                candidates["$relative"]=1
+            done < "$defaults_inventory"
+            if (( inventory_error != 0 )); then
+                rm -f -- "$defaults_inventory" "$tracked_inventory"
+                return 1
+            fi
+        fi
+        while IFS= read -r -d '' relative; do
+            recovery_validate_relative "$relative" || {
+                rm -f -- "$defaults_inventory" "$tracked_inventory"
+                return 1
+            }
+            candidates["$relative"]=1
+        done < <(_recovery_local_scope)
+        if ! git -C "$inventory_root" ls-files -z -- dotfiles \
+            > "$tracked_inventory"; then
             rm -f -- "$defaults_inventory" "$tracked_inventory"
             return 1
         fi
         while IFS= read -r -d '' path; do
-            relative=${path#"$repo_root/defaults/"}
+            relative=${path#dotfiles/}
+            [[ $relative == .stow-local-ignore ]] && continue
             if ! recovery_validate_relative "$relative"; then
                 inventory_error=1
                 break
             fi
+            [[ -f $inventory_root/$path || -L $inventory_root/$path ]] || continue
             candidates["$relative"]=1
-        done < "$defaults_inventory"
+        done < "$tracked_inventory"
         if (( inventory_error != 0 )); then
             rm -f -- "$defaults_inventory" "$tracked_inventory"
             return 1
         fi
-    fi
-    while IFS= read -r -d '' relative; do
-        recovery_validate_relative "$relative" || {
-            rm -f -- "$defaults_inventory" "$tracked_inventory"
-            return 1
-        }
-        candidates["$relative"]=1
-    done < <(_recovery_local_scope)
-    if ! git -C "$repo_root" ls-files -z -- dotfiles > "$tracked_inventory"; then
-        rm -f -- "$defaults_inventory" "$tracked_inventory"
-        return 1
-    fi
-    while IFS= read -r -d '' path; do
-        relative=${path#dotfiles/}
-        [[ $relative == .stow-local-ignore ]] && continue
-        if ! recovery_validate_relative "$relative"; then
-            inventory_error=1
-            break
-        fi
-        [[ -f $repo_root/$path || -L $repo_root/$path ]] || continue
-        candidates["$relative"]=1
-    done < "$tracked_inventory"
-    if (( inventory_error != 0 )); then
-        rm -f -- "$defaults_inventory" "$tracked_inventory"
-        return 1
-    fi
+    done
     rm -f -- "$defaults_inventory" "$tracked_inventory"
 
     while IFS= read -r relative; do
@@ -141,6 +150,28 @@ _recovery_build_scope() {
         fi
     done < <(printf '%s\n' "${!candidates[@]}" | LC_ALL=C sort -u)
     printf '%s\n' "${!final[@]}" | LC_ALL=C sort -u > "$output"
+}
+
+_recovery_candidate_root() {
+    local tx_dir=$1 repo_root=$2 candidate_root candidate expected top canonical
+
+    candidate_root="$tx_dir/candidate"
+    if [[ ! -e $candidate_root && ! -L $candidate_root ]]; then
+        return 0
+    fi
+    [[ -d $candidate_root && ! -L $candidate_root ]] || return 1
+    canonical=$(realpath -e -- "$candidate_root" 2>/dev/null) || return 1
+    [[ $canonical == "$tx_dir/candidate" ]] || return 1
+    top=$(git -C "$canonical" rev-parse --show-toplevel 2>/dev/null) || return 1
+    top=$(realpath -e -- "$top" 2>/dev/null) || return 1
+    [[ $top == "$canonical" ]] || return 1
+    candidate=$(git -C "$canonical" rev-parse HEAD 2>/dev/null) || return 1
+    expected=$(jq -er '.candidate_commit | select(type == "string")' \
+        "$tx_dir/journal.json" 2>/dev/null) || return 1
+    [[ $candidate =~ ^[0-9a-f]{40}$ && $candidate == "$expected" ]] || return 1
+    [[ $(git -C "$repo_root" cat-file -t "$candidate" 2>/dev/null) == commit ]] || \
+        return 1
+    printf '%s\n' "$canonical"
 }
 
 _recovery_capture_state() {
@@ -235,6 +266,7 @@ _recovery_sha256_text() {
 recovery_checkpoint_create() {
     local tx_dir=${1:-} repo_root=${2:-} target_home=${3:-}
     local checkpoint checkpoint_tmp runtime scope manifest missing managed services modes
+    local candidate_root
     local relative type detail mode current_commit repo_commit target_digest manifest_digest
     local modes_digest now
     local unit service_state
@@ -251,6 +283,7 @@ recovery_checkpoint_create() {
         "$tx_dir/journal.json" 2>/dev/null) || return 1
     repo_commit=$(git -C "$repo_root" rev-parse HEAD 2>/dev/null) || return 1
     [[ $current_commit == "$repo_commit" ]] || return 1
+    candidate_root=$(_recovery_candidate_root "$tx_dir" "$repo_root") || return 1
     checkpoint_tmp=$(mktemp -d "$tx_dir/.checkpoint.XXXXXXXX") || return 1
     chmod 0700 -- "$checkpoint_tmp" || {
         rm -rf -- "$checkpoint_tmp"
@@ -276,7 +309,8 @@ recovery_checkpoint_create() {
         rm -rf -- "$checkpoint_tmp"
         return 1
     }
-    if ! _recovery_build_scope "$repo_root" "$target_home" "$scope"; then
+    if ! _recovery_build_scope "$repo_root" "$target_home" "$scope" \
+        "$candidate_root"; then
         rm -rf -- "$checkpoint_tmp"
         return 1
     fi

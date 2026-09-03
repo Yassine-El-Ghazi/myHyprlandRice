@@ -70,6 +70,8 @@ printf '%s\n' \
     '    fi' \
     '    ;;' \
     '  pgrep)' \
+    '    if [[ $POSTFLIGHT_SCENARIO == disabled-components && ( $* == *waybar* || $* == *dock-hyprland* ) ]]; then exit 1; fi' \
+    '    if [[ $POSTFLIGHT_SCENARIO == disabled-still-running && ( $* == *waybar* || $* == *dock-hyprland* ) ]]; then exit 0; fi' \
     '    if [[ $POSTFLIGHT_SCENARIO == process-fail && $* == *waybar* ]]; then exit 43; fi' \
     '    ;;' \
     '  qs) [[ $* == "ipc show" ]] || exit 64 ;;' \
@@ -133,6 +135,7 @@ reset_context() {
     _maintenance_close_lock_fd
     unset MYHYPR_TRANSACTION_DIR MAINTENANCE_STATE_ROOT
     unset MAINTENANCE_RUNTIME_ROOT MAINTENANCE_TX_ROOT
+    unset XDG_CONFIG_HOME XDG_CACHE_HOME
     unset WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE
 }
 
@@ -142,11 +145,15 @@ begin_case() {
     reset_context
     case_root="$TEST_ROOT/$name"
     HOME="$case_root/home"
+    XDG_CONFIG_HOME="$case_root/config"
+    XDG_CACHE_HOME="$case_root/cache"
     XDG_STATE_HOME="$case_root/state"
     XDG_RUNTIME_DIR="$case_root/run"
-    export HOME XDG_STATE_HOME XDG_RUNTIME_DIR
-    mkdir -p -- "$HOME" "$XDG_STATE_HOME" "$XDG_RUNTIME_DIR"
-    chmod 0700 -- "$HOME" "$XDG_STATE_HOME" "$XDG_RUNTIME_DIR"
+    export HOME XDG_CONFIG_HOME XDG_CACHE_HOME XDG_STATE_HOME XDG_RUNTIME_DIR
+    mkdir -p -- "$HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" \
+        "$XDG_STATE_HOME" "$XDG_RUNTIME_DIR"
+    chmod 0700 -- "$HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" \
+        "$XDG_STATE_HOME" "$XDG_RUNTIME_DIR"
     maintenance_paths_init || fail "$name paths could not be initialized"
     maintenance_lock_acquire || fail "$name lock could not be acquired"
     maintenance_tx_begin "$operation" "$profile" '' '' || \
@@ -312,6 +319,38 @@ for expected in \
     rg -Fq "$expected" "$COMMAND_LOG" || fail "live check was not called exactly: $expected"
 done
 assert_json_omits_outputs "$TX_DIR/postflight.json"
+
+begin_case disabled-components dotfiles desktop
+POSTFLIGHT_SCENARIO=disabled-components
+export POSTFLIGHT_SCENARIO WAYLAND_DISPLAY=wayland-fixture
+export HYPRLAND_INSTANCE_SIGNATURE=hypr-fixture
+mkdir -p -- "$XDG_CONFIG_HOME/myhypr/settings"
+: > "$XDG_CONFIG_HOME/myhypr/settings/waybar-disabled"
+: > "$XDG_CONFIG_HOME/myhypr/settings/dock-disabled"
+run_postflight dotfiles desktop 0
+assert_common_schema "$TX_DIR/postflight.json" dotfiles desktop true
+jq -e '
+    .required_passed == true and
+    all(.checks[] | select(.name == "waybar" or .name == "dock");
+        .status == "passed" and .exit_status == 0)
+' "$TX_DIR/postflight.json" >/dev/null || \
+    fail 'intentionally disabled desktop components failed postflight'
+
+begin_case disabled-still-running dotfiles desktop
+POSTFLIGHT_SCENARIO=disabled-still-running
+export POSTFLIGHT_SCENARIO WAYLAND_DISPLAY=wayland-fixture
+export HYPRLAND_INSTANCE_SIGNATURE=hypr-fixture
+mkdir -p -- "$XDG_CONFIG_HOME/myhypr/settings"
+: > "$XDG_CONFIG_HOME/myhypr/settings/waybar-disabled"
+: > "$XDG_CONFIG_HOME/myhypr/settings/dock-disabled"
+run_postflight dotfiles desktop 1
+assert_common_schema "$TX_DIR/postflight.json" dotfiles desktop true
+jq -e '
+    .required_passed == false and
+    all(.checks[] | select(.name == "waybar" or .name == "dock");
+        .status == "failed")
+' "$TX_DIR/postflight.json" >/dev/null || \
+    fail 'running disabled desktop components were accepted'
 
 begin_case config-errors dotfiles desktop
 POSTFLIGHT_SCENARIO=config-errors

@@ -58,7 +58,16 @@ git -C "$FAKE_REPO" config user.email 'fixture@example.invalid'
 git -C "$FAKE_REPO" add -A
 git -C "$FAKE_REPO" commit -qm 'fixture recovery state'
 current_commit=$(git -C "$FAKE_REPO" rev-parse HEAD)
-candidate_commit=$(printf '2%.0s' {1..40})
+candidate_source="$TEST_ROOT/candidate-source"
+git -C "$FAKE_REPO" worktree add -q -b recovery-candidate \
+    "$candidate_source" "$current_commit"
+mkdir -p -- "$candidate_source/dotfiles/.config/candidate-only"
+printf 'candidate-only managed file\n' \
+    > "$candidate_source/dotfiles/.config/candidate-only/config"
+git -C "$candidate_source" add dotfiles/.config/candidate-only/config
+git -C "$candidate_source" commit -qm 'candidate-only managed path'
+candidate_commit=$(git -C "$candidate_source" rev-parse HEAD)
+git -C "$FAKE_REPO" worktree remove "$candidate_source"
 
 printf 'original\n' > "$TEST_HOME/.config/myhypr/settings/example"
 printf 'keep\n' > "$TEST_HOME/.config/myhypr/private"
@@ -129,6 +138,7 @@ maintenance_lock_acquire
 maintenance_tx_begin dotfiles desktop "$current_commit" "$candidate_commit"
 tx_dir=$MYHYPR_TRANSACTION_DIR
 tx_id=${tx_dir##*/}
+git -C "$FAKE_REPO" worktree add -q --detach "$tx_dir/candidate" "$candidate_commit"
 
 if recovery_validate_relative /absolute/path || \
     recovery_validate_relative '../outside' || \
@@ -188,6 +198,8 @@ rg -Fq $'symlink\t.config/app/config\t' "$checkpoint/manifest.tsv" || \
     fail 'the managed Stow leaf is outside the checkpoint scope'
 rg -Fq $'symlink\t.config/folded\t' "$checkpoint/manifest.tsv" || \
     fail 'the unexpected Stow parent conflict is outside the checkpoint scope'
+rg -Fq $'missing\t.config/candidate-only/config\t-' "$checkpoint/manifest.tsv" || \
+    fail 'an incoming candidate-only managed path is outside recovery scope'
 if rg -Fq '.config/folded/item' "$checkpoint/manifest.tsv"; then
     fail 'scope discovery followed an unexpected parent symlink'
 fi
@@ -219,6 +231,9 @@ done
 printf 'generated\n' > "$TEST_HOME/.config/myhypr/settings/example"
 printf 'generated new\n' > "$TEST_HOME/.config/myhypr/settings/new"
 printf 'generated selector\n' > "$TEST_HOME/.config/hypr/local.lua"
+mkdir -p -- "$TEST_HOME/.config/candidate-only"
+printf 'generated candidate-only state\n' \
+    > "$TEST_HOME/.config/candidate-only/config"
 printf '#!/usr/bin/env bash\nprintf "generated tool\\n"\n' \
     > "$TEST_HOME/.local/bin/recovery-tool"
 chmod 0755 "$TEST_HOME/.local/bin/recovery-tool"
@@ -276,6 +291,8 @@ recovery_checkpoint_restore "$tx_dir" "$FAKE_REPO" "$TEST_HOME" || \
     fail 'original runtime content was not restored'
 [[ ! -e $TEST_HOME/.config/myhypr/settings/new ]] || \
     fail 'a transaction-created runtime file was not removed'
+[[ ! -e $TEST_HOME/.config/candidate-only/config ]] || \
+    fail 'an incoming candidate-only managed file was not removed'
 [[ $(<"$TEST_HOME/.config/hypr/local.lua") == 'private selector' ]] || \
     fail 'the private local selector was not restored'
 rg -Fq 'original tool' "$TEST_HOME/.local/bin/recovery-tool" || \

@@ -239,8 +239,34 @@ _postflight_hyprland_config() {
     rm -f -- "$_POSTFLIGHT_CAPTURE_FILE"
 }
 
+_postflight_process_absent() {
+    local status=0
+
+    timeout --kill-after=1 5 "$@" >/dev/null 2>&1 || status=$?
+    [[ $status -eq 1 ]]
+}
+
+_postflight_component_process() {
+    local name=$1 disabled_marker=$2
+    shift 2
+
+    if [[ -e $disabled_marker || -L $disabled_marker ]]; then
+        if [[ ! -f $disabled_marker || -L $disabled_marker ]]; then
+            postflight_append "$name" true 1 health
+            return
+        fi
+        _postflight_run_check "$name" true health \
+            _postflight_process_absent "$@"
+        return
+    fi
+    _postflight_timed_check "$name" true health "$@"
+}
+
 _postflight_live_desktop() {
-    local tx_dir=$1
+    local tx_dir=$1 config_root settings_root
+
+    config_root=${XDG_CONFIG_HOME:-$HOME/.config}
+    settings_root="$config_root/myhypr/settings"
 
     _postflight_hyprland_config "$tx_dir" || true
     _postflight_timed_check myhypr-session true health \
@@ -249,8 +275,9 @@ _postflight_live_desktop() {
         systemctl --user is-active elephant.service || true
     _postflight_timed_check walker-service true health \
         systemctl --user is-active walker.service || true
-    _postflight_timed_check waybar true health pgrep -x waybar || true
-    _postflight_timed_check dock true health pgrep -f -- \
+    _postflight_component_process waybar "$settings_root/waybar-disabled" \
+        pgrep -x waybar || true
+    _postflight_component_process dock "$settings_root/dock-disabled" pgrep -f -- \
         '(^|/)[n]wg-dock-hyprland([[:space:]]|$)' || true
     _postflight_timed_check quickshell-process true health \
         pgrep -x quickshell || true
