@@ -121,8 +121,56 @@ write_snapshot_probe() {
     chmod 0600 -- "$tx_dir/snapshot-probe.json"
 }
 
+write_system_evidence() {
+    local tx_dir=$1 id=${1##*/}
+
+    jq -n --arg id "$id" '
+        {
+            version: 1,
+            transaction_id: $id,
+            created_at: "20260903T000000Z",
+            official: {status: "passed", count: 2, exit_status: 0},
+            aur: {status: "unavailable", helper: "none", count: 0, exit_status: 127},
+            flatpak: {
+                status: "unavailable",
+                user_remotes: 0,
+                system_remotes: 0,
+                stale_user: false,
+                stale_system: false,
+                stale_user_refs: false,
+                stale_system_refs: false
+            },
+            config_merges: {
+                status: "unavailable",
+                pacnew: 0,
+                pacsave: 0,
+                exit_status: 127
+            },
+            optional_checks: {
+                needrestart: "unavailable",
+                checkrebuild: "unavailable",
+                arch_audit: "unavailable",
+                informant: "unavailable"
+            },
+            notices: {
+                security: {status: "unavailable", count: 0, exit_status: 127},
+                maintenance: {status: "unavailable", count: 0, exit_status: 127}
+            },
+            reboot_sensitive_classes: ["kernel"]
+        }
+    ' > "$tx_dir/system-plan.json"
+    jq -n --arg id "$id" '
+        {
+            version: 1,
+            transaction_id: $id,
+            reboot_sensitive_classes: ["kernel"]
+        }
+    ' > "$tx_dir/package-plan.json"
+    chmod 0600 -- "$tx_dir/system-plan.json" "$tx_dir/package-plan.json"
+}
+
 begin_case() {
-    local name=$1 operation=$2 profile=$3 case_root
+    local name=$1 operation=$2 profile=$3 case_root candidate=$CANDIDATE_COMMIT
 
     reset_context
     case_root="$TEST_ROOT/$name"
@@ -134,11 +182,16 @@ begin_case() {
     chmod 0700 -- "$HOME" "$XDG_STATE_HOME" "$XDG_RUNTIME_DIR"
     maintenance_paths_init || fail "$name paths could not be initialized"
     maintenance_lock_acquire || fail "$name lock could not be acquired"
+    [[ $operation != system ]] || candidate=''
     maintenance_tx_begin "$operation" "$profile" \
-        "$CURRENT_COMMIT" "$CANDIDATE_COMMIT" || \
+        "$CURRENT_COMMIT" "$candidate" || \
         fail "$name transaction could not begin"
     TX_DIR=$MYHYPR_TRANSACTION_DIR
-    write_git_evidence "$TX_DIR"
+    if [[ $operation == system ]]; then
+        write_system_evidence "$TX_DIR"
+    else
+        write_git_evidence "$TX_DIR"
+    fi
     write_snapshot_probe "$TX_DIR"
     : > "$PROBE_LOG"
 }
@@ -260,6 +313,20 @@ PREFLIGHT_SCENARIO=unsupported-os
 run_preflight system full 1
 assert_schema "$TX_DIR/preflight.json" system full
 assert_failed_class unsupported-operating-system
+
+begin_case system-passed system full
+PREFLIGHT_SCENARIO=passed
+run_preflight system full 0
+assert_schema "$TX_DIR/preflight.json" system full
+jq -e '.required_passed == true and .result == "passed"' \
+    "$TX_DIR/preflight.json" >/dev/null || fail 'healthy system preflight did not pass'
+
+begin_case system-plan-missing system full
+PREFLIGHT_SCENARIO=passed
+rm -f -- "$TX_DIR/system-plan.json"
+run_preflight system full 1
+assert_schema "$TX_DIR/preflight.json" system full
+assert_failed_class upstream-unavailable
 
 begin_case snapshot-unaccepted dotfiles desktop
 PREFLIGHT_SCENARIO=passed

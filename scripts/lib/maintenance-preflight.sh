@@ -93,6 +93,99 @@ _preflight_remote_ready() {
     git -C "$repo" merge-base --is-ancestor HEAD "$candidate"
 }
 
+_preflight_system_plan() {
+    local tx_dir=$1 plan
+
+    plan="$tx_dir/system-plan.json"
+    _maintenance_validate_owned_file "$plan" || return 1
+    jq -e --arg id "${tx_dir##*/}" '
+        def bounded_count:
+            type == "number" and . >= 0 and . <= 100000;
+        def exit_status:
+            type == "number" and . >= 0 and . <= 255;
+        def query_status:
+            . == "passed" or . == "failed" or . == "unavailable";
+        .version == 1 and .transaction_id == $id and
+        (.created_at | type == "string" and test("^[0-9]{8}T[0-9]{6}Z$")) and
+        (.official | keys | sort) == (["count","exit_status","status"] | sort) and
+        (.official.status | query_status) and (.official.count | bounded_count) and
+        (.official.exit_status | exit_status) and
+        (.aur | keys | sort) == (["count","exit_status","helper","status"] | sort) and
+        (.aur.status | query_status) and (.aur.count | bounded_count) and
+        (.aur.exit_status | exit_status) and
+        (.aur.helper == "paru" or .aur.helper == "yay" or .aur.helper == "none") and
+        (.flatpak | keys | sort) == ([
+            "stale_system","stale_system_refs","stale_user","stale_user_refs",
+            "status","system_remotes","user_remotes"
+        ] | sort) and
+        (.flatpak.status | query_status) and
+        (.flatpak.user_remotes | bounded_count) and
+        (.flatpak.system_remotes | bounded_count) and
+        (.flatpak.stale_user | type == "boolean") and
+        (.flatpak.stale_system | type == "boolean") and
+        (.flatpak.stale_user_refs | type == "boolean") and
+        (.flatpak.stale_system_refs | type == "boolean") and
+        (.config_merges | keys | sort) ==
+            (["exit_status","pacnew","pacsave","status"] | sort) and
+        (.config_merges.status | query_status) and
+        (.config_merges.pacnew | bounded_count) and
+        (.config_merges.pacsave | bounded_count) and
+        (.config_merges.exit_status | exit_status) and
+        (.optional_checks | keys | sort) ==
+            (["arch_audit","checkrebuild","informant","needrestart"] | sort) and
+        all(.optional_checks[]; . == "available" or . == "unavailable") and
+        (.notices | keys | sort) == (["maintenance","security"] | sort) and
+        all(.notices[];
+            (keys | sort) == (["count","exit_status","status"] | sort) and
+            (.status == "passed" or .status == "failed" or
+                .status == "attention" or .status == "unavailable") and
+            (.count | bounded_count) and (.exit_status | exit_status)
+        ) and
+        (.reboot_sensitive_classes | type == "array" and length <= 5) and
+        all(.reboot_sensitive_classes[];
+            . == "kernel" or . == "systemd" or . == "graphics-stack" or
+            . == "firmware" or . == "libc"
+        ) and
+        (.reboot_sensitive_classes | length) ==
+            (.reboot_sensitive_classes | unique | length) and
+        (keys | sort) == ([
+            "aur","config_merges","created_at","flatpak","notices",
+            "official","optional_checks","reboot_sensitive_classes",
+            "transaction_id","version"
+        ] | sort) and
+        .official.status == "passed" and
+        (.aur.status == "passed" or .aur.status == "unavailable") and
+        (.flatpak.status == "passed" or .flatpak.status == "unavailable")
+    ' "$plan" >/dev/null 2>&1
+}
+
+_preflight_system_repository() {
+    local tx_dir=$1 repo=$2 journal current recorded candidate plan
+
+    journal="$tx_dir/journal.json"
+    current=$(git -C "$repo" rev-parse HEAD 2>/dev/null) || return 1
+    recorded=$(jq -er '.current_commit | select(type == "string")' \
+        "$journal" 2>/dev/null) || return 1
+    candidate=$(jq -er '.candidate_commit | select(type == "string")' \
+        "$journal" 2>/dev/null) || return 1
+    [[ $current =~ ^[0-9a-f]{40}$ && $recorded == "$current" && \
+        -z $candidate ]] || return 1
+    plan="$tx_dir/package-plan.json"
+    _maintenance_validate_owned_file "$plan" || return 1
+    jq -e --arg id "${tx_dir##*/}" '
+        .version == 1 and .transaction_id == $id and
+        (.reboot_sensitive_classes | type == "array" and length <= 5) and
+        all(.reboot_sensitive_classes[];
+            . == "kernel" or . == "systemd" or . == "graphics-stack" or
+            . == "firmware" or . == "libc"
+        ) and
+        (.reboot_sensitive_classes | length) ==
+            (.reboot_sensitive_classes | unique | length) and
+        (keys | sort) ==
+            (["reboot_sensitive_classes","transaction_id","version"] | sort)
+    ' "$plan" >/dev/null 2>&1
+}
+
 _preflight_candidate_evidence() {
     local tx_dir=$1 journal candidate evidence
 
@@ -211,7 +304,7 @@ _preflight_required_commands() {
     if [[ $operation == dotfiles ]]; then
         required+=(stow)
     else
-        required+=(sed awk)
+        required+=(sed awk checkupdates)
     fi
     if [[ $profile == desktop || $profile == full ]]; then
         required+=(systemctl)
@@ -349,11 +442,20 @@ maintenance_preflight() {
     _preflight_record repository-clean "$status" worktree-dirty || result=74
 
     status=0
-    _preflight_remote_ready "$_PREFLIGHT_REPO" >/dev/null 2>&1 || status=$?
+    if [[ $operation == dotfiles ]]; then
+        _preflight_remote_ready "$_PREFLIGHT_REPO" >/dev/null 2>&1 || status=$?
+    else
+        _preflight_system_plan "$tx_dir" >/dev/null 2>&1 || status=$?
+    fi
     _preflight_record upstream-network "$status" upstream-unavailable || result=74
 
     status=0
-    _preflight_candidate_evidence "$tx_dir" >/dev/null 2>&1 || status=$?
+    if [[ $operation == dotfiles ]]; then
+        _preflight_candidate_evidence "$tx_dir" >/dev/null 2>&1 || status=$?
+    else
+        _preflight_system_repository "$tx_dir" "$_PREFLIGHT_REPO" \
+            >/dev/null 2>&1 || status=$?
+    fi
     _preflight_record candidate-evidence "$status" candidate-untrusted || result=74
 
     status=0

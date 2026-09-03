@@ -33,34 +33,66 @@ if ! command -v flatpak >/dev/null 2>&1; then
     exit 0
 fi
 
-removed=0
-blocked=0
+declare -A legacy_configured=([user]=0 [system]=0)
+declare -A legacy_has_refs=([user]=0 [system]=0)
+declare -A removed_scope=([user]=0 [system]=0)
+
 for scope in user system; do
     scope_flag="--$scope"
-    if ! flatpak remotes "$scope_flag" --columns=name 2>/dev/null | \
-        grep -Fxq -- "$LEGACY_REMOTE"; then
-        continue
+    if remotes=$(flatpak "$scope_flag" remotes --columns=name 2>/dev/null); then
+        :
+    else
+        die "Could not inspect $scope Flatpak remotes safely."
     fi
-
-    if flatpak list "$scope_flag" --columns=origin 2>/dev/null | \
-        grep -Fxq -- "$LEGACY_REMOTE"; then
+    grep -Fxq -- "$LEGACY_REMOTE" <<< "$remotes" || continue
+    legacy_configured[$scope]=1
+    if origins=$(flatpak "$scope_flag" list --columns=origin 2>/dev/null); then
+        :
+    else
+        die "Could not inspect installed $scope Flatpak refs safely."
+    fi
+    if grep -Fxq -- "$LEGACY_REMOTE" <<< "$origins"; then
+        legacy_has_refs[$scope]=1
         warn "$scope Flatpak remote '$LEGACY_REMOTE' still owns installed refs; retaining it."
-        blocked=1
-        continue
     fi
-
-    confirm "Remove unused $scope Flatpak remote '$LEGACY_REMOTE'?"
-    run flatpak remote-delete "$scope_flag" "$LEGACY_REMOTE"
-    removed=1
 done
 
-if [[ $blocked -eq 1 ]]; then
+if [[ ${legacy_has_refs[user]} -eq 1 || ${legacy_has_refs[system]} -eq 1 ]]; then
     die "Migrate refs from '$LEGACY_REMOTE' before removing the remote."
 fi
 
-if [[ $removed -eq 1 ]]; then
+for scope in user system; do
+    [[ ${legacy_configured[$scope]} -eq 1 ]] || continue
+    confirm "Remove unused $scope Flatpak remote '$LEGACY_REMOTE'?"
+    if [[ $scope == user ]]; then
+        run flatpak --user remote-delete "$LEGACY_REMOTE"
+    else
+        ensure_sudo_session
+        run sudo flatpak --system remote-delete "$LEGACY_REMOTE"
+    fi
+    removed_scope[$scope]=1
+done
+
+if [[ ${removed_scope[user]} -eq 1 || ${removed_scope[system]} -eq 1 ]]; then
     info 'Refreshing metadata for the remaining Flatpak remotes'
-    run flatpak update --appstream -y
+    for scope in user system; do
+        [[ ${removed_scope[$scope]} -eq 1 ]] || continue
+        if remaining=$(flatpak "--$scope" remotes --columns=name 2>/dev/null); then
+            :
+        else
+            die "Could not re-check $scope Flatpak remotes safely."
+        fi
+        if ! grep -Fvx -- "$LEGACY_REMOTE" <<< "$remaining" | \
+            grep -q '[^[:space:]]'; then
+            continue
+        fi
+        if [[ $scope == user ]]; then
+            run flatpak --user update --appstream -y
+        else
+            ensure_sudo_session
+            run sudo flatpak --system update --appstream -y
+        fi
+    done
     success "Removed the unused '$LEGACY_REMOTE' Flatpak remote."
 else
     success "No stale '$LEGACY_REMOTE' Flatpak remote is configured."

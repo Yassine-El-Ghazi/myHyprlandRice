@@ -36,10 +36,12 @@ usage() {
 Usage:
   scripts/maintenance.sh plan dotfiles [options]
   scripts/maintenance.sh apply dotfiles [options]
+  scripts/maintenance.sh plan system [options]
+  scripts/maintenance.sh apply system [options]
   scripts/maintenance.sh status [TRANSACTION_ID]
   scripts/maintenance.sh recover TRANSACTION_ID
 
-Options for plan/apply dotfiles:
+Options for plan/apply:
   --profile core|desktop|full       Package profile (default: desktop)
   --snapshot auto|none|snapper|timeshift
                                     Recovery provider (default: auto)
@@ -75,7 +77,7 @@ parse_cli() {
             }
             OPERATION=$1
             shift
-            [[ $OPERATION == dotfiles ]] || {
+            [[ $OPERATION == dotfiles || $OPERATION == system ]] || {
                 warn "Unsupported maintenance operation: $OPERATION"
                 return 64
             }
@@ -221,7 +223,15 @@ write_snapshot_probe() {
 }
 
 prepare_update() {
-    maintenance_git_prepare "$TX_DIR" "$REPO_ROOT" || return $?
+    if [[ $OPERATION == dotfiles ]]; then
+        maintenance_git_prepare "$TX_DIR" "$REPO_ROOT" || return $?
+    else
+        command -v pacman >/dev/null 2>&1 || {
+            warn 'System maintenance supports Arch/CachyOS hosts with pacman.'
+            return 69
+        }
+        system_plan_prepare || return $?
+    fi
     write_snapshot_probe || return $?
     maintenance_preflight "$OPERATION" "$PROFILE" "$TX_DIR" "$REPO_ROOT"
 }
@@ -287,7 +297,400 @@ flatpak_repair_count() {
     FLATPAK_COUNT_AVAILABLE=true
 }
 
+_system_capture() {
+    local size
+    local -a statuses=()
+
+    _SYSTEM_CAPTURE_FILE=$(mktemp "$TX_DIR/.system-query.XXXXXXXX") || return 1
+    chmod 0600 -- "$_SYSTEM_CAPTURE_FILE" || {
+        rm -f -- "$_SYSTEM_CAPTURE_FILE"
+        return 1
+    }
+    if timeout --kill-after=2 120 "$@" 2>/dev/null | \
+        head -c 1048577 > "$_SYSTEM_CAPTURE_FILE"; then
+        statuses=("${PIPESTATUS[@]}")
+    else
+        statuses=("${PIPESTATUS[@]}")
+    fi
+    [[ ${statuses[1]} -eq 0 ]] || {
+        rm -f -- "$_SYSTEM_CAPTURE_FILE"
+        return 1
+    }
+    size=$(stat -c %s -- "$_SYSTEM_CAPTURE_FILE" 2>/dev/null) || {
+        rm -f -- "$_SYSTEM_CAPTURE_FILE"
+        return 1
+    }
+    if ((size > 1048576)); then
+        _SYSTEM_CAPTURE_STATUS=75
+    else
+        _SYSTEM_CAPTURE_STATUS=${statuses[0]}
+        ((_SYSTEM_CAPTURE_STATUS <= 255)) || _SYSTEM_CAPTURE_STATUS=74
+    fi
+}
+
+_system_capture_discard() {
+    [[ -z ${_SYSTEM_CAPTURE_FILE:-} ]] || rm -f -- "$_SYSTEM_CAPTURE_FILE"
+    _SYSTEM_CAPTURE_FILE=''
+}
+
+_system_count_lines() {
+    local file=$1 count
+
+    count=$(awk 'NF { count += 1 } END { print count + 0 }' "$file") || return 1
+    [[ $count =~ ^[0-9]+$ ]] || return 1
+    ((count <= 100000)) || count=100000
+    _SYSTEM_COUNT=$count
+}
+
+_system_reboot_classes() {
+    local file=$1 package
+    declare -A classes=()
+
+    while read -r package _; do
+        package=${package##*/}
+        case $package in
+            linux-firmware*|fwupd) classes[firmware]=1 ;;
+            linux|linux-[0-9]*|linux-lts|linux-zen|linux-hardened|linux-cachyos*)
+                classes[kernel]=1
+                ;;
+            systemd|systemd-libs|systemd-resolvconf|systemd-sysvcompat)
+                classes[systemd]=1
+                ;;
+            mesa|lib32-mesa|nvidia*|lib32-nvidia*|vulkan-*|lib32-vulkan-*|\
+                xf86-video-*|xorg-server*)
+                classes[graphics-stack]=1
+                ;;
+            glibc|lib32-glibc) classes[libc]=1 ;;
+        esac
+    done < "$file"
+    if ((${#classes[@]})); then
+        printf '%s\n' "${!classes[@]}" | LC_ALL=C sort
+    fi
+}
+
+_system_optional_availability() {
+    if command -v -- "$1" >/dev/null 2>&1; then
+        printf 'available\n'
+    else
+        printf 'unavailable\n'
+    fi
+}
+
+_system_write_plans() {
+    local now reboot_json next package_next
+    local -a reboot_classes=("$@")
+
+    now=$(timestamp)
+    reboot_json=$(jq -cn --args '$ARGS.positional' -- "${reboot_classes[@]}") || \
+        return 1
+    next=$(mktemp "$TX_DIR/.system-plan.XXXXXXXX") || return 1
+    if ! jq -n --arg id "${TX_DIR##*/}" --arg now "$now" \
+        --arg official_status "$SYSTEM_OFFICIAL_STATUS" \
+        --argjson official_count "$SYSTEM_OFFICIAL_COUNT" \
+        --argjson official_exit "$SYSTEM_OFFICIAL_EXIT" \
+        --arg aur_status "$SYSTEM_AUR_STATUS" --arg aur_helper "$SYSTEM_AUR_HELPER" \
+        --argjson aur_count "$SYSTEM_AUR_COUNT" \
+        --argjson aur_exit "$SYSTEM_AUR_EXIT" \
+        --arg flatpak_status "$SYSTEM_FLATPAK_STATUS" \
+        --argjson user_remotes "$SYSTEM_USER_REMOTES" \
+        --argjson system_remotes "$SYSTEM_SYSTEM_REMOTES" \
+        --argjson stale_user "$SYSTEM_STALE_USER" \
+        --argjson stale_system "$SYSTEM_STALE_SYSTEM" \
+        --argjson stale_user_refs "$SYSTEM_STALE_USER_REFS" \
+        --argjson stale_system_refs "$SYSTEM_STALE_SYSTEM_REFS" \
+        --arg merge_status "$SYSTEM_MERGE_STATUS" \
+        --argjson merge_exit "$SYSTEM_MERGE_EXIT" \
+        --argjson pacnew "$SYSTEM_PACNEW_COUNT" \
+        --argjson pacsave "$SYSTEM_PACSAVE_COUNT" \
+        --arg needrestart "$SYSTEM_NEEDRESTART" \
+        --arg checkrebuild "$SYSTEM_CHECKREBUILD" \
+        --arg arch_audit "$SYSTEM_ARCH_AUDIT" --arg informant "$SYSTEM_INFORMANT" \
+        --arg security_status "$SYSTEM_SECURITY_STATUS" \
+        --argjson security_count "$SYSTEM_SECURITY_COUNT" \
+        --argjson security_exit "$SYSTEM_SECURITY_EXIT" \
+        --arg maintenance_status "$SYSTEM_MAINTENANCE_STATUS" \
+        --argjson maintenance_count "$SYSTEM_MAINTENANCE_COUNT" \
+        --argjson maintenance_exit "$SYSTEM_MAINTENANCE_EXIT" \
+        --argjson reboot "$reboot_json" '
+        {
+            version: 1,
+            transaction_id: $id,
+            created_at: $now,
+            official: {
+                status: $official_status,
+                count: $official_count,
+                exit_status: $official_exit
+            },
+            aur: {
+                status: $aur_status,
+                helper: $aur_helper,
+                count: $aur_count,
+                exit_status: $aur_exit
+            },
+            flatpak: {
+                status: $flatpak_status,
+                user_remotes: $user_remotes,
+                system_remotes: $system_remotes,
+                stale_user: $stale_user,
+                stale_system: $stale_system,
+                stale_user_refs: $stale_user_refs,
+                stale_system_refs: $stale_system_refs
+            },
+            config_merges: {
+                status: $merge_status,
+                pacnew: $pacnew,
+                pacsave: $pacsave,
+                exit_status: $merge_exit
+            },
+            optional_checks: {
+                needrestart: $needrestart,
+                checkrebuild: $checkrebuild,
+                arch_audit: $arch_audit,
+                informant: $informant
+            },
+            notices: {
+                security: {
+                    status: $security_status,
+                    count: $security_count,
+                    exit_status: $security_exit
+                },
+                maintenance: {
+                    status: $maintenance_status,
+                    count: $maintenance_count,
+                    exit_status: $maintenance_exit
+                }
+            },
+            reboot_sensitive_classes: $reboot
+        }
+    ' > "$next"; then
+        rm -f -- "$next"
+        return 1
+    fi
+    chmod 0600 -- "$next" || {
+        rm -f -- "$next"
+        return 1
+    }
+    mv -- "$next" "$TX_DIR/system-plan.json" || {
+        rm -f -- "$next"
+        return 1
+    }
+
+    package_next=$(mktemp "$TX_DIR/.package-plan.XXXXXXXX") || return 1
+    if ! jq -n --arg id "${TX_DIR##*/}" --argjson reboot "$reboot_json" '
+        {
+            version: 1,
+            transaction_id: $id,
+            reboot_sensitive_classes: $reboot
+        }
+    ' > "$package_next"; then
+        rm -f -- "$package_next"
+        return 1
+    fi
+    chmod 0600 -- "$package_next" || {
+        rm -f -- "$package_next"
+        return 1
+    }
+    mv -- "$package_next" "$TX_DIR/package-plan.json" || {
+        rm -f -- "$package_next"
+        return 1
+    }
+}
+
+system_plan_prepare() {
+    local scope status package
+    local -a reboot_classes=()
+
+    SYSTEM_OFFICIAL_STATUS=unavailable
+    SYSTEM_OFFICIAL_COUNT=0
+    SYSTEM_OFFICIAL_EXIT=127
+    SYSTEM_AUR_STATUS=unavailable
+    SYSTEM_AUR_HELPER=none
+    SYSTEM_AUR_COUNT=0
+    SYSTEM_AUR_EXIT=127
+    SYSTEM_FLATPAK_STATUS=unavailable
+    SYSTEM_USER_REMOTES=0
+    SYSTEM_SYSTEM_REMOTES=0
+    SYSTEM_STALE_USER=false
+    SYSTEM_STALE_SYSTEM=false
+    SYSTEM_STALE_USER_REFS=false
+    SYSTEM_STALE_SYSTEM_REFS=false
+    SYSTEM_MERGE_STATUS=unavailable
+    SYSTEM_MERGE_EXIT=127
+    SYSTEM_PACNEW_COUNT=0
+    SYSTEM_PACSAVE_COUNT=0
+    SYSTEM_NEEDRESTART=$(_system_optional_availability needrestart)
+    SYSTEM_CHECKREBUILD=$(_system_optional_availability checkrebuild)
+    SYSTEM_ARCH_AUDIT=$(_system_optional_availability arch-audit)
+    SYSTEM_INFORMANT=$(_system_optional_availability informant)
+    SYSTEM_SECURITY_STATUS=unavailable
+    SYSTEM_SECURITY_COUNT=0
+    SYSTEM_SECURITY_EXIT=127
+    SYSTEM_MAINTENANCE_STATUS=unavailable
+    SYSTEM_MAINTENANCE_COUNT=0
+    SYSTEM_MAINTENANCE_EXIT=127
+
+    if command -v pacman >/dev/null 2>&1 && \
+        command -v checkupdates >/dev/null 2>&1; then
+        _system_capture checkupdates || return 74
+        status=$_SYSTEM_CAPTURE_STATUS
+        if [[ $status -eq 0 ]]; then
+            _system_count_lines "$_SYSTEM_CAPTURE_FILE" || {
+                _system_capture_discard
+                return 74
+            }
+            SYSTEM_OFFICIAL_STATUS=passed
+            SYSTEM_OFFICIAL_COUNT=$_SYSTEM_COUNT
+            mapfile -t reboot_classes < <(
+                _system_reboot_classes "$_SYSTEM_CAPTURE_FILE"
+            )
+        elif [[ $status -eq 2 ]]; then
+            SYSTEM_OFFICIAL_STATUS=passed
+            SYSTEM_OFFICIAL_COUNT=0
+        else
+            SYSTEM_OFFICIAL_STATUS=failed
+        fi
+        SYSTEM_OFFICIAL_EXIT=$status
+        _system_capture_discard
+    fi
+
+    for package in paru yay; do
+        command -v "$package" >/dev/null 2>&1 || continue
+        SYSTEM_AUR_HELPER=$package
+        _system_capture "$package" -Qua || return 74
+        status=$_SYSTEM_CAPTURE_STATUS
+        SYSTEM_AUR_EXIT=$status
+        if [[ $status -eq 0 ]]; then
+            _system_count_lines "$_SYSTEM_CAPTURE_FILE" || {
+                _system_capture_discard
+                return 74
+            }
+            SYSTEM_AUR_STATUS=passed
+            SYSTEM_AUR_COUNT=$_SYSTEM_COUNT
+        else
+            SYSTEM_AUR_STATUS=failed
+        fi
+        _system_capture_discard
+        break
+    done
+
+    if command -v flatpak >/dev/null 2>&1; then
+        SYSTEM_FLATPAK_STATUS=passed
+        for scope in user system; do
+            _system_capture flatpak "--$scope" remotes --columns=name || return 74
+            status=$_SYSTEM_CAPTURE_STATUS
+            if [[ $status -ne 0 ]]; then
+                SYSTEM_FLATPAK_STATUS=failed
+                _system_capture_discard
+                continue
+            fi
+            _system_count_lines "$_SYSTEM_CAPTURE_FILE" || {
+                _system_capture_discard
+                return 74
+            }
+            if [[ $scope == user ]]; then
+                SYSTEM_USER_REMOTES=$_SYSTEM_COUNT
+                if grep -Fxq -- ml4w-repo "$_SYSTEM_CAPTURE_FILE"; then
+                    SYSTEM_STALE_USER=true
+                fi
+            else
+                SYSTEM_SYSTEM_REMOTES=$_SYSTEM_COUNT
+                if grep -Fxq -- ml4w-repo "$_SYSTEM_CAPTURE_FILE"; then
+                    SYSTEM_STALE_SYSTEM=true
+                fi
+            fi
+            _system_capture_discard
+
+            if [[ ($scope == user && $SYSTEM_STALE_USER == true) || \
+                ($scope == system && $SYSTEM_STALE_SYSTEM == true) ]]; then
+                _system_capture flatpak "--$scope" list --columns=origin || return 74
+                status=$_SYSTEM_CAPTURE_STATUS
+                if [[ $status -ne 0 ]]; then
+                    SYSTEM_FLATPAK_STATUS=failed
+                elif grep -Fxq -- ml4w-repo "$_SYSTEM_CAPTURE_FILE"; then
+                    if [[ $scope == user ]]; then
+                        SYSTEM_STALE_USER_REFS=true
+                    else
+                        SYSTEM_STALE_SYSTEM_REFS=true
+                    fi
+                fi
+                _system_capture_discard
+            fi
+        done
+    fi
+
+    if command -v pacdiff >/dev/null 2>&1; then
+        _system_capture pacdiff --output || return 74
+        status=$_SYSTEM_CAPTURE_STATUS
+        SYSTEM_MERGE_EXIT=$status
+        if [[ $status -eq 0 ]]; then
+            SYSTEM_MERGE_STATUS=passed
+            SYSTEM_PACNEW_COUNT=$(awk '
+                length($0) >= 7 && substr($0, length($0) - 6) == ".pacnew" {
+                    count += 1
+                }
+                END { print count + 0 }
+            ' "$_SYSTEM_CAPTURE_FILE") || {
+                _system_capture_discard
+                return 74
+            }
+            SYSTEM_PACSAVE_COUNT=$(awk '
+                length($0) >= 8 && substr($0, length($0) - 7) == ".pacsave" {
+                    count += 1
+                }
+                END { print count + 0 }
+            ' "$_SYSTEM_CAPTURE_FILE") || {
+                _system_capture_discard
+                return 74
+            }
+            ((SYSTEM_PACNEW_COUNT <= 100000)) || SYSTEM_PACNEW_COUNT=100000
+            ((SYSTEM_PACSAVE_COUNT <= 100000)) || SYSTEM_PACSAVE_COUNT=100000
+        else
+            SYSTEM_MERGE_STATUS=failed
+        fi
+        _system_capture_discard
+    fi
+
+    if [[ $SYSTEM_ARCH_AUDIT == available ]]; then
+        _system_capture arch-audit --upgradable || return 74
+        status=$_SYSTEM_CAPTURE_STATUS
+        SYSTEM_SECURITY_EXIT=$status
+        if [[ $status -eq 0 ]]; then
+            _system_count_lines "$_SYSTEM_CAPTURE_FILE" || {
+                _system_capture_discard
+                return 74
+            }
+            SYSTEM_SECURITY_STATUS=passed
+            SYSTEM_SECURITY_COUNT=$_SYSTEM_COUNT
+        else
+            SYSTEM_SECURITY_STATUS=failed
+        fi
+        _system_capture_discard
+    fi
+
+    if [[ $SYSTEM_INFORMANT == available ]]; then
+        _system_capture informant check || return 74
+        status=$_SYSTEM_CAPTURE_STATUS
+        SYSTEM_MAINTENANCE_EXIT=$status
+        if [[ $status -eq 0 ]]; then
+            SYSTEM_MAINTENANCE_STATUS=passed
+            SYSTEM_MAINTENANCE_COUNT=0
+        else
+            SYSTEM_MAINTENANCE_STATUS=attention
+            SYSTEM_MAINTENANCE_COUNT=1
+        fi
+        _system_capture_discard
+    fi
+
+    _system_write_plans "${reboot_classes[@]}"
+}
+
 mutable_stages() {
+    if [[ $OPERATION == system ]]; then
+        printf '%s\n' \
+            'checkpoint,snapshot,packages,flatpak,owned-state,postflight,known-good'
+        return
+    fi
+
     local -a stages=(checkpoint snapshot git-promote packages migration)
 
     if [[ $PROFILE == desktop || $PROFILE == full ]]; then
@@ -309,6 +712,60 @@ mutable_stages() {
     printf '%s\n' "${stages[*]}"
 }
 
+print_system_plan() {
+    local probe=$1 manual=$2 stage_list=$3 plan reboot
+
+    plan="$TX_DIR/system-plan.json"
+    reboot=$(jq -r '
+        if .reboot_sensitive_classes | length == 0 then "none"
+        else .reboot_sensitive_classes | join(",") end
+    ' "$plan") || return 1
+
+    printf 'Transaction: %s\n' "${TX_DIR##*/}"
+    printf 'Operation: %s\n' "$OPERATION"
+    printf 'Profile: %s\n' "$PROFILE"
+    printf 'Current commit: %s\n' "$CURRENT_COMMIT"
+    printf 'Mutable stages: %s\n' "$stage_list"
+    printf 'Package updates: repository=%s,aur=%s (official=%s,aur=%s,helper=%s)\n' \
+        "$(jq -r '.official.count' "$plan")" \
+        "$(jq -r '.aur.count' "$plan")" \
+        "$(jq -r '.official.status' "$plan")" \
+        "$(jq -r '.aur.status' "$plan")" \
+        "$(jq -r '.aur.helper' "$plan")"
+    printf 'Flatpak remotes: user=%s,system=%s,status=%s\n' \
+        "$(jq -r '.flatpak.user_remotes' "$plan")" \
+        "$(jq -r '.flatpak.system_remotes' "$plan")" \
+        "$(jq -r '.flatpak.status' "$plan")"
+    printf 'Legacy Flatpak state: user=%s,user-refs=%s,system=%s,system-refs=%s\n' \
+        "$(jq -r '.flatpak.stale_user' "$plan")" \
+        "$(jq -r '.flatpak.stale_user_refs' "$plan")" \
+        "$(jq -r '.flatpak.stale_system' "$plan")" \
+        "$(jq -r '.flatpak.stale_system_refs' "$plan")"
+    printf 'Config merges: pacnew=%s,pacsave=%s,status=%s\n' \
+        "$(jq -r '.config_merges.pacnew' "$plan")" \
+        "$(jq -r '.config_merges.pacsave' "$plan")" \
+        "$(jq -r '.config_merges.status' "$plan")"
+    printf 'Optional checks: needrestart=%s,checkrebuild=%s,arch-audit=%s,informant=%s\n' \
+        "$(jq -r '.optional_checks.needrestart' "$plan")" \
+        "$(jq -r '.optional_checks.checkrebuild' "$plan")" \
+        "$(jq -r '.optional_checks.arch_audit' "$plan")" \
+        "$(jq -r '.optional_checks.informant' "$plan")"
+    printf 'Notices: security=%s:%s,maintenance=%s:%s\n' \
+        "$(jq -r '.notices.security.status' "$plan")" \
+        "$(jq -r '.notices.security.count' "$plan")" \
+        "$(jq -r '.notices.maintenance.status' "$plan")" \
+        "$(jq -r '.notices.maintenance.count' "$plan")"
+    printf 'Reboot-sensitive classes: %s\n' "$reboot"
+    printf 'Manual intervention: %s\n' "$manual"
+    printf 'Recovery provider: %s\n' "$(jq -r '.provider' "$probe")"
+    printf 'Recovery coverage: root=%s,package-db=%s,home=%s,boot=%s\n' \
+        "$(jq -r '.coverage.root' "$probe")" \
+        "$(jq -r '.coverage.package_db' "$probe")" \
+        "$(jq -r '.coverage.home' "$probe")" \
+        "$(jq -r '.coverage.boot' "$probe")"
+    printf 'Recovery limitation: package rollback is manual without a complete system snapshot.\n'
+}
+
 print_plan() {
     local probe manual stages changed=no
 
@@ -318,6 +775,10 @@ print_plan() {
         else .manual_intervention | join(",") end
     ' "$TX_DIR/preflight.json") || return 1
     stages=$(mutable_stages) || return 1
+    if [[ $OPERATION == system ]]; then
+        print_system_plan "$probe" "$manual" "$stages"
+        return
+    fi
     package_counts "$TX_DIR/candidate"
     flatpak_repair_count
     [[ $CANDIDATE_CHANGED -eq 0 ]] || changed=yes
@@ -409,8 +870,37 @@ snapshot_stage() {
 packages_stage() {
     local -a args=(--profile "$PROFILE")
 
+    if [[ $OPERATION == system ]]; then
+        system_packages_stage
+        return
+    fi
     [[ $ASSUME_YES -eq 0 ]] || args+=(--yes)
-    run_helper_logged packages "$REPO_ROOT/scripts/install-packages.sh" "${args[@]}"
+    run_helper_logged packages.log "$REPO_ROOT/scripts/install-packages.sh" \
+        "${args[@]}"
+}
+
+system_packages_stage() {
+    local helper
+
+    helper=$(jq -er '.aur.helper | select(type == "string")' \
+        "$TX_DIR/system-plan.json") || return 1
+    case $helper in
+        paru)
+            command -v paru >/dev/null 2>&1 || return 69
+            maintenance_log_run "$TX_DIR" packages.log \
+                paru --sudoloop --useask -Syu
+            ;;
+        yay)
+            command -v yay >/dev/null 2>&1 || return 69
+            maintenance_log_run "$TX_DIR" packages.log \
+                yay --sudoloop --answerclean None --answerdiff None -Syu
+            ;;
+        none)
+            command -v pacman >/dev/null 2>&1 || return 69
+            maintenance_log_run "$TX_DIR" packages.log sudo pacman -Syu
+            ;;
+        *) return 1 ;;
+    esac
 }
 
 migration_stage() {
@@ -423,8 +913,47 @@ migration_stage() {
 flatpak_stage() {
     local -a args=()
 
+    if [[ $OPERATION == system ]]; then
+        system_flatpak_stage
+        return
+    fi
     [[ $ASSUME_YES -eq 0 ]] || args+=(--yes)
     run_helper_logged flatpak "$REPO_ROOT/scripts/repair-flatpak.sh" "${args[@]}"
+}
+
+flatpak_scope_remote_count() {
+    local scope=$1 status
+
+    _system_capture flatpak "--$scope" remotes --columns=name || return 74
+    status=$_SYSTEM_CAPTURE_STATUS
+    if [[ $status -ne 0 ]]; then
+        _system_capture_discard
+        return "$status"
+    fi
+    _system_count_lines "$_SYSTEM_CAPTURE_FILE" || {
+        _system_capture_discard
+        return 74
+    }
+    FLATPAK_SCOPE_REMOTE_COUNT=$_SYSTEM_COUNT
+    _system_capture_discard
+}
+
+system_flatpak_stage() {
+    command -v flatpak >/dev/null 2>&1 || return 0
+
+    run_helper_logged flatpak-repair.log \
+        "$REPO_ROOT/scripts/repair-flatpak.sh" --yes || return $?
+
+    flatpak_scope_remote_count user || return $?
+    if ((FLATPAK_SCOPE_REMOTE_COUNT > 0)); then
+        maintenance_log_run "$TX_DIR" flatpak-user.log \
+            flatpak --user update -y || return $?
+    fi
+    flatpak_scope_remote_count system || return $?
+    if ((FLATPAK_SCOPE_REMOTE_COUNT > 0)); then
+        maintenance_log_run "$TX_DIR" flatpak-system.log \
+            sudo flatpak --system update -y || return $?
+    fi
 }
 
 links_stage() {
@@ -544,20 +1073,70 @@ handle_apply_failure() {
     return "$status"
 }
 
-begin_dotfiles_transaction() {
+begin_transaction() {
     unset MYHYPR_TRANSACTION_DIR MYHYPR_MAINTENANCE_LOCK_FD
     maintenance_paths_init || return $?
     maintenance_lock_acquire || return $?
     CURRENT_COMMIT=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null) || return 1
     [[ $CURRENT_COMMIT =~ ^[0-9a-f]{40}$ ]] || return 1
-    maintenance_tx_begin dotfiles "$PROFILE" "$CURRENT_COMMIT" '' || return $?
+    maintenance_tx_begin "$OPERATION" "$PROFILE" "$CURRENT_COMMIT" '' || return $?
     TX_DIR=$MYHYPR_TRANSACTION_DIR
+}
+
+load_prepared_context() {
+    CANDIDATE_COMMIT=$(jq -er '.candidate_commit | select(type == "string")' \
+        "$TX_DIR/journal.json") || return 1
+    CANDIDATE_CHANGED=0
+    [[ -z $CANDIDATE_COMMIT || $CANDIDATE_COMMIT == "$CURRENT_COMMIT" ]] || \
+        CANDIDATE_CHANGED=1
+    LIVE_DESKTOP=0
+    if [[ $PROFILE != core && -n ${WAYLAND_DISPLAY:-} && \
+        -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+        LIVE_DESKTOP=1
+    fi
+}
+
+apply_stage() {
+    local status
+
+    if run_stage "$@"; then
+        return 0
+    else
+        status=$?
+    fi
+    handle_apply_failure "$status"
+    return "$status"
+}
+
+apply_authentication() {
+    local stage=$1 status
+
+    if authenticate_once; then
+        return 0
+    else
+        status=$?
+    fi
+    record_stage_failure "$stage" "$status" || return 74
+    handle_apply_failure "$status"
+    return "$status"
+}
+
+confirm_system_apply() {
+    local answer
+
+    [[ $ASSUME_YES -eq 0 ]] || return 0
+    if [[ ! -t 0 ]]; then
+        warn 'System maintenance needs plan confirmation; re-run with --yes.'
+        return 2
+    fi
+    read -r -p 'Apply this system maintenance transaction? [y/N] ' answer
+    [[ $answer == [yY] || $answer == [yY][eE][sS] ]] || return 2
 }
 
 run_plan() {
     local status
 
-    begin_dotfiles_transaction || return $?
+    begin_transaction || return $?
     if run_stage preflight prepare_update; then
         :
     else
@@ -567,175 +1146,99 @@ run_plan() {
         handle_apply_failure "$status"
         return "$status"
     fi
-    CANDIDATE_COMMIT=$(jq -er '.candidate_commit' "$TX_DIR/journal.json") || return 1
-    [[ $CANDIDATE_COMMIT != "$CURRENT_COMMIT" ]] && CANDIDATE_CHANGED=1
-    if [[ $PROFILE != core && -n ${WAYLAND_DISPLAY:-} && \
-        -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
-        LIVE_DESKTOP=1
-    fi
+    load_prepared_context || return 1
     maintenance_tx_transition "$TX_DIR" planned preflighted preflight || return 1
     maintenance_journal_update "$TX_DIR" '
         .result = "planned" |
         .updated_at = $now
     ' --arg now "$(timestamp)" || return 1
     print_plan || return 1
-    maintenance_git_cleanup "$TX_DIR" "$REPO_ROOT" || {
-        maintenance_tx_fail "$TX_DIR" preflight 74 candidate-cleanup-failed || true
-        return 74
-    }
+    if [[ $OPERATION == dotfiles ]]; then
+        maintenance_git_cleanup "$TX_DIR" "$REPO_ROOT" || {
+            maintenance_tx_fail "$TX_DIR" preflight 74 candidate-cleanup-failed || true
+            return 74
+        }
+    fi
     success 'Plan completed without changing the active configuration.'
 }
 
 run_apply() {
-    local status stage function stage_function
+    local status success_message='Dotfiles update committed successfully.'
 
-    begin_dotfiles_transaction || return $?
-    if run_stage preflight prepare_update; then
-        :
-    else
-        status=$?
-        handle_apply_failure "$status"
-        return "$status"
-    fi
-    CANDIDATE_COMMIT=$(jq -er '.candidate_commit' "$TX_DIR/journal.json") || return 1
-    [[ $CANDIDATE_COMMIT != "$CURRENT_COMMIT" ]] && CANDIDATE_CHANGED=1
-    if [[ $PROFILE != core && -n ${WAYLAND_DISPLAY:-} && \
-        -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
-        LIVE_DESKTOP=1
-    fi
+    begin_transaction || return $?
+    apply_stage preflight prepare_update || return $?
+    load_prepared_context || return 1
     maintenance_tx_transition "$TX_DIR" planned preflighted preflight || return 1
 
-    if run_stage checkpoint checkpoint_stage; then
-        :
-    else
-        status=$?
-        handle_apply_failure "$status"
-        return "$status"
+    if [[ $OPERATION == system ]]; then
+        print_plan || return 1
+        if confirm_system_apply; then
+            :
+        else
+            status=$?
+            maintenance_tx_fail "$TX_DIR" preflight "$status" \
+                confirmation-declined || return 74
+            handle_apply_failure "$status"
+            return "$status"
+        fi
     fi
-    maintenance_tx_transition "$TX_DIR" preflighted checkpointed checkpoint || return 1
+
+    apply_stage checkpoint checkpoint_stage || return $?
+    maintenance_tx_transition "$TX_DIR" preflighted checkpointed checkpoint || \
+        return 1
 
     if [[ $SNAPSHOT_PROVIDER != none ]]; then
-        if authenticate_once; then
-            :
-        else
-            status=$?
-            record_stage_failure snapshot "$status" || return 74
-            handle_apply_failure "$status"
-            return "$status"
-        fi
+        apply_authentication snapshot || return $?
     fi
-    if run_stage snapshot snapshot_stage; then
-        :
-    else
-        status=$?
-        handle_apply_failure "$status"
-        return "$status"
-    fi
+    apply_stage snapshot snapshot_stage || return $?
     maintenance_tx_transition "$TX_DIR" checkpointed applying snapshot || return 1
 
-    if run_stage git-promote maintenance_git_promote "$TX_DIR" "$REPO_ROOT"; then
-        :
-    else
-        status=$?
-        handle_apply_failure "$status"
-        return "$status"
+    if [[ $OPERATION == dotfiles ]]; then
+        apply_stage git-promote maintenance_git_promote "$TX_DIR" "$REPO_ROOT" || \
+            return $?
     fi
-    if authenticate_once; then
-        :
+    apply_authentication packages || return $?
+    apply_stage packages packages_stage || return $?
+
+    if [[ $OPERATION == dotfiles ]]; then
+        apply_stage migration migration_stage || return $?
+        if [[ $PROFILE == desktop || $PROFILE == full ]]; then
+            apply_stage flatpak flatpak_stage || return $?
+        fi
+        if [[ $CANDIDATE_CHANGED -eq 1 ]]; then
+            apply_stage links links_stage || return $?
+        fi
+        apply_stage seed seed_stage || return $?
+        if [[ $PROFILE == desktop || $PROFILE == full ]]; then
+            apply_stage system-config system_config_stage || return $?
+        fi
     else
-        status=$?
-        record_stage_failure packages "$status" || return 74
-        handle_apply_failure "$status"
-        return "$status"
+        apply_stage flatpak flatpak_stage || return $?
+        success_message='System update committed successfully.'
     fi
 
-    for stage_function in packages:packages_stage migration:migration_stage; do
-        stage=${stage_function%%:*}
-        function=${stage_function#*:}
-        if run_stage "$stage" "$function"; then
-            :
-        else
-            status=$?
-            handle_apply_failure "$status"
-            return "$status"
-        fi
-    done
-    if [[ $PROFILE == desktop || $PROFILE == full ]]; then
-        if run_stage flatpak flatpak_stage; then
-            :
-        else
-            status=$?
-            handle_apply_failure "$status"
-            return "$status"
-        fi
-    fi
-    if [[ $CANDIDATE_CHANGED -eq 1 ]]; then
-        if run_stage links links_stage; then
-            :
-        else
-            status=$?
-            handle_apply_failure "$status"
-            return "$status"
-        fi
-    fi
-    if run_stage seed seed_stage; then
-        :
-    else
-        status=$?
-        handle_apply_failure "$status"
-        return "$status"
-    fi
-    if [[ $PROFILE == desktop || $PROFILE == full ]]; then
-        if run_stage system-config system_config_stage; then
-            :
-        else
-            status=$?
-            handle_apply_failure "$status"
-            return "$status"
-        fi
-    fi
-    if run_stage owned-state recovery_capture_owned_state \
-        "$TX_DIR" "$REPO_ROOT" "$HOME"; then
-        :
-    else
-        status=$?
-        handle_apply_failure "$status"
-        return "$status"
-    fi
-    if [[ $LIVE_DESKTOP -eq 1 && $CANDIDATE_CHANGED -eq 1 ]]; then
-        if run_stage desktop-reload desktop_reload; then
-            :
-        else
-            status=$?
-            handle_apply_failure "$status"
-            return "$status"
-        fi
+    apply_stage owned-state recovery_capture_owned_state \
+        "$TX_DIR" "$REPO_ROOT" "$HOME" || return $?
+    if [[ $OPERATION == dotfiles && $LIVE_DESKTOP -eq 1 && \
+        $CANDIDATE_CHANGED -eq 1 ]]; then
+        apply_stage desktop-reload desktop_reload || return $?
     fi
 
     maintenance_tx_transition "$TX_DIR" applying verifying postflight || return 1
-    if run_stage postflight maintenance_postflight dotfiles "$PROFILE" "$TX_DIR"; then
-        :
-    else
-        status=$?
-        handle_apply_failure "$status"
-        return "$status"
-    fi
-    if run_stage known-good known_good_stage; then
-        :
-    else
-        status=$?
-        handle_apply_failure "$status"
-        return "$status"
-    fi
+    apply_stage postflight maintenance_postflight \
+        "$OPERATION" "$PROFILE" "$TX_DIR" || return $?
+    apply_stage known-good known_good_stage || return $?
     maintenance_tx_transition "$TX_DIR" verifying committed known-good || return 1
     maintenance_known_good_promote "$TX_DIR" || {
         warn 'Known-good promotion was interrupted; `maintenance.sh status` can reconcile it.'
         return 74
     }
-    maintenance_git_cleanup "$TX_DIR" "$REPO_ROOT" || \
-        warn 'The validated candidate worktree could not be pruned automatically.'
+    if [[ $OPERATION == dotfiles ]]; then
+        maintenance_git_cleanup "$TX_DIR" "$REPO_ROOT" || \
+            warn 'The validated candidate worktree could not be pruned automatically.'
+    fi
     maintenance_retention_prune || warn 'Old successful maintenance evidence was not pruned.'
-    success 'Dotfiles update committed successfully.'
+    success "$success_message"
 }
 
 adopt_transaction() {

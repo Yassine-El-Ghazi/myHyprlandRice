@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -Euo pipefail
 
+SCRIPT_PATH=$(readlink -f -- "${BASH_SOURCE[0]}")
+REPO_ROOT=$(cd -- "$(dirname -- "$SCRIPT_PATH")/../../../.." && pwd -P)
+
 pause_before_exit() {
     [[ -t 0 ]] || return 0
     printf '\nPress [ENTER] to close.'
@@ -42,47 +45,18 @@ else
 fi
 
 printf '\n:: Update started...\n'
-failures=0
-
-run_update() {
-    printf ':: Running:'
-    printf ' %q' "$@"
-    printf '\n'
-    if ! "$@"; then
-        printf ':: ERROR: command failed:' >&2
-        printf ' %q' "$@" >&2
-        printf '\n' >&2
-        failures=$((failures + 1))
-    fi
-}
-
-if command -v pacman >/dev/null 2>&1; then
-    if command -v paru >/dev/null 2>&1; then
-        run_update paru -Syu
-    elif command -v yay >/dev/null 2>&1; then
-        run_update yay -Syu
-    else
-        run_update sudo pacman -Syu
-    fi
-elif command -v dnf >/dev/null 2>&1; then
-    run_update sudo dnf upgrade
-else
-    printf ':: ERROR: unsupported package manager.\n' >&2
-    failures=$((failures + 1))
-fi
-
-if command -v flatpak >/dev/null 2>&1 && \
-    [[ -n $(flatpak remotes --columns=name 2>/dev/null) ]]; then
-    printf '\n:: Searching for Flatpak updates...\n'
-    run_update flatpak update -y
-fi
+"$REPO_ROOT/scripts/maintenance.sh" apply system
+update_status=$?
 
 pkill -RTMIN+1 waybar >/dev/null 2>&1 || true
 
-if [[ $failures -gt 0 ]]; then
-    printf '\n:: Update finished with %d error(s). Review the output above.\n' "$failures" >&2
+if [[ $update_status -ne 0 ]]; then
+    printf '\n:: Update stopped safely with status %d. Review the output above.\n' \
+        "$update_status" >&2
+    printf ':: Inspect recovery state with: %s/scripts/maintenance.sh status\n' \
+        "$REPO_ROOT" >&2
     pause_before_exit
-    exit 1
+    exit "$update_status"
 fi
 
 printf '\n:: All updates completed successfully.\n'
