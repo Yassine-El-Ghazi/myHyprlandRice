@@ -7,6 +7,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$SCRIPT_DIR/lib.sh"
 # shellcheck source=scripts/lib/maintenance-transaction.sh
 source "$SCRIPT_DIR/lib/maintenance-transaction.sh"
+# shellcheck source=scripts/lib/maintenance-status.sh
+source "$SCRIPT_DIR/lib/maintenance-status.sh"
 # shellcheck source=scripts/lib/maintenance-recovery.sh
 source "$SCRIPT_DIR/lib/maintenance-recovery.sh"
 # shellcheck source=scripts/lib/maintenance-snapshot.sh
@@ -25,6 +27,7 @@ SNAPSHOT_PROVIDER=auto
 COMMAND=''
 OPERATION=''
 TRANSACTION_ID=''
+STATUS_JSON=0
 TX_DIR=''
 CURRENT_COMMIT=''
 CANDIDATE_COMMIT=''
@@ -38,7 +41,7 @@ Usage:
   scripts/maintenance.sh apply dotfiles [options]
   scripts/maintenance.sh plan system [options]
   scripts/maintenance.sh apply system [options]
-  scripts/maintenance.sh status [TRANSACTION_ID]
+  scripts/maintenance.sh status [--json] [TRANSACTION_ID]
   scripts/maintenance.sh recover TRANSACTION_ID
 
 Options for plan/apply:
@@ -121,8 +124,20 @@ parse_cli() {
         status)
             COMMAND=status
             shift
-            (($# <= 1)) || return 64
-            TRANSACTION_ID=${1:-}
+            while (($#)); do
+                case $1 in
+                    --json)
+                        [[ $STATUS_JSON -eq 0 ]] || return 64
+                        STATUS_JSON=1
+                        ;;
+                    -*) return 64 ;;
+                    *)
+                        [[ -z $TRANSACTION_ID ]] || return 64
+                        TRANSACTION_ID=$1
+                        ;;
+                esac
+                shift
+            done
             ;;
         recover)
             COMMAND=recover
@@ -1016,7 +1031,7 @@ recover_active_transaction() {
     state=$(transaction_state "$TX_DIR") || return 74
     case $state in
         recovered) return 0 ;;
-        needs-attention) return 1 ;;
+        needs-attention) ;;
         committed) return 0 ;;
         failed) ;;
         planned|preflighted|checkpointed|applying|verifying)
@@ -1030,8 +1045,8 @@ recover_active_transaction() {
         *) return 74 ;;
     esac
     state=$(transaction_state "$TX_DIR") || return 74
-    if [[ $state == failed ]]; then
-        maintenance_tx_transition "$TX_DIR" failed recovering recovery || return 74
+    if [[ $state == failed || $state == needs-attention ]]; then
+        maintenance_tx_transition "$TX_DIR" "$state" recovering recovery || return 74
     fi
 
     if [[ -d $TX_DIR/checkpoint && ! -L $TX_DIR/checkpoint ]]; then
@@ -1276,71 +1291,59 @@ reconcile_known_good() {
 resolve_transaction_for_status() {
     local requested=$1
 
-    if [[ -n $requested ]]; then
-        _maintenance_safe_transaction_id "$requested" || return 64
-        _maintenance_tx_validate "$MAINTENANCE_TX_ROOT/$requested" || return 1
-        printf '%s\n' "$_MAINTENANCE_VALIDATED_TX_DIR"
-    else
-        maintenance_tx_latest
-    fi
+    maintenance_status_resolve "$requested" || return $?
+    printf '%s\n' "$MAINTENANCE_STATUS_TX_DIR"
 }
 
 status_journal_valid() {
-    jq -e '
-        .version == 1 and
-        (.id | type == "string" and test("^txn\\.[A-Za-z0-9]{8}$")) and
-        (.operation == "dotfiles" or .operation == "system") and
-        (.profile == "core" or .profile == "desktop" or .profile == "full") and
-        (.state == "planned" or .state == "preflighted" or
-            .state == "checkpointed" or .state == "applying" or
-            .state == "verifying" or .state == "committed" or
-            .state == "failed" or .state == "recovering" or
-            .state == "recovered" or .state == "needs-attention") and
-        (.stage | type == "string" and test("^[a-z0-9-]{1,64}$")) and
-        (.result == "in-progress" or .result == "planned" or
-            .result == "success" or .result == "failed" or
-            .result == "recovered" or .result == "needs-attention") and
-        (.created_at | type == "string" and test("^[0-9]{8}T[0-9]{6}Z$")) and
-        (.updated_at | type == "string" and test("^[0-9]{8}T[0-9]{6}Z$")) and
-        (.current_commit | type == "string" and
-            (. == "" or test("^[0-9a-f]{40}$"))) and
-        (.candidate_commit | type == "string" and
-            (. == "" or test("^[0-9a-f]{40}$"))) and
-        (.completed_stages | type == "array" and length <= 32) and
-        all(.completed_stages[];
-            type == "string" and test("^[a-z0-9-]{1,64}$")) and
-        (.completed_stages | length) == (.completed_stages | unique | length) and
-        (.recovery | type == "object") and
-        (.recovery.configuration | type == "string" and
-            test("^[a-z0-9-]{1,64}$")) and
-        (.recovery.system_provider == "none" or
-            .recovery.system_provider == "snapper" or
-            .recovery.system_provider == "timeshift") and
-        ((.recovery.system_coverage | type) == "string" or
-            (.recovery.system_coverage | type) == "object") and
-        (
-            .failure == null or
-            (
-                (.failure | keys | sort) ==
-                    (["exit_status","message_class","stage"] | sort) and
-                (.failure.stage | type == "string" and
-                    test("^[a-z0-9-]{1,64}$")) and
-                (.failure.exit_status | type == "number" and . >= 1 and . <= 255) and
-                (.failure.message_class | type == "string" and
-                    test("^[a-z0-9-]{1,64}$"))
-            )
-        ) and
-        (.artifacts | type == "object") and
-        (keys | sort) == ([
-            "artifacts","candidate_commit","completed_stages","created_at",
-            "current_commit","failure","id","operation","profile","recovery",
-            "result","stage","state","updated_at","version"
-        ] | sort)
-    ' "$1" >/dev/null 2>&1
+    maintenance_status_journal_valid "$1"
+}
+
+print_status_human() {
+    local status_json=$1 failed coverage failure
+
+    failed=$(jq -r '
+        if .postflight == null or (.postflight.failed_checks | length) == 0 then
+            "none"
+        else .postflight.failed_checks | join(",") end
+    ' <<< "$status_json") || return 1
+    coverage=$(jq -r '
+        .recovery.system_coverage |
+        if type == "object" then
+            "root=\(.coverage.root),package-db=\(.coverage.package_db),home=\(.coverage.home),boot=\(.coverage.boot)"
+        else . end
+    ' <<< "$status_json") || return 1
+    failure=$(jq -r '
+        if .failure == null then "none" else .failure.message_class end
+    ' <<< "$status_json") || return 1
+
+    printf 'Transaction: %s\n' "$(jq -r '.id' <<< "$status_json")"
+    printf 'Transaction directory: %s\n' \
+        "$(jq -r '.transaction_directory' <<< "$status_json")"
+    printf 'Operation: %s\n' "$(jq -r '.operation' <<< "$status_json")"
+    printf 'Profile: %s\n' "$(jq -r '.profile' <<< "$status_json")"
+    printf 'State: %s\n' "$(jq -r '.state' <<< "$status_json")"
+    printf 'Stage: %s\n' "$(jq -r '.stage' <<< "$status_json")"
+    printf 'Result: %s\n' "$(jq -r '.result' <<< "$status_json")"
+    printf 'Created: %s\n' "$(jq -r '.created_at' <<< "$status_json")"
+    printf 'Updated: %s\n' "$(jq -r '.updated_at' <<< "$status_json")"
+    printf 'Current commit: %s\n' "$(jq -r '.current_commit' <<< "$status_json")"
+    printf 'Candidate commit: %s\n' \
+        "$(jq -r 'if .candidate_commit == "" then "none" else .candidate_commit end' \
+            <<< "$status_json")"
+    printf 'Failure class: %s\n' "$failure"
+    printf 'Configuration recovery: %s\n' \
+        "$(jq -r '.recovery.configuration' <<< "$status_json")"
+    printf 'System recovery provider: %s\n' \
+        "$(jq -r '.recovery.system_provider' <<< "$status_json")"
+    printf 'Recovery coverage: %s\n' "$coverage"
+    printf 'Failed postflight checks: %s\n' "$failed"
+    printf 'Known good: %s\n' \
+        "$(jq -r 'if .known_good then "yes" else "no" end' <<< "$status_json")"
 }
 
 print_status() {
-    local requested=${1:-} status_tx journal failure manual known_good lock_status
+    local requested=${1:-} status_tx status_json lock_status resolve_status
 
     unset MYHYPR_TRANSACTION_DIR MYHYPR_MAINTENANCE_LOCK_FD
     maintenance_paths_init || return $?
@@ -1350,50 +1353,27 @@ print_status() {
         lock_status=$?
         [[ $lock_status -eq 75 ]] || return "$lock_status"
     fi
-    if ! status_tx=$(resolve_transaction_for_status "$requested"); then
-        if [[ -z $requested ]]; then
-            printf 'No maintenance transactions found.\n'
+    if status_tx=$(resolve_transaction_for_status "$requested"); then
+        :
+    else
+        resolve_status=$?
+        if [[ $resolve_status -eq 3 && -z $requested ]]; then
+            [[ $STATUS_JSON -eq 0 ]] && \
+                printf 'No maintenance transactions found.\n' || printf 'null\n'
             return 0
         fi
-        return 1
+        return "$resolve_status"
     fi
-    journal="$status_tx/journal.json"
-    status_journal_valid "$journal" || return 1
-    printf 'Transaction: %s\n' "${status_tx##*/}"
-    printf 'Operation: %s\n' "$(jq -r '.operation' "$journal")"
-    printf 'Profile: %s\n' "$(jq -r '.profile' "$journal")"
-    printf 'State: %s\n' "$(jq -r '.state' "$journal")"
-    printf 'Stage: %s\n' "$(jq -r '.stage' "$journal")"
-    printf 'Result: %s\n' "$(jq -r '.result' "$journal")"
-    printf 'Completed stages: %s\n' "$(jq -r '.completed_stages | join(",")' "$journal")"
-    failure=$(jq -r 'if .failure == null then "none" else .failure.message_class end' \
-        "$journal") || return 1
-    printf 'Failure class: %s\n' "$failure"
-    printf 'Configuration recovery: %s\n' \
-        "$(jq -r '.recovery.configuration' "$journal")"
-    printf 'System recovery provider: %s\n' \
-        "$(jq -r '.recovery.system_provider' "$journal")"
-    if [[ -f $status_tx/preflight.json && ! -L $status_tx/preflight.json ]]; then
-        manual=$(jq -er '
-            .manual_intervention |
-            select(type == "array" and length <= 8) |
-            select(all(.[]; type == "string" and test("^[a-z0-9-]{1,64}$"))) |
-            if length > 0 then join(",") else "none" end
-        ' "$status_tx/preflight.json" 2>/dev/null) || manual=unavailable
-        printf 'Manual intervention: %s\n' "$manual"
-    fi
-    known_good="$MAINTENANCE_STATE_ROOT/known-good.json"
-    if _maintenance_validate_owned_file "$known_good" && \
-        jq -e --arg id "${status_tx##*/}" '.transaction_id == $id' \
-            "$known_good" >/dev/null 2>&1; then
-        printf 'Known good: yes\n'
+    status_json=$(maintenance_status_transaction_json "$status_tx") || return 1
+    if [[ $STATUS_JSON -eq 1 ]]; then
+        jq . <<< "$status_json"
     else
-        printf 'Known good: no\n'
+        print_status_human "$status_json"
     fi
 }
 
 recover_transaction() {
-    local id=$1 state status=0
+    local id=$1 state status=0 provider attention
 
     unset MYHYPR_TRANSACTION_DIR MYHYPR_MAINTENANCE_LOCK_FD
     maintenance_paths_init || return $?
@@ -1401,25 +1381,35 @@ recover_transaction() {
     adopt_transaction "$id" || return $?
     status_journal_valid "$TX_DIR/journal.json" || return 1
     state=$(transaction_state "$TX_DIR") || return 1
+    provider=$(jq -er '.recovery.system_provider | select(type == "string")' \
+        "$TX_DIR/journal.json") || return 1
     case $state in
         recovered)
             success "Transaction $id is already recovered."
+            if [[ $provider != none ]]; then
+                snapshot_guidance "$TX_DIR" "$provider" || \
+                    warn 'Snapshot guidance evidence is incomplete or unsafe.'
+            fi
             return 0
-            ;;
-        needs-attention)
-            warn "Transaction $id still needs manual attention."
-            return 1
             ;;
         committed)
-            success "Transaction $id is already committed."
-            return 0
+            warn "Transaction $id is already committed; recovery is not allowed."
+            return 2
             ;;
     esac
     recover_active_transaction 99 || status=$?
+    if [[ $provider != none ]]; then
+        snapshot_guidance "$TX_DIR" "$provider" || \
+            warn 'Snapshot guidance evidence is incomplete or unsafe.'
+    fi
     if [[ $status -eq 0 ]]; then
         success "Transaction $id recovered."
     else
         warn "Transaction $id needs manual attention; evidence was retained."
+        attention="$TX_DIR/needs-attention.txt"
+        if _maintenance_validate_owned_file "$attention"; then
+            printf 'Recovery evidence: %s\n' "$attention"
+        fi
     fi
     return "$status"
 }

@@ -154,6 +154,8 @@ run_check 'Transactional dotfiles maintenance behavior' \
     "$REPO_ROOT/tests/test-maintenance-dotfiles.sh"
 run_check 'Transactional system maintenance behavior' \
     "$REPO_ROOT/tests/test-maintenance-system.sh"
+run_check 'Maintenance status and recovery CLI behavior' \
+    "$REPO_ROOT/tests/test-maintenance-cli.sh"
 run_check 'Stateful all-float runtime action' lua "$REPO_ROOT/tests/test-runtime-actions.lua"
 run_check 'Zsh module loader behavior' "$REPO_ROOT/tests/test-zsh-loader.sh"
 run_check 'Dynamic monitor behavior' "$REPO_ROOT/tests/test-toggle-refresh.sh"

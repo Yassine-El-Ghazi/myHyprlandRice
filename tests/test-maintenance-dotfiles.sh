@@ -32,6 +32,8 @@ cp -- "$PROJECT_ROOT/scripts/update.sh" "$FIXTURE_REPO/scripts/update.sh"
 cp -- "$PROJECT_ROOT/scripts/lib.sh" "$FIXTURE_REPO/scripts/lib.sh"
 cp -- "$PROJECT_ROOT/scripts/lib/maintenance-transaction.sh" \
     "$FIXTURE_REPO/scripts/lib/maintenance-transaction.sh"
+cp -- "$PROJECT_ROOT/scripts/lib/maintenance-status.sh" \
+    "$FIXTURE_REPO/scripts/lib/maintenance-status.sh"
 
 write_fake_maintenance_library() {
     local file=$1

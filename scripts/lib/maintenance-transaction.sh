@@ -342,7 +342,7 @@ _maintenance_transition_allowed() {
             applying:verifying|verifying:committed|planned:failed|\
             preflighted:failed|checkpointed:failed|applying:failed|\
             verifying:failed|failed:recovering|recovering:recovered|\
-            recovering:needs-attention) return 0 ;;
+            recovering:needs-attention|needs-attention:recovering) return 0 ;;
         *) return 1 ;;
     esac
 }

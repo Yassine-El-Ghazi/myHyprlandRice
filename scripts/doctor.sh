@@ -4,6 +4,10 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=scripts/lib.sh
 source "$SCRIPT_DIR/lib.sh"
+# shellcheck source=scripts/lib/maintenance-transaction.sh
+source "$SCRIPT_DIR/lib/maintenance-transaction.sh"
+# shellcheck source=scripts/lib/maintenance-status.sh
+source "$SCRIPT_DIR/lib/maintenance-status.sh"
 
 PROFILE=desktop
 RUN_VALIDATION=1
@@ -50,6 +54,65 @@ problem() {
 notice() {
     warnings=$((warnings + 1))
     printf '%sWARN%s  %s\n' "$_C_YELLOW" "$_C_RESET" "$1" >&2
+}
+
+check_maintenance_state() {
+    local latest status_json state id result known_good
+
+    if ! maintenance_paths_init; then
+        problem 'Maintenance transaction evidence is corrupt or unsafe (state root)'
+        return
+    fi
+    if ! maintenance_status_store_valid; then
+        problem 'Maintenance transaction evidence is corrupt or unsafe (transaction store)'
+        return
+    fi
+    if latest=$(maintenance_tx_latest); then
+        :
+    else
+        if [[ -e $MAINTENANCE_STATE_ROOT/known-good.json || \
+            -L $MAINTENANCE_STATE_ROOT/known-good.json ]]; then
+            problem 'Maintenance transaction evidence is corrupt or unsafe (orphan known-good)'
+        else
+            ok 'No maintenance transaction history exists yet'
+        fi
+        return
+    fi
+    if status_json=$(maintenance_status_transaction_json "$latest"); then
+        :
+    else
+        problem 'Maintenance transaction evidence is corrupt or unsafe (latest summary)'
+        return
+    fi
+    id=$(jq -er '.id' <<< "$status_json") || {
+        problem 'Maintenance transaction evidence is corrupt or unsafe (transaction ID)'
+        return
+    }
+    state=$(jq -er '.state' <<< "$status_json") || {
+        problem 'Maintenance transaction evidence is corrupt or unsafe (transaction state)'
+        return
+    }
+    result=$(jq -er '.result' <<< "$status_json") || {
+        problem 'Maintenance transaction evidence is corrupt or unsafe (transaction result)'
+        return
+    }
+    if ! jq -e '(.known_good | type) == "boolean"' \
+        <<< "$status_json" >/dev/null 2>&1; then
+        problem 'Maintenance transaction evidence is corrupt or unsafe (known-good state)'
+        return
+    fi
+    known_good=$(jq -r '.known_good' <<< "$status_json") || return 1
+    if [[ $state == committed && $known_good == true ]]; then
+        ok "Latest maintenance transaction $id is committed known-good"
+    elif [[ $result == planned ]]; then
+        ok "Latest maintenance transaction $id is a completed read-only plan"
+    elif [[ $state == recovered ]]; then
+        ok "Latest maintenance transaction $id is recovered"
+    elif [[ $state == committed ]]; then
+        problem "Latest maintenance transaction $id is committed without known-good evidence"
+    else
+        notice "Latest maintenance transaction $id is $state"
+    fi
 }
 
 check_commands() {
@@ -292,6 +355,8 @@ if command -v systemctl >/dev/null 2>&1; then
         done
     fi
 fi
+
+check_maintenance_state
 
 if [[ -n $(git -C "$REPO_ROOT" status --porcelain) ]]; then
     notice 'Repository has uncommitted changes'

@@ -1,6 +1,6 @@
 PROFILE ?= desktop
 
-.PHONY: audit audit-history baseline bootstrap capture check doctor dry-run link seed uninstall
+.PHONY: audit audit-history baseline bootstrap capture check doctor dry-run link seed status uninstall update update-plan update-system
 
 bootstrap:
 	./bootstrap.sh --profile "$(PROFILE)"
@@ -32,6 +32,18 @@ audit-history:
 
 doctor:
 	./scripts/doctor.sh --profile "$(PROFILE)"
+
+update-plan:
+	./scripts/maintenance.sh plan dotfiles --profile "$(PROFILE)"
+
+update:
+	./scripts/maintenance.sh apply dotfiles --profile "$(PROFILE)"
+
+update-system:
+	./scripts/maintenance.sh apply system --profile "$(PROFILE)"
+
+status:
+	./scripts/maintenance.sh status
 
 uninstall:
 	./scripts/uninstall.sh

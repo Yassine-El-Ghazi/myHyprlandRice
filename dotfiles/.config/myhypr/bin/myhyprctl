@@ -14,8 +14,17 @@ Desktop panels:
   welcome | settings | calendar | sidebar | power
 
 Desktop actions:
-  wallpaper | theme | reload | doctor | update | docs
+  wallpaper | theme | reload | doctor | docs
+
+Maintenance:
+  update | update-system | update-plan | update-status [ID] | recover ID
 EOF
+}
+
+usage_error() {
+    printf 'Invalid arguments for command: %s\n' "${1:-}" >&2
+    usage >&2
+    exit 2
 }
 
 toggle_panel() {
@@ -49,10 +58,34 @@ case ${1:-} in
         hyprctl configerrors
         ;;
     doctor)
+        [[ $# -eq 1 ]] || usage_error "$1"
         exec "$REPO_ROOT/scripts/doctor.sh" --profile desktop
         ;;
     update)
-        exec "$REPO_ROOT/scripts/update.sh" --profile desktop
+        [[ $# -eq 1 ]] || usage_error "$1"
+        exec "$REPO_ROOT/scripts/maintenance.sh" apply dotfiles \
+            --profile desktop
+        ;;
+    update-system)
+        [[ $# -eq 1 ]] || usage_error "$1"
+        exec "$REPO_ROOT/scripts/maintenance.sh" apply system \
+            --profile desktop
+        ;;
+    update-plan)
+        [[ $# -eq 1 ]] || usage_error "$1"
+        exec "$REPO_ROOT/scripts/maintenance.sh" plan dotfiles \
+            --profile desktop
+        ;;
+    update-status)
+        [[ $# -le 2 ]] || usage_error "$1"
+        if [[ $# -eq 2 ]]; then
+            exec "$REPO_ROOT/scripts/maintenance.sh" status "$2"
+        fi
+        exec "$REPO_ROOT/scripts/maintenance.sh" status
+        ;;
+    recover)
+        [[ $# -eq 2 ]] || usage_error "$1"
+        exec "$REPO_ROOT/scripts/maintenance.sh" recover "$2"
         ;;
     docs)
         exec xdg-open "$REPO_ROOT/README.md"

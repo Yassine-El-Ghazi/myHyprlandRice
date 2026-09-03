@@ -31,6 +31,8 @@ cp -- "$PROJECT_ROOT/scripts/repair-flatpak.sh" "$FIXTURE_REPO/scripts/repair-fl
 cp -- "$PROJECT_ROOT/scripts/lib.sh" "$FIXTURE_REPO/scripts/lib.sh"
 cp -- "$PROJECT_ROOT/scripts/lib/maintenance-transaction.sh" \
     "$FIXTURE_REPO/scripts/lib/maintenance-transaction.sh"
+cp -- "$PROJECT_ROOT/scripts/lib/maintenance-status.sh" \
+    "$FIXTURE_REPO/scripts/lib/maintenance-status.sh"
 cp -- "$PROJECT_ROOT/dotfiles/.config/myhypr/scripts/installupdates.sh" \
     "$FIXTURE_REPO/dotfiles/.config/myhypr/scripts/installupdates.sh"
 

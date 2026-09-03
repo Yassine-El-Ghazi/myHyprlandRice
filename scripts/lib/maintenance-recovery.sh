@@ -825,6 +825,7 @@ recovery_checkpoint_restore() {
         return 1
     fi
     rm -f -- "$next_attention"
+    rm -f -- "$attention"
     maintenance_journal_update "$tx_dir" '
         .recovery.configuration = "recovered" |
         .updated_at = $now
