@@ -23,7 +23,7 @@ jobs:
         run: >-
           pacman -Syu --noconfirm --needed
           bash bubblewrap fish git gitleaks hyprland jq lua python
-          qt6-declarative ripgrep shellcheck stow util-linux zsh
+          qt6-declarative ripgrep rsync shellcheck stow util-linux zsh
 
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
