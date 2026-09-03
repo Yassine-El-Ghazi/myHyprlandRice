@@ -13,4 +13,31 @@ Changes should remain reproducible on a clean Arch-based installation and must n
 
 Package dependencies belong in `packages/arch/`. Runtime-generated files belong in `defaults/` and the matching ignore lists—not in the Stow package. Shell code must pass ShellCheck at style severity; runtime text must be parsed as data rather than passed to `eval`, `bash -c`, or sourced as executable settings.
 
+## Maintenance transaction changes
+
+Treat update and recovery code as a failure-sensitive interface:
+
+- Add deterministic fixtures for success, failure before and after mutation,
+  interrupted state, lock contention, retry, and recovery idempotency where
+  those paths can change.
+- Keep journals schema-bounded, atomic, user-only, and free of raw command
+  output, environment dumps, package inventories, host or network identifiers,
+  and credentials. Redact separate command logs before publication to disk.
+- Validate incoming dotfiles candidates as the regular user. Privileged work
+  must be controlled by the trusted active revision, use one authentication
+  ticket per operation, and never run AUR builds as root.
+- Preserve full Arch upgrade semantics. Never introduce a selective package
+  synchronization path that can leave an unsupported partial upgrade.
+- Recover only from transaction-owned evidence after validating ownership,
+  file type, path containment, and expected active state. Never replay an
+  interrupted stage or automatically restore a filesystem snapshot or
+  downgrade packages.
+- Update the CLI documentation and focused tests whenever a state, journal
+  field, stage, recovery rule, retention rule, or public command changes.
+
+Before committing maintenance work, run all affected focused tests followed
+by `./scripts/check.sh`, inspect the staged diff, and run
+`./scripts/audit.sh --staged`. Before publishing a release, also run
+`./scripts/audit.sh --history` from the exact commit that will be published.
+
 Before a release or public history rewrite, also run `make audit-history`. Preserve GPL attribution in `NOTICE` when changing inherited code or assets.

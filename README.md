@@ -23,7 +23,7 @@ installer, Flatpak remote, or hosted settings service is required at runtime.
 - MyHypr's local Quickshell panels control settings, audio, brightness,
   Waybar, the dock, themes, wallpaper, and power actions.
 - Package installation prefers official repositories and has an audited AUR
-  fallback. It never uses `curl | sh`.
+  fallback. It never pipes a network download directly into a shell.
 - Every commit is guarded by syntax checks, style-level ShellCheck, integration
   fixtures, secret/privacy scans, and pinned CI actions.
 - Stow conflicts and namespace migrations are archived under local state so
@@ -118,7 +118,11 @@ myhyprctl wallpaper
 myhyprctl theme
 myhyprctl reload        # Reload Hyprland and print config errors
 myhyprctl doctor
-myhyprctl update
+myhyprctl update-plan   # Validate and preview a dotfiles update
+myhyprctl update        # Apply a transactional dotfiles update
+myhyprctl update-system # Apply a transactional full system update
+myhyprctl update-status # Inspect the latest maintenance transaction
+myhyprctl recover ID    # Recover a failed or interrupted transaction
 myhyprctl docs
 ```
 
@@ -171,7 +175,7 @@ make check                         # Full suite and all 56 Hyprland variants
 make audit                         # Tracked and untracked worktree audit
 make audit-history                 # Scan every reachable Git blob too
 make doctor PROFILE=desktop        # Links, commands, services, state, hooks
-./scripts/update.sh --profile desktop
+myhyprctl update-plan              # Safe preview; changes no active config
 ```
 
 The test suite uses disposable homes and mocked system tools to verify package
@@ -180,19 +184,99 @@ containment, graphical-session environment isolation, service activation,
 desktop controls, Waybar/Walker theme fallbacks, and declarative wallpaper
 effects.
 
-The graphical updater selects `paru`, then `yay`, then `pacman`. Flatpak is
-updated only when remotes exist, and any failed package or metadata operation
-is reported instead of showing a false success message.
+### Transactional updates and recovery
+
+Use the separate dotfiles and system operations deliberately:
+
+| Purpose | Command |
+| --- | --- |
+| Preview a dotfiles update | `myhyprctl update-plan` |
+| Apply a dotfiles update | `myhyprctl update` |
+| Apply a full system update | `myhyprctl update-system` |
+| Show the latest transaction | `myhyprctl update-status` |
+| Show one transaction | `myhyprctl update-status TRANSACTION_ID` |
+| Recover an interrupted or failed transaction | `myhyprctl recover TRANSACTION_ID` |
+
+Private transaction state is stored below
+`${XDG_STATE_HOME:-~/.local/state}/myhyprlandrice/transactions`. A transaction
+is successful only after postflight checks pass and its state becomes
+`committed`.
+
+A dotfiles preview fetches without moving the active branch, materializes the
+incoming revision separately, and runs its required validation and publication
+audit as the regular user. Incoming code cannot obtain privileges merely by
+being fetched. Apply records a private checkpoint before mutation and can
+restore the previous Git revision, managed links, allow-listed mutable state,
+selectors, graphical user-service state, and displaced-file backups on every
+supported filesystem.
+
+System maintenance performs a complete Arch upgrade through `paru`, `yay`, or
+`pacman`; it does not construct a partial-upgrade command. Flatpak user and
+system installations are handled separately and only when their scope has a
+configured remote. Immediately before privileged apply stages, the engine
+requests one `sudo` credential ticket and reuses it for that bounded operation.
+It never stores the password, and AUR builds remain unprivileged.
+
+`myhyprctl update-status` reports the transaction state, failed postflight
+checks, recovery coverage, and whether that transaction is the known-good
+revision. Package recommendations—including `.pacnew`, `.pacsave`, outdated
+process, AUR rebuild, and reboot-sensitive findings—are available in the
+bounded JSON view:
+
+```bash
+./scripts/maintenance.sh status --json \
+  | jq '.postflight.recommendations'
+```
+
+Review `.pacnew` and `.pacsave` files against their active configuration; do
+not replace configuration blindly. Likewise, inspect which reboot-sensitive
+classes were reported before deciding whether and when to reboot.
+
+Recovery intentionally does not replay interrupted stages. Run recovery,
+inspect any retained `needs-attention.txt`, then start a new plan. Package
+downgrades and snapshot restores are never run automatically: package output
+is evidence, not a rollback script, and a snapshot may cover only some of
+root, the package database, home, and boot.
+
+Snapshot software is neither installed nor configured inside an update. Set
+up and test Snapper or Timeshift as a separate administrator task, then probe
+the effective layer coverage with a non-applying plan:
+
+```bash
+./scripts/maintenance.sh plan system --profile desktop --snapshot auto
+# For an explicitly configured provider, replace auto with snapper or timeshift.
+```
+
+Inspect the printed coverage before using that provider for apply. The private
+transaction also contains `snapshot-probe.json`; recovery prints the provider
+identifier, uncovered layers, package log location, and provider documentation
+without composing or running a restore command.
+
+Each apply prepares a digest-bound `known-good.pending.json` only after its
+postflight stage succeeds. It is promoted atomically to `known-good.json` only
+after the journal is committed; `status` can reconcile an interrupted final
+promotion. Committed and recovered transaction evidence is pruned unless it is
+both among the newest ten successful records and no more than 30 days old.
+Failed, interrupted, and needs-attention evidence is retained for diagnosis.
+Journals are user-only and schema-bounded; separate command logs are user-only,
+redacted, and governed by the transaction retention policy. Arbitrary command
+output, environment values, network names, and credentials do not enter the
+journal. Transaction evidence and private baseline screenshots are never
+published automatically.
 
 ## Rollback and removal
 
-Before upgrades or large migrations, create a known-good tag:
+The transactional updater creates the normal recovery checkpoint and promotes
+its local known-good record automatically. Before an unusual manual migration
+outside that workflow, you may also create a named Git reference:
 
 ```bash
 git tag known-good-$(date +%Y%m%d)
 ```
 
-Restore repository state with normal Git commits/tags. Restore displaced local
+For a failed maintenance transaction, begin with `myhyprctl update-status` and
+then `myhyprctl recover TRANSACTION_ID`. For unrelated manual recovery, restore
+repository state with normal Git commits or tags and restore displaced local
 files from the timestamped directories under
 `~/.local/state/myhyprlandrice/backups/` or `migrations/`.
 
