@@ -133,5 +133,5 @@ hl.bind("XF86Calculator", hl.dsp.exec_cmd("~/.config/myhypr/settings/calculator.
 hl.bind("XF86ScreenSaver", hl.dsp.exec_cmd("hyprlock"), { description = "Open screenlock" })
 hl.bind("XF86Tools", hl.dsp.exec_cmd("~/.config/myhypr/bin/myhyprctl settings"), { description = "Open local dotfiles settings" })
 
-hl.bind("code:238", hl.dsp.exec_cmd("brightnessctl -d smc::kbd_backlight s +10"), { description = "Increase keyboard backlight" })
-hl.bind("code:237", hl.dsp.exec_cmd("brightnessctl -d smc::kbd_backlight s 10-"), { description = "Decrease keyboard backlight" })
+hl.bind("XF86KbdBrightnessUp", hl.dsp.exec_cmd("brightnessctl -d smc::kbd_backlight s +10"), { description = "Increase keyboard backlight" })
+hl.bind("XF86KbdBrightnessDown", hl.dsp.exec_cmd("brightnessctl -d smc::kbd_backlight s 10-"), { description = "Decrease keyboard backlight" })

@@ -5,8 +5,16 @@ end
 local repo_root = assert(source:match("^(.*)/tests/test%-keybindings%.lua$"))
 local expected_counts = { default = 111, fr = 107 }
 local required = {
-    default = { "SUPER + SHIFT + T", "SUPER + SHIFT + A", "SUPER + ALT + G", "CTRL + Tab", "SUPER + CTRL + 0", "XF86AudioRaiseVolume" },
-    fr = { "SUPER + SHIFT + T", "SUPER + SHIFT + A", "SUPER + ALT + G", "CTRL + Tab", "SUPER + CTRL + agrave", "XF86AudioRaiseVolume" },
+    default = {
+        "SUPER + SHIFT + T", "SUPER + SHIFT + A", "SUPER + ALT + G",
+        "CTRL + Tab", "SUPER + CTRL + 0", "XF86AudioRaiseVolume",
+        "XF86KbdBrightnessUp", "XF86KbdBrightnessDown",
+    },
+    fr = {
+        "SUPER + SHIFT + T", "SUPER + SHIFT + A", "SUPER + ALT + G",
+        "CTRL + Tab", "SUPER + CTRL + agrave", "XF86AudioRaiseVolume",
+        "XF86KbdBrightnessUp", "XF86KbdBrightnessDown",
+    },
 }
 local approved_external = {
     brightnessctl = true, hyprctl = true, hyprlock = true, hyprshot = true,
