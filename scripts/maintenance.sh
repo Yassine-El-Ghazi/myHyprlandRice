@@ -922,7 +922,10 @@ migration_stage() {
     local -a args=()
 
     [[ $ASSUME_YES -eq 0 ]] || args+=(--yes)
-    run_helper_logged migration "$REPO_ROOT/scripts/migrate-namespace.sh" "${args[@]}"
+    run_helper_logged migration "$REPO_ROOT/scripts/migrate-namespace.sh" \
+        "${args[@]}" || return $?
+    run_helper_logged migration-local "$REPO_ROOT/scripts/migrate-local.sh" \
+        "${args[@]}"
 }
 
 flatpak_stage() {

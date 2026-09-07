@@ -90,7 +90,7 @@ require("conf.layout")
 require("conf.workspace")
 -- Source: ~/.config/hypr/conf/misc.conf — convert this file to Lua and ensure it is on Lua's package.path.
 require("conf.misc")
--- Source: ~/.config/hypr/conf/keybinding.conf — convert this file to Lua and ensure it is on Lua's package.path.
+-- Select and load the default or French Lua keybinding profile.
 require("conf.keybinding")
 -- Source: ~/.config/hypr/conf/windowrule.conf — convert this file to Lua and ensure it is on Lua's package.path.
 require("conf.windowrule")

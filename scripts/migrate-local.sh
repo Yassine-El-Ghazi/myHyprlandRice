@@ -71,6 +71,34 @@ check_shadow() {
 check_shadow matugen "$HOME/.local/bin/matugen" /usr/bin/matugen
 check_shadow oh-my-posh "$HOME/.local/bin/oh-my-posh" /usr/bin/oh-my-posh
 
+# Hyprland's active configuration is Lua-only. Preserve the old default/French
+# choice in the new bounded runtime setting, then archive the retired selector.
+legacy_keybinding_selector="$HOME/.config/hypr/conf/keybinding.conf"
+keybinding_profile="$HOME/.config/myhypr/settings/keybinding-profile"
+migrated_keybinding_profile=''
+if [[ -e $legacy_keybinding_selector || -L $legacy_keybinding_selector ]]; then
+    stale_paths+=("$legacy_keybinding_selector")
+    stale_labels+=("retired Hyprlang keybinding selector")
+
+    if [[ ! -e $keybinding_profile && ! -L $keybinding_profile ]]; then
+        migrated_keybinding_profile=default
+        if [[ -f $legacy_keybinding_selector && ! -L $legacy_keybinding_selector ]]; then
+            legacy_keybinding_value=$(<"$legacy_keybinding_selector")
+            case $legacy_keybinding_value in
+                'source = ~/.config/hypr/conf/keybindings/default.conf')
+                    migrated_keybinding_profile=default
+                    ;;
+                'source = ~/.config/hypr/conf/keybindings/fr.conf')
+                    migrated_keybinding_profile=fr
+                    ;;
+                *)
+                    warn 'The retired keybinding selector is invalid; using the safe default profile.'
+                    ;;
+            esac
+        fi
+    fi
+fi
+
 legacy_backups=(
     "$REPO_ROOT/dotfiles/.config/fish/conf.d/fish_frozen_theme.fish.bak"
     "$REPO_ROOT/dotfiles/.config/ohmyposh/zen.toml.bak"
@@ -91,6 +119,18 @@ warn 'The following stale files shadow packaged tools or clutter the checkout:'
 printf '  %s\n' "${stale_labels[@]}" >&2
 archive_root="${XDG_STATE_HOME:-$HOME/.local/state}/myhyprlandrice/migrations/$(timestamp)"
 confirm "Archive them under $archive_root?"
+
+if [[ -n $migrated_keybinding_profile ]]; then
+    if [[ $DRY_RUN -eq 1 ]]; then
+        info "Would create Lua keybinding profile: $migrated_keybinding_profile"
+    else
+        mkdir -p -- "${keybinding_profile%/*}"
+        temporary_profile=$(mktemp "${keybinding_profile%/*}/.keybinding-profile.XXXXXXXX")
+        printf '%s\n' "$migrated_keybinding_profile" > "$temporary_profile"
+        chmod 0600 -- "$temporary_profile"
+        mv -- "$temporary_profile" "$keybinding_profile"
+    fi
+fi
 
 for index in "${!stale_paths[@]}"; do
     source_path=${stale_paths[$index]}

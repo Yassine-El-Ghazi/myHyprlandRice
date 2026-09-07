@@ -72,11 +72,12 @@ printf 'fixture default bindings\n' \
 printf 'fixture waybar actions\n' \
     > "$FIXTURE_REPO/dotfiles/.config/waybar/modules.json"
 
-for selector in animation decoration environment keybinding layout monitor \
+for selector in animation decoration environment layout monitor \
     window windowrule workspace; do
     printf 'source = ~/.config/hypr/conf/%ss/fixture-choice.conf\n' "$selector" \
         > "$TEST_HOME/.config/hypr/conf/$selector.conf"
 done
+printf 'fr\n' > "$TEST_HOME/.config/myhypr/settings/keybinding-profile"
 printf '#112233\n' > "$TEST_HOME/.config/myhypr/colors/primary"
 printf '#445566\n' > "$TEST_HOME/.config/myhypr/colors/secondary"
 printf '#ddeeff\n' > "$TEST_HOME/.config/myhypr/colors/onsurface"

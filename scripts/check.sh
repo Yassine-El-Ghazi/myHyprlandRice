@@ -167,6 +167,8 @@ run_check 'Workspace movement behavior' "$REPO_ROOT/tests/test-workspace-move.sh
 run_check 'Sidepad typed geometry behavior' "$REPO_ROOT/tests/test-sidepad-runtime.sh"
 run_check 'Hyprland typed runtime API guard' "$REPO_ROOT/tests/test-hyprland-runtime-api.sh"
 run_check 'Keybinding inventory and command resolution' lua "$REPO_ROOT/tests/test-keybindings.lua"
+run_check 'Lua-native keybinding profile selector' "$REPO_ROOT/tests/test-keybinding-selector.sh"
+run_check 'Legacy local keybinding migration' "$REPO_ROOT/tests/test-migrate-local.sh"
 run_check 'Namespace migration behavior' "$REPO_ROOT/tests/test-migrate-namespace.sh"
 run_check 'Package bootstrap behavior' "$REPO_ROOT/tests/test-install-packages.sh"
 run_check 'Arch maintenance helper safety' "$REPO_ROOT/tests/test-arch-helpers.sh"

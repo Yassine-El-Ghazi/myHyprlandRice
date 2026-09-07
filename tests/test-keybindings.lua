@@ -46,9 +46,13 @@ local function load_variant(name)
     dsp.workspace = namespace("hl.dsp.workspace.")
     local mock_hl = {
         dsp = dsp,
-        bind = function(key, action)
+        bind = function(key, action, flags)
             assert(type(key) == "string" and action ~= nil)
-            bindings[#bindings + 1] = { key = key, action = action }
+            bindings[#bindings + 1] = {
+                key = key,
+                action = action,
+                flags = flags or {},
+            }
         end,
     }
     local environment = setmetatable({
@@ -64,12 +68,25 @@ local function load_variant(name)
 end
 
 for _, name in ipairs({ "default", "fr" }) do
+    local legacy = io.open(
+        repo_root .. "/dotfiles/.config/hypr/conf/keybindings/" .. name .. ".conf",
+        "r"
+    )
+    assert(legacy == nil, name .. " still has a legacy Hyprlang shortcut source")
+end
+
+for _, name in ipairs({ "default", "fr" }) do
     local bindings = load_variant(name)
     assert(#bindings == expected_counts[name], name .. " binding count changed")
     local keys = {}
     local direct_all_float = false
     for _, binding in ipairs(bindings) do
         keys[binding.key] = true
+        assert(
+            type(binding.flags.description) == "string" and
+                binding.flags.description:match("%S"),
+            name .. " binding has no description: " .. binding.key
+        )
         if binding.key == "SUPER + SHIFT + T" then
             direct_all_float = binding.action == runtime_actions.toggle_all_float
         end
@@ -93,4 +110,4 @@ for _, name in ipairs({ "default", "fr" }) do
     assert(direct_all_float, name .. " all-float bind still spawns a shell helper")
 end
 
-print("Both keybinding variants preserve counts and resolve every command.")
+print("Lua-only keybinding variants are described and resolve every command.")

@@ -47,7 +47,6 @@ selector_for() {
         animations) printf 'animation' ;;
         decorations) printf 'decoration' ;;
         environments) printf 'environment' ;;
-        keybindings) printf 'keybinding' ;;
         layouts) printf 'layout' ;;
         monitors) printf 'monitor' ;;
         windows) printf 'window' ;;
@@ -56,7 +55,7 @@ selector_for() {
     esac
 }
 
-categories=(animations decorations environments keybindings layouts monitors windows workspaces windowrules)
+categories=(animations decorations environments layouts monitors windows workspaces windowrules)
 for category in "${categories[@]}"; do
     selector=$(selector_for "$category")
     printf 'source = ~/.config/hypr/conf/%s/default.conf\n' "$category" \
@@ -77,6 +76,14 @@ for category in "${categories[@]}"; do
     printf 'source = ~/.config/hypr/conf/%s/default.conf\n' "$category" \
         > "$audit_home/.config/hypr/conf/$selector.conf"
 done
+
+for module in "$audit_home/.config/hypr/conf/keybindings"/*.lua; do
+    name=$(basename -- "$module" .lua)
+    printf '%s\n' "$name" \
+        > "$audit_home/.config/myhypr/settings/keybinding-profile"
+    verify "keybindings/$name"
+done
+printf 'default\n' > "$audit_home/.config/myhypr/settings/keybinding-profile"
 
 if [[ $failures -gt 0 ]]; then
     die "$failures of $tested Hyprland configurations failed validation."

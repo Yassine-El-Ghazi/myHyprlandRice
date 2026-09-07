@@ -8,26 +8,6 @@ set -Eeuo pipefail
 # 
 
 # -----------------------------------------------------
-# Get keybindings location based on variation
-# -----------------------------------------------------
-selector="$HOME/.config/hypr/conf/keybinding.conf"
-[[ -r $selector ]] || {
-    printf 'Keybinding selector is missing: %s\n' "$selector" >&2
-    exit 1
-}
-selector_value=$(<"$selector")
-variant=${selector_value##*/}
-[[ $variant =~ ^[A-Za-z0-9._-]+\.conf$ ]] || {
-    printf 'Invalid keybinding variant: %s\n' "$variant" >&2
-    exit 1
-}
-config_file="$HOME/.config/hypr/conf/keybindings/$variant"
-[[ -f $config_file ]] || {
-    printf 'Keybinding variant does not exist: %s\n' "$config_file" >&2
-    exit 1
-}
-
-# -----------------------------------------------------
 # Load Launcher
 # -----------------------------------------------------
 launcher=rofi
@@ -36,27 +16,42 @@ if [[ -r $launcher_file ]]; then
     IFS= read -r launcher < "$launcher_file" || true
 fi
 
-# -----------------------------------------------------
-# Path to keybindings config file
-# -----------------------------------------------------
-printf 'Reading from: %s\n' "$config_file"
+# Hyprland is the source of truth. Descriptions are inert strings attached to
+# Lua bindings, including bindings loaded from custom.lua and local.lua.
+if ! bindings_json=$(hyprctl -j binds); then
+    printf 'Unable to query active Hyprland keybindings.\n' >&2
+    exit 1
+fi
 
-keybinds=$(awk -F'[=#]' '
-    $1 ~ /^bind/ {
-        # Replace the string "$mainMod" with "SUPER" (for the super key)
-        gsub(/\$mainMod/, "SUPER", $0)
-
-        # Remove "bind" and extra spaces, if any, at the beginning of the line
-        gsub(/^bind[[:space:]]*=+[[:space:]]*/, "", $0)
-
-        # Split the keybinding part (e.g., "Mod1,Return") using a comma
-        split($1, kbarr, ",")
-
-        # Format the keybinding and associated command and prepare for output:
-        # Concatenate the two keybinding keys (e.g., "Mod1" + "Return") and append the command
-        print kbarr[1] "  + " kbarr[2] "\r" $2
-    }
-' "$config_file")
+if ! keybinds=$(jq -er '
+    def modifiers($mask):
+        [
+            if ((($mask / 64) | floor) % 2) >= 1 then "SUPER" else empty end,
+            if ((($mask / 4) | floor) % 2) >= 1 then "CTRL" else empty end,
+            if ((($mask / 8) | floor) % 2) >= 1 then "ALT" else empty end,
+            if ($mask % 2) >= 1 then "SHIFT" else empty end
+        ];
+    def binding_key:
+        if (.key | type) == "string" and (.key | length) > 0 then .key
+        elif (.keycode | type) == "number" and .keycode > 0 then "code:\(.keycode)"
+        else "unknown"
+        end;
+    if type != "array" then error("binding result is not an array") else . end
+    | [
+        .[]
+        | select(type == "object")
+        | select((.modmask | type) == "number" and .modmask >= 0 and .modmask <= 255)
+        | select((.description | type) == "string")
+        | select(.description | test("\\S") and (test("[[:cntrl:]]") | not))
+        | select((.description | length) <= 256)
+        | ((modifiers(.modmask) + [binding_key]) | join(" + "))
+            + "\r" + .description
+    ]
+    | if length == 0 then error("no described bindings") else .[] end
+' <<< "$bindings_json"); then
+    printf 'Hyprland returned no valid described keybindings.\n' >&2
+    exit 1
+fi
 
 sleep 0.2
 

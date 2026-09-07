@@ -252,16 +252,15 @@
       "true_value": "True",
       "false_value": "False"
     },{
-        "name": "Keybinding Variants",
-        "id": "variant_keybinding",
-        "instructions": "Choose your preferred keybinding variant:",
-        "file": "~/.config/hypr/conf/keybinding.conf",
-        "type": "files",
-        "folder": "~/.config/hypr/conf/keybindings",
-        "mode": "replace",
-        "match": "source = ~/.config/hypr/conf/keybindings/.*",
-        "default": "default.conf",
-        "post_command": "hyprctl reload"
+      "name": "Keybinding Variant",
+      "id": "variant_keybinding",
+      "instructions": "Choose your preferred keybinding variant:",
+      "file": "~/.config/myhypr/settings/keybinding-profile",
+      "type": "choose",
+      "mode": "overwrite",
+      "default": "default",
+      "options": ["default", "fr"],
+      "post_command": "hyprctl reload"
     },{
         "name": "Environment Variants",
         "id": "variant_environment",

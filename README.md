@@ -133,6 +133,37 @@ Settings are constrained by
 `~/.config/myhypr/settings-schema.json`. Updates are atomic, path-contained,
 single-line validated, and never evaluated as shell text.
 
+### Add personal shortcuts
+
+Shortcuts are configured only through Hyprland's Lua API. For a portable
+shortcut that follows this repository to another computer, edit
+`~/.config/hypr/conf/custom.lua` and add one described binding:
+
+```lua
+hl.bind("SUPER + SHIFT + N", hl.dsp.exec_cmd("obsidian"), {
+    description = "Open notes",
+})
+```
+
+For a shortcut private to one computer, copy `examples/hypr/local.lua` to
+`~/.config/hypr/local.lua` and add the same form there. The private file is
+loaded last and ignored by Git. To replace an existing shortcut, call
+`hl.unbind("EXACT + KEY")` before the replacement binding.
+
+Reload and verify before committing a portable shortcut:
+
+```bash
+hyprctl reload
+hyprctl configerrors
+git diff --check
+lua tests/test-keybindings.lua
+```
+
+Press `SUPER + CTRL + K` to search the active described shortcuts. The viewer
+queries the running compositor, so described bindings from both `custom.lua`
+and `local.lua` appear automatically. Use `wev` when you need to discover an
+uncommon key name or keycode.
+
 ## State model
 
 Tracked configuration and mutable state deliberately live in different trees:

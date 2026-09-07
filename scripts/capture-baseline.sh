@@ -129,15 +129,20 @@ mapfile -d '' action_files < <(
 binding_hash=$(hash_inventory "${binding_files[@]}")
 action_hash=$(hash_inventory "${action_files[@]}")
 
+CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
 selectors='{}'
-for category in animation decoration environment keybinding layout monitor \
+for category in animation decoration environment layout monitor \
     window windowrule workspace; do
     selected=$(selector_value "$category")
     selectors=$(jq -c --arg category "$category" --arg selected "$selected" \
         '. + {($category): $selected}' <<< "$selectors")
 done
+keybinding_profile=$(read_bounded_value \
+    "$CONFIG_ROOT/myhypr/settings/keybinding-profile" \
+    '^(default|fr)$' default)
+selectors=$(jq -c --arg selected "$keybinding_profile" \
+    '. + {keybinding: $selected}' <<< "$selectors")
 
-CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
 primary=$(read_bounded_value "$CONFIG_ROOT/myhypr/colors/primary" \
     '^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$' unavailable)
 secondary=$(read_bounded_value "$CONFIG_ROOT/myhypr/colors/secondary" \

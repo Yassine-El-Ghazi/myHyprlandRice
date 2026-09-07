@@ -14,8 +14,11 @@ echo "Your customized variation will not be overwritten or deleted."
 if gum confirm "Do you want to restore all variations to the default values?"; then
     echo
 
-    echo "source = ~/.config/hypr/conf/keybindings/default.conf" >~/.config/hypr/conf/keybinding.conf
-    echo "Hyprland keybinding.conf restored!"
+    if ! ~/.config/myhypr/bin/settingsctl set variant_keybinding default; then
+        echo "Unable to restore the Lua keybinding profile." >&2
+        exit 1
+    fi
+    echo "Hyprland Lua keybinding profile restored!"
 
     echo "source = ~/.config/hypr/conf/environments/default.conf" >~/.config/hypr/conf/environment.conf
     echo "Hyprland environment.conf restored!"

@@ -136,6 +136,7 @@ write_helper() {
 
 write_helper "$FIXTURE_REPO/scripts/install-packages.sh" helper-install-packages
 write_helper "$FIXTURE_REPO/scripts/migrate-namespace.sh" helper-migrate-namespace
+write_helper "$FIXTURE_REPO/scripts/migrate-local.sh" helper-migrate-local
 write_helper "$FIXTURE_REPO/scripts/repair-flatpak.sh" helper-repair-flatpak
 write_helper "$FIXTURE_REPO/scripts/link-dotfiles.sh" helper-link-dotfiles
 write_helper "$FIXTURE_REPO/scripts/seed-runtime.sh" helper-seed-runtime
@@ -271,7 +272,7 @@ jq -e '
         "owned-state","desktop-reload","postflight","known-good"
     ]
 ' "$APPLY_TX/journal.json" >/dev/null || fail 'desktop apply did not commit exact stages'
-assert_log_exact $'git-prepare\nsnapshot-probe\npreflight\ncheckpoint-create\nsnapshot-create\ngit-promote\nauth-sudo\nhelper-install-packages\nhelper-migrate-namespace\nhelper-repair-flatpak\nhelper-link-dotfiles\nhelper-seed-runtime\nhelper-configure-system\nowned-state\ndesktop-hyprctl\ndesktop-waybar\ndesktop-dock\ndesktop-qs\ndesktop-swaync-client\npostflight\ngit-cleanup'
+assert_log_exact $'git-prepare\nsnapshot-probe\npreflight\ncheckpoint-create\nsnapshot-create\ngit-promote\nauth-sudo\nhelper-install-packages\nhelper-migrate-namespace\nhelper-migrate-local\nhelper-repair-flatpak\nhelper-link-dotfiles\nhelper-seed-runtime\nhelper-configure-system\nowned-state\ndesktop-hyprctl\ndesktop-waybar\ndesktop-dock\ndesktop-qs\ndesktop-swaync-client\npostflight\ngit-cleanup'
 [[ $(<"$ACTIVE_COMMIT_FILE") == "$CHANGED_COMMIT" ]] || fail 'candidate was not promoted'
 jq -e --arg commit "$CHANGED_COMMIT" '.commit == $commit' \
     "$CASE_STATE/myhyprlandrice/known-good.json" >/dev/null || \

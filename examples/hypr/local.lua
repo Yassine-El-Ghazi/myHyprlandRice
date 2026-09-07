@@ -8,3 +8,8 @@
 --     position = "auto-right",
 --     scale = "1",
 -- })
+
+-- Example: add a shortcut that remains private to this computer.
+-- hl.bind("SUPER + SHIFT + N", hl.dsp.exec_cmd("obsidian"), {
+--     description = "Open notes",
+-- })
