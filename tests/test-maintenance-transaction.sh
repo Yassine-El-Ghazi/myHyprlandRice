@@ -361,13 +361,16 @@ prepare_fixture retention
 maintenance_paths_init
 
 make_retention_transaction() {
-    local id=$1 state=$2 age=$3 result=success
+    local id=$1 state=$2 age=$3 result=${4:-}
     local dir="$MAINTENANCE_TX_ROOT/$id"
 
-    case $state in
-        failed|needs-attention) result=$state ;;
-        planned) result=in-progress ;;
-    esac
+    if [[ -z $result ]]; then
+        case $state in
+            failed|needs-attention) result=$state ;;
+            planned|preflighted) result=in-progress ;;
+            *) result=success ;;
+        esac
+    fi
     mkdir -m 0700 -- "$dir"
     jq -n --arg id "$id" --arg state "$state" --arg result "$result" '
         {
@@ -394,6 +397,8 @@ make_retention_transaction txn.oldgood1 committed '31 days ago'
 make_retention_transaction txn.failed01 failed '60 days ago'
 make_retention_transaction txn.attent01 needs-attention '60 days ago'
 make_retention_transaction txn.planned1 planned '60 days ago'
+make_retention_transaction txn.oldplan1 preflighted '31 days ago' planned
+make_retention_transaction txn.preint01 preflighted '60 days ago' in-progress
 
 latest_retention_tx=$(maintenance_tx_latest)
 [[ ${latest_retention_tx##*/} == txn.00000012 ]] || \
@@ -406,8 +411,10 @@ successful_count=$(find "$MAINTENANCE_TX_ROOT" -mindepth 1 -maxdepth 1 -type d \
 [[ ! -e $MAINTENANCE_TX_ROOT/txn.00000001 ]] || fail 'the oldest excess success was retained'
 [[ ! -e $MAINTENANCE_TX_ROOT/txn.00000002 ]] || fail 'the second excess success was retained'
 [[ ! -e $MAINTENANCE_TX_ROOT/txn.oldgood1 ]] || fail 'an expired successful transaction was retained'
+[[ ! -e $MAINTENANCE_TX_ROOT/txn.oldplan1 ]] || fail 'an expired completed plan was retained'
 [[ -d $MAINTENANCE_TX_ROOT/txn.failed01 ]] || fail 'failed evidence was pruned'
 [[ -d $MAINTENANCE_TX_ROOT/txn.attent01 ]] || fail 'needs-attention evidence was pruned'
 [[ -d $MAINTENANCE_TX_ROOT/txn.planned1 ]] || fail 'interrupted/nonterminal evidence was pruned'
+[[ -d $MAINTENANCE_TX_ROOT/txn.preint01 ]] || fail 'interrupted preflight evidence was pruned'
 
 printf 'Maintenance transactions are private, atomic, bounded, and recoverable.\n'

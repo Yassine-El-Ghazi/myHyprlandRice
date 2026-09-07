@@ -223,8 +223,24 @@ assert_log_exact() {
 }
 
 prepare_run plan
+EXPIRED_PLAN="$CASE_STATE/myhyprlandrice/transactions/txn.oldplan1"
+mkdir -p -- "$EXPIRED_PLAN"
+chmod 0700 -- "$CASE_STATE/myhyprlandrice" \
+    "$CASE_STATE/myhyprlandrice/transactions" "$EXPIRED_PLAN"
+jq -n '
+    {
+        version: 1,
+        id: "txn.oldplan1",
+        state: "preflighted",
+        result: "planned"
+    }
+' > "$EXPIRED_PLAN/journal.json"
+chmod 0600 -- "$EXPIRED_PLAN/journal.json"
+touch -d '31 days ago' "$EXPIRED_PLAN/journal.json" "$EXPIRED_PLAN"
 run_maintenance 0 plan dotfiles --profile desktop --snapshot none --yes
-PLAN_TX=$(latest_tx)
+PLAN_TX=$(find "$CASE_STATE/myhyprlandrice/transactions" \
+    -mindepth 1 -maxdepth 1 -type d -name 'txn.*' \
+    ! -name 'txn.oldplan1' -print -quit)
 jq -e '
     .state == "preflighted" and .result == "planned" and
     (.completed_stages | index("preflight")) != null and
@@ -237,6 +253,7 @@ rg -q '^Candidate commit: [0-9a-f]{40}$' "$CASE_OUTPUT" || fail 'plan omitted ca
 rg -q '^Mutable stages:' "$CASE_OUTPUT" || fail 'plan omitted exact stages'
 rg -q '^Recovery coverage:' "$CASE_OUTPUT" || fail 'plan omitted recovery coverage'
 [[ ! -e $CASE_HOME/.fixture-mutated ]] || fail 'plan mutated the target home'
+[[ ! -e $EXPIRED_PLAN ]] || fail 'a successful plan did not prune expired plan evidence'
 
 prepare_run dry-run
 run_maintenance 0 apply dotfiles --profile desktop --snapshot none --yes --dry-run

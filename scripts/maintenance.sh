@@ -1174,6 +1174,8 @@ run_plan() {
             return 74
         }
     fi
+    maintenance_retention_prune || \
+        warn 'Old successful maintenance evidence was not pruned.'
     success 'Plan completed without changing the active configuration.'
 }
 

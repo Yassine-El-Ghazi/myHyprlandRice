@@ -626,7 +626,7 @@ maintenance_log_run() {
 }
 
 maintenance_retention_prune() {
-    local candidate state mtime id rank=0 cutoff line tx_dir
+    local candidate state result mtime id rank=0 cutoff line tx_dir
     local -a successful=()
 
     [[ -n ${MAINTENANCE_TX_ROOT:-} ]] || maintenance_paths_init || return 1
@@ -638,12 +638,14 @@ maintenance_retention_prune() {
         tx_dir=$_MAINTENANCE_VALIDATED_TX_DIR
         state=$(jq -er '.state | select(type == "string")' \
             "$tx_dir/journal.json" 2>/dev/null) || continue
-        case $state in
-            committed|recovered)
+        result=$(jq -er '.result | select(type == "string")' \
+            "$tx_dir/journal.json" 2>/dev/null) || continue
+        case "$state:$result" in
+            committed:success|recovered:recovered|preflighted:planned)
                 mtime=$(stat -c %Y -- "$tx_dir" 2>/dev/null) || continue
                 successful+=("$mtime"$'\t'"$id")
                 ;;
-            failed|needs-attention|planned|preflighted|checkpointed|applying|verifying|recovering)
+            *)
                 ;;
         esac
     done < <(find "$MAINTENANCE_TX_ROOT" -mindepth 1 -maxdepth 1 -type d -print0)

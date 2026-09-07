@@ -13,7 +13,7 @@ _maintenance_git_trusted_binary() {
     local name=${1:-} path resolved owner mode numeric_mode
 
     case $name in
-        bwrap|env|setpriv) path="/usr/bin/$name" ;;
+        bwrap|env|setpriv|timeout) path="/usr/bin/$name" ;;
         *) return 1 ;;
     esac
     [[ -x $path && ! -L $path ]] || return 1
@@ -394,7 +394,8 @@ _maintenance_git_run_candidate() {
     local candidate_root=$1 environment_root=$2 command_name=$3
     shift 3
     local entrypoint="$candidate_root/scripts/$command_name"
-    local bwrap_bin env_bin setpriv_bin common_git candidate_canonical env_canonical
+    local bwrap_bin env_bin setpriv_bin timeout_bin common_git
+    local candidate_canonical env_canonical
     local parent_net_ns
     local -a sandbox_args=()
     # shellcheck disable=SC2034  # Passed by nameref to the path de-duplicator.
@@ -405,6 +406,7 @@ _maintenance_git_run_candidate() {
     bwrap_bin=$(_maintenance_git_trusted_binary bwrap) || return 69
     env_bin=$(_maintenance_git_trusted_binary env) || return 69
     setpriv_bin=$(_maintenance_git_trusted_binary setpriv) || return 69
+    timeout_bin=$(_maintenance_git_trusted_binary timeout) || return 69
     candidate_canonical=$(realpath -e -- "$candidate_root" 2>/dev/null) || return 74
     env_canonical=$(realpath -e -- "$environment_root" 2>/dev/null) || return 74
     [[ $candidate_canonical == "$candidate_root" && \
@@ -451,7 +453,7 @@ _maintenance_git_run_candidate() {
         --chdir "$candidate_root"
     )
 
-    "$bwrap_bin" "${sandbox_args[@]}" \
+    "$timeout_bin" --kill-after=5 300 "$bwrap_bin" "${sandbox_args[@]}" \
         "$setpriv_bin" --no-new-privs \
         "$env_bin" -i \
             HOME="$environment_root/home" \

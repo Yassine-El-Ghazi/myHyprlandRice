@@ -25,7 +25,8 @@ Treat update and recovery code as a failure-sensitive interface:
   and credentials. Redact separate command logs before publication to disk.
 - Validate incoming dotfiles candidates as the regular user. Privileged work
   must be controlled by the trusted active revision, use one authentication
-  ticket per operation, and never run AUR builds as root.
+  ticket per operation, and never run AUR builds as root. Keep candidate
+  execution network-isolated and bounded by a trusted wall-clock deadline.
 - Preserve full Arch upgrade semantics. Never introduce a selective package
   synchronization path that can leave an unsupported partial upgrade.
 - Recover only from transaction-owned evidence after validating ownership,

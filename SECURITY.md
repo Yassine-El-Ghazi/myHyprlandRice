@@ -23,9 +23,10 @@ helper logs are permission-restricted and redact credential-like values and URI
 userinfo. The tools never store an authentication password.
 
 An incoming dotfiles revision is fetched and validated in an isolated
-candidate worktree as the regular user. Only the already trusted transaction
-engine may request the single `sudo` ticket used by privileged apply stages;
-AUR builds remain unprivileged.
+candidate worktree as the regular user. Candidate audit and quick-validation
+commands are network-isolated and each has a fixed five-minute deadline. Only
+the already trusted transaction engine may request the single `sudo` ticket
+used by privileged apply stages; AUR builds remain unprivileged.
 
 Recovery accepts only a contained transaction identifier and validates file
 ownership, file type, expected state, and active Git revision before mutation.
@@ -40,9 +41,10 @@ records coverage independently for root, package database, home, and boot.
 Recovery reports provider guidance and uncovered layers but never performs a
 snapshot restore, package downgrade, deletion, or reboot automatically.
 
-Committed and recovered transaction directories are retained only while they
-are both among the newest ten successful records and no more than 30 days old.
-Failed, interrupted, and needs-attention evidence is retained for diagnosis.
+Completed-plan, committed, and recovered transaction directories are retained
+only while they are both among the newest ten successful records and no more
+than 30 days old. Failed, interrupted, and needs-attention evidence is retained
+for diagnosis.
 Treat all transaction records, migration archives, conflict backups, baseline
 evidence, and screenshots as private local data. No maintenance command
 publishes them automatically.

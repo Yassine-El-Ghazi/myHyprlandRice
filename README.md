@@ -204,8 +204,10 @@ is successful only after postflight checks pass and its state becomes
 
 A dotfiles preview fetches without moving the active branch, materializes the
 incoming revision separately, and runs its required validation and publication
-audit as the regular user. Incoming code cannot obtain privileges merely by
-being fetched. Apply records a private checkpoint before mutation and can
+audit as the regular user. Each isolated candidate command has a fixed
+five-minute deadline, so an incoming check cannot hang maintenance forever.
+Incoming code cannot obtain privileges merely by being fetched. Apply records
+a private checkpoint before mutation and can
 restore the previous Git revision, managed links, allow-listed mutable state,
 selectors, graphical user-service state, and displaced-file backups on every
 supported filesystem.
@@ -255,9 +257,10 @@ without composing or running a restore command.
 Each apply prepares a digest-bound `known-good.pending.json` only after its
 postflight stage succeeds. It is promoted atomically to `known-good.json` only
 after the journal is committed; `status` can reconcile an interrupted final
-promotion. Committed and recovered transaction evidence is pruned unless it is
-both among the newest ten successful records and no more than 30 days old.
-Failed, interrupted, and needs-attention evidence is retained for diagnosis.
+promotion. Completed plans, committed transactions, and recovered transactions
+are pruned unless they are both among the newest ten successful records and no
+more than 30 days old. Failed, interrupted, and needs-attention evidence is
+retained for diagnosis.
 Journals are user-only and schema-bounded; separate command logs are user-only,
 redacted, and governed by the transaction retention policy. Arbitrary command
 output, environment values, network names, and credentials do not enter the
