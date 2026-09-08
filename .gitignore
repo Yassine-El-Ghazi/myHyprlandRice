@@ -26,6 +26,9 @@
 !**/.env.example
 **/*.env
 
+# Internal agent planning artifacts
+/docs/superpowers/
+
 # -----------------------------------------------------
 # Shell / Fish / MyHypr variables
 # -----------------------------------------------------
