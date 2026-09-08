@@ -46,7 +46,7 @@ require_command walker
 user_unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 tracked_user_unit_dir="$REPO_ROOT/dotfiles/.config/systemd/user"
 user_units=(elephant.service walker.service)
-managed_user_units=(myhypr-session.target "${user_units[@]}")
+managed_user_units=(myhypr-session.target myhypr-waybar.service "${user_units[@]}")
 
 for unit in "${managed_user_units[@]}"; do
     if [[ $DRY_RUN -eq 1 ]]; then

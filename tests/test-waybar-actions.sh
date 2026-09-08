@@ -58,6 +58,10 @@ rg -Fq '"format": "󰍜"' "$modules" || fail 'neutral sidebar icon is missing'
 rg -Fq '"~/.config/waybar/modules.json"' \
     "$REPO_ROOT/dotfiles/.config/waybar/themes/starter/config" || \
     fail 'starter theme does not use the shared module definitions'
+if rg -Fq 'custom/starter' \
+    "$REPO_ROOT/dotfiles/.config/waybar/themes/starter/config"; then
+    fail 'starter theme references an undefined placeholder module'
+fi
 if rg -n 'myhypr-icon\.svg|' "$REPO_ROOT/dotfiles/.config/waybar"; then
     fail 'the old image logo remains in Waybar'
 fi

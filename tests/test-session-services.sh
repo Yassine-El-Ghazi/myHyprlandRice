@@ -76,5 +76,13 @@ rg -q '^Requires=elephant\.service$' \
     "$REPO_ROOT/dotfiles/.config/systemd/user/walker.service"
 rg -q '^Requires=elephant\.service walker\.service$' \
     "$REPO_ROOT/dotfiles/.config/systemd/user/myhypr-session.target"
+rg -q '^Wants=myhypr-waybar\.service$' \
+    "$REPO_ROOT/dotfiles/.config/systemd/user/myhypr-session.target"
+waybar_unit="$REPO_ROOT/dotfiles/.config/systemd/user/myhypr-waybar.service"
+rg -q '^PartOf=myhypr-session\.target$' "$waybar_unit"
+rg -q '^ConditionPathExists=!%h/\.config/myhypr/settings/waybar-disabled$' \
+    "$waybar_unit"
+rg -q '^ExecStart=%h/\.config/waybar/launch\.sh --service$' "$waybar_unit"
+rg -q '^Restart=on-failure$' "$waybar_unit"
 
 printf 'Graphical services receive only allow-listed session variables.\n'

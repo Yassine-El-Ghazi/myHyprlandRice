@@ -18,8 +18,7 @@
     "modules-left": [
         "custom/appmenu",
         "custom/settings",
-        "hyprland/window",
-        "custom/starter"
+        "hyprland/window"
     ],
     // Modules Center
     "modules-center": [

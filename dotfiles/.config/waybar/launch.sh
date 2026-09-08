@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+launch_mode=managed
+case ${1:-} in
+    '') ;;
+    --direct) launch_mode=direct ;;
+    --service) launch_mode=service ;;
+    *) printf 'Usage: %s [--direct|--service]\n' "$0" >&2; exit 2 ;;
+esac
+
+if [[ $launch_mode == managed ]] && command -v systemctl >/dev/null 2>&1 && \
+    systemctl --user cat myhypr-waybar.service >/dev/null 2>&1; then
+    systemctl --user restart myhypr-waybar.service
+    exit 0
+fi
+
 CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
 THEME_ROOT="$CONFIG_ROOT/waybar/themes"
 THEME_SETTING="$CONFIG_ROOT/myhypr/settings/waybar-theme.sh"
@@ -76,6 +90,11 @@ if [[ -z $instance_signature ]]; then
 fi
 
 printf 'Launching Waybar theme %s.\n' "$theme_spec"
+if [[ $launch_mode == service ]]; then
+    exec {LOCK_FD}>&-
+    export HYPRLAND_INSTANCE_SIGNATURE="$instance_signature"
+    exec waybar --config "$config_file" --style "$style_file"
+fi
 (
     # Keep the launcher serialized, but do not let long-running Waybar inherit
     # the lock and block every later reload.

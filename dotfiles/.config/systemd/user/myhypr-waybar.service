@@ -1,0 +1,11 @@
+[Unit]
+Description=MyHypr Waybar status bar
+PartOf=myhypr-session.target
+After=graphical-session-pre.target
+ConditionPathExists=!%h/.config/myhypr/settings/waybar-disabled
+
+[Service]
+Type=simple
+ExecStart=%h/.config/waybar/launch.sh --service
+Restart=on-failure
+RestartSec=1s

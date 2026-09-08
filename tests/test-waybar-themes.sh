@@ -9,6 +9,7 @@ CONFIG_ROOT="$TEST_HOME/.config"
 FAKE_BIN="$TEST_ROOT/bin"
 export WAYBAR_TEST_LOG="$TEST_ROOT/waybar.log"
 export WAYBAR_TEST_PIDS="$TEST_ROOT/waybar.pids"
+export WAYBAR_SYSTEMD_LOG="$TEST_ROOT/systemctl.log"
 
 cleanup() {
     if [[ -r $WAYBAR_TEST_PIDS ]]; then
@@ -50,12 +51,26 @@ printf '#!/usr/bin/env bash\nprintf '\''[{"instance":"test-instance"}]\\n'\''\n'
     > "$FAKE_BIN/hyprctl"
 printf '#!/usr/bin/env bash\nawk '\''/MyHypr Modern Default/{print NR - 1; found=1; exit} END {if (!found) exit 1}'\''\n' \
     > "$FAKE_BIN/rofi"
-chmod +x -- "$FAKE_BIN/waybar" "$FAKE_BIN/pkill" "$FAKE_BIN/hyprctl" "$FAKE_BIN/rofi"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'printf "systemctl %s\n" "$*" >> "$WAYBAR_SYSTEMD_LOG"' \
+    'exit 0' > "$FAKE_BIN/systemctl"
+chmod +x -- "$FAKE_BIN/waybar" "$FAKE_BIN/pkill" "$FAKE_BIN/hyprctl" \
+    "$FAKE_BIN/rofi" "$FAKE_BIN/systemctl"
+
+# Normal callers hand ownership to the supervised user service.
+HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" XDG_RUNTIME_DIR="$TEST_ROOT/runtime" \
+    PATH="$FAKE_BIN:$PATH" "$CONFIG_ROOT/waybar/launch.sh" >/dev/null
+rg -Fqx 'systemctl --user cat myhypr-waybar.service' "$WAYBAR_SYSTEMD_LOG" || \
+    fail 'launcher did not detect its user service'
+rg -Fqx 'systemctl --user restart myhypr-waybar.service' "$WAYBAR_SYSTEMD_LOG" || \
+    fail 'launcher did not restart its user service'
+[[ ! -e $WAYBAR_TEST_LOG ]] || fail 'managed launch also started an unmanaged Waybar'
 
 printf '%s\n' '/myhypr-modern;/myhypr-modern/default' \
     > "$CONFIG_ROOT/myhypr/settings/waybar-theme.sh"
 HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" XDG_RUNTIME_DIR="$TEST_ROOT/runtime" \
-    PATH="$FAKE_BIN:$PATH" "$CONFIG_ROOT/waybar/launch.sh" >/dev/null
+    PATH="$FAKE_BIN:$PATH" "$CONFIG_ROOT/waybar/launch.sh" --direct >/dev/null
 
 sleep 0.1
 rg -q -- '--config .*/runtime/waybar-config\.json' "$WAYBAR_TEST_LOG" || \
@@ -88,7 +103,7 @@ printf 'False\n' > "$CONFIG_ROOT/myhypr/settings/waybar_window.sh"
 printf 'False\n' > "$CONFIG_ROOT/myhypr/settings/waybar_network.sh"
 printf 'False\n' > "$CONFIG_ROOT/myhypr/settings/waybar_systray.sh"
 HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" XDG_RUNTIME_DIR="$TEST_ROOT/runtime" \
-    PATH="$FAKE_BIN:$PATH" "$CONFIG_ROOT/waybar/launch.sh" >/dev/null
+    PATH="$FAKE_BIN:$PATH" "$CONFIG_ROOT/waybar/launch.sh" --direct >/dev/null
 jq -e '
     (.["modules-left"] | index("custom/appmenu") == null and
       index("wlr/taskbar") != null and index("group/quicklinks") != null) and
@@ -110,7 +125,7 @@ done
 : > "$WAYBAR_TEST_LOG"
 printf '%s\n' '/../../tmp;/../../tmp' > "$CONFIG_ROOT/myhypr/settings/waybar-theme.sh"
 HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" XDG_RUNTIME_DIR="$TEST_ROOT/runtime" \
-    PATH="$FAKE_BIN:$PATH" "$CONFIG_ROOT/waybar/launch.sh" >/dev/null 2>&1
+    PATH="$FAKE_BIN:$PATH" "$CONFIG_ROOT/waybar/launch.sh" --direct >/dev/null 2>&1
 [[ $(<"$CONFIG_ROOT/myhypr/settings/waybar-theme.sh") == \
     '/myhypr-modern;/myhypr-modern/default' ]] || fail 'invalid theme was not repaired'
 
@@ -128,11 +143,11 @@ selected=$(<"$CONFIG_ROOT/myhypr/settings/waybar-theme.sh")
 : > "$WAYBAR_TEST_LOG"
 WAYBAR_TEST_HOLD=1 HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" \
     XDG_RUNTIME_DIR="$TEST_ROOT/runtime" PATH="$FAKE_BIN:$PATH" \
-    "$CONFIG_ROOT/waybar/launch.sh" >/dev/null
+    "$CONFIG_ROOT/waybar/launch.sh" --direct >/dev/null
 sleep 0.1
 WAYBAR_TEST_HOLD=1 HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" \
     XDG_RUNTIME_DIR="$TEST_ROOT/runtime" PATH="$FAKE_BIN:$PATH" \
-    "$CONFIG_ROOT/waybar/launch.sh" >/dev/null
+    "$CONFIG_ROOT/waybar/launch.sh" --direct >/dev/null
 sleep 0.1
 [[ $(wc -l < "$WAYBAR_TEST_LOG") -eq 2 ]] || \
     fail 'a running Waybar retained the launcher lock and blocked reload'

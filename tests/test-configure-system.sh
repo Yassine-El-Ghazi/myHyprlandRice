@@ -22,7 +22,7 @@ mkdir -p -- \
     "$SYSTEM_TEST_STATE_DIR" \
     "$SYSTEM_TEST_USER_UNIT_DIR/graphical-session.target.wants" \
     "$SYSTEM_TEST_USER_UNIT_DIR/myhypr-session.target.wants"
-for unit in myhypr-session.target elephant.service walker.service; do
+for unit in myhypr-session.target myhypr-waybar.service elephant.service walker.service; do
     ln -s -- "$REPO_ROOT/dotfiles/.config/systemd/user/$unit" \
         "$SYSTEM_TEST_USER_UNIT_DIR/$unit"
 done
@@ -46,6 +46,7 @@ printf '%s\n' \
     '        if [[ $unit == myhypr-session.target ]]; then' \
     '          : > "$SYSTEM_TEST_STATE_DIR/elephant.service.active"' \
     '          : > "$SYSTEM_TEST_STATE_DIR/walker.service.active"' \
+    '          : > "$SYSTEM_TEST_STATE_DIR/myhypr-waybar.service.active"' \
     '        fi' \
     '      done' \
     '      ;;' \
@@ -93,6 +94,7 @@ run_configure
 [[ -f $SYSTEM_TEST_STATE_DIR/myhypr-session.target.active ]]
 [[ -f $SYSTEM_TEST_STATE_DIR/elephant.service.active ]]
 [[ -f $SYSTEM_TEST_STATE_DIR/walker.service.active ]]
+[[ -f $SYSTEM_TEST_STATE_DIR/myhypr-waybar.service.active ]]
 rg -q '^systemctl <enable> <--now> <NetworkManager\.service> <bluetooth\.service>$' \
     "$SYSTEM_TEST_LOG"
 rg -q '^systemctl <--user> <start> <myhypr-session\.target>$' \
