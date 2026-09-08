@@ -4,6 +4,8 @@ set -Eeuo pipefail
 CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
 THEME_ROOT="$CONFIG_ROOT/waybar/themes"
 THEME_SETTING="$CONFIG_ROOT/myhypr/settings/waybar-theme.sh"
+SETTINGS_ROOT="$CONFIG_ROOT/myhypr/settings"
+CONFIG_GENERATOR="$CONFIG_ROOT/waybar/generate-config.py"
 DEFAULT_THEME='/myhypr-modern;/myhypr-modern/default'
 LOCK_ROOT="${XDG_RUNTIME_DIR:-$HOME/.cache/myhypr}"
 
@@ -51,6 +53,14 @@ style_file="$THEME_ROOT$style_path/style.css"
     config_file="$THEME_ROOT$theme_path/config-custom"
 [[ -f $THEME_ROOT$style_path/style-custom.css ]] && \
     style_file="$THEME_ROOT$style_path/style-custom.css"
+
+generated_config="$LOCK_ROOT/waybar-config.json"
+if [[ ! -r $CONFIG_GENERATOR ]]; then
+    printf 'Waybar configuration generator is missing: %s\n' "$CONFIG_GENERATOR" >&2
+    exit 1
+fi
+python3 "$CONFIG_GENERATOR" "$config_file" "$SETTINGS_ROOT" "$generated_config"
+config_file=$generated_config
 
 pkill -x waybar >/dev/null 2>&1 || true
 sleep 0.3

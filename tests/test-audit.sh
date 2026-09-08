@@ -47,7 +47,7 @@ setup_repo() {
 
 case_name=${1:-all}
 case $case_name in
-    all|staged-invalid|staged-valid|history|large-files|hook-environment|setup-mktemp|\
+    all|staged-invalid|staged-valid|private-overrides|history|large-files|hook-environment|setup-mktemp|\
         setup-checkout|setup-cd|setup-init|setup-add) ;;
     *) fail "unknown case: $case_name" ;;
 esac
@@ -63,6 +63,27 @@ if [[ $case_name == all || $case_name == staged-invalid ]]; then
     if PATH="$repo_a/bin:/usr/bin:/bin" "$repo_a/scripts/audit.sh" --staged; then
         fail 'invalid staged content was hidden by a valid worktree repair'
     fi
+fi
+
+if [[ $case_name == all || $case_name == private-overrides ]]; then
+    repo_private="$TEST_ROOT/private-overrides"
+    private_log="$TEST_ROOT/private-overrides.log"
+    setup_repo "$repo_private"
+    mkdir -p -- "$repo_private/dotfiles/.config/fish" \
+        "$repo_private/dotfiles/.config/zshrc/custom"
+    printf 'set -gx LOCAL_ONLY yes\n' \
+        > "$repo_private/dotfiles/.config/fish/config.local.fish"
+    printf 'export LOCAL_ONLY=yes\n' \
+        > "$repo_private/dotfiles/.config/zshrc/custom/00-init"
+    git -C "$repo_private" add dotfiles
+    if PATH="$repo_private/bin:/usr/bin:/bin" \
+        "$repo_private/scripts/audit.sh" --staged >"$private_log" 2>&1; then
+        fail 'tracked private shell overrides were accepted'
+    fi
+    rg -Fq 'Sensitive filename must not be tracked: dotfiles/.config/fish/config.local.fish' \
+        "$private_log" || fail 'Fish private override warning was missing'
+    rg -Fq 'Sensitive filename must not be tracked: dotfiles/.config/zshrc/custom/00-init' \
+        "$private_log" || fail 'Zsh private override warning was missing'
 fi
 
 if [[ $case_name == all || $case_name == staged-valid ]]; then

@@ -50,17 +50,19 @@ apply_theme() {
     wallpaper=$(<"$HOME/.cache/myhypr/current_wallpaper")
     [[ -f $wallpaper ]] || return 0
 
-    matugen image "$wallpaper" "${mode_args[@]}"
+    matugen image "$wallpaper" "${mode_args[@]}" || return 1
     "$HOME/.config/nwg-dock-hyprland/launch.sh" &
     "$HOME/.config/waybar/launch.sh" &
     "$HOME/.config/hypr/scripts/gtk.sh" &
-    swaync-client -rs
+    swaync-client -rs || return 1
 }
 
 # Loop indefinitely, reading output from inotifywait
 inotifywait -m -q -e close_write,moved_to "$SETTINGS_DIR" | while read -r _directory _events filename; do
     if [[ "$filename" == "$SETTINGS_BASENAME" ]]; then
         printf 'Change detected in %s; reapplying theme.\n' "$SETTINGS_FILE"
-        apply_theme
+        if ! apply_theme; then
+            printf 'Theme update failed; continuing to monitor GTK settings.\n' >&2
+        fi
     fi
 done

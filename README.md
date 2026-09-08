@@ -110,6 +110,12 @@ repository package is preferred before the first AUR alternative.
 Elephant is installed through its atomic `elephant-all` build so its Go plugin
 providers cannot drift from the core service ABI.
 
+The shipped `nvidia` environment is a narrow dedicated-GPU compatibility
+profile. Hybrid laptops should keep the `default` profile and place only
+hardware-specific, verified exceptions in `~/.config/hypr/local.lua`; the
+repository does not globally force PRIME offload, a Vulkan vendor, or browser
+sandbox overrides.
+
 ## MyHypr controls
 
 After starting a new shell, `~/.config/myhypr/bin` is on `PATH`:

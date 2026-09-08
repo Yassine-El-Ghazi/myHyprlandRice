@@ -22,6 +22,11 @@ nvim_config="$REPO_ROOT/dotfiles/.config/nvim/init.lua"
 doctor="$REPO_ROOT/scripts/doctor.sh"
 hypr_environment="$REPO_ROOT/dotfiles/.config/hypr/conf/myhypr.lua"
 hypr_environment_compat="$REPO_ROOT/dotfiles/.config/hypr/conf/myhypr.conf"
+default_environment="$REPO_ROOT/dotfiles/.config/hypr/conf/environments/default.lua"
+default_environment_compat="$REPO_ROOT/dotfiles/.config/hypr/conf/environments/default.conf"
+kitty_config="$REPO_ROOT/dotfiles/.config/kitty/kitty.conf"
+nvidia_environment="$REPO_ROOT/dotfiles/.config/hypr/conf/environments/nvidia.lua"
+nvidia_environment_compat="$REPO_ROOT/dotfiles/.config/hypr/conf/environments/nvidia.conf"
 rustup_fish="$REPO_ROOT/dotfiles/.config/fish/conf.d/rustup.fish"
 for maintenance_package in bubblewrap util-linux; do
     rg -Fxq "$maintenance_package" "$core_manifest" || {
@@ -47,6 +52,45 @@ rg -Fxq breeze-gtk "$desktop_manifest" || {
     printf 'Desktop profile is missing the configured GTK theme package.\n' >&2
     exit 1
 }
+rg -Fxq capitaine-cursors "$desktop_manifest" || {
+    printf 'Desktop profile is missing the configured cursor package.\n' >&2
+    exit 1
+}
+for cursor_config in "$default_environment" "$default_environment_compat"; do
+    rg -q 'XCURSOR_THEME.*capitaine-cursors' "$cursor_config" || {
+        printf 'Default cursor does not match the package manifest in %s.\n' \
+            "$cursor_config" >&2
+        exit 1
+    }
+    if rg -q 'Bibata|HYPRCURSOR_THEME' "$cursor_config"; then
+        printf 'Default environment still selects an unavailable cursor in %s.\n' \
+            "$cursor_config" >&2
+        exit 1
+    fi
+done
+rg -q '^globinclude \./custom\.conf$' "$kitty_config" || {
+    printf 'Kitty local customization is not optional.\n' >&2
+    exit 1
+}
+if rg -q '^include themes/' "$kitty_config"; then
+    printf 'Kitty includes an untracked theme file.\n' >&2
+    exit 1
+fi
+for nvidia_config in "$nvidia_environment" "$nvidia_environment_compat"; do
+    rg -q '__GLX_VENDOR_LIBRARY_NAME.*nvidia' "$nvidia_config" || {
+        printf 'NVIDIA profile lost its narrow XWayland compatibility hint.\n' >&2
+        exit 1
+    }
+    rg -q 'no_hardware_cursors.*true' "$nvidia_config" || {
+        printf 'NVIDIA profile lost its explicit cursor fallback.\n' >&2
+        exit 1
+    }
+    if rg -q 'GBM_BACKEND|LIBVA_DRIVER_NAME|__NV_PRIME_RENDER_OFFLOAD|__VK_LAYER_NV_optimus|WLR_NO_HARDWARE_CURSORS|WLR_RENDERER_ALLOW_SOFTWARE|MOZ_DISABLE_RDD_SANDBOX|EGL_PLATFORM' \
+        "$nvidia_config"; then
+        printf 'NVIDIA profile still contains broad or obsolete global overrides.\n' >&2
+        exit 1
+    fi
+done
 rg -Fq "pattern = { 'sh'," "$nvim_config" || {
     printf 'Neovim Tree-sitter does not attach to normal shell filetypes.\n' >&2
     exit 1

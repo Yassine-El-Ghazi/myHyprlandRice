@@ -22,8 +22,8 @@ if [[ -f $ENABLED_MARKER ]]; then
         "$CONFIG_ROOT/hypr/scripts/wallpaper-automation.sh" &
         disown
     fi
-    hyprctl reload
     rm -f -- "$ENABLED_MARKER"
+    hyprctl reload
     notify-send 'Gamemode deactivated' 'Animations and blur enabled'
     exit 0
 fi
@@ -37,6 +37,6 @@ if [[ -f $WALLPAPER_AUTOMATION ]]; then
     "$CONFIG_ROOT/hypr/scripts/wallpaper-automation.sh"
 fi
 
-hyprctl eval 'hl.config({ animations = { enabled = false }, decoration = { shadow = { enabled = false }, blur = { enabled = false }, active_opacity = 1, inactive_opacity = 1, fullscreen_opacity = 1, rounding = 0 }, general = { gaps_in = 0, gaps_out = 0, border_size = 1 } })'
+hyprctl eval 'require("conf.gamemode_state").apply()'
 : > "$ENABLED_MARKER"
 notify-send 'Gamemode activated' 'Animations and blur disabled'

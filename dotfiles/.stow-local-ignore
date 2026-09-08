@@ -24,6 +24,7 @@ credentials?
 ^/\.config/fish/config\.local\.fish$
 ^/\.config/fish/fish_variables$
 ^/\.config/fish/generated_completions(?:/.*)?$
+^/\.config/zshrc/custom(?:/.*)?$
 ^/\.config/hypr/local\.lua$
 ^/\.config/hypr/(?:monitors|workspaces)\.(?:conf|lua)$
 ^/\.config/waypaper/config\.ini$

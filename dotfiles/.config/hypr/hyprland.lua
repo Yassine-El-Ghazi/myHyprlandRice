@@ -125,6 +125,10 @@ if local_file then
     require("local")
 end
 
+-- Persisted gamemode is intentionally applied last so a reload cannot leave
+-- the marker and the effective compositor state out of sync.
+require("conf.gamemode_state").apply_persisted()
+
 hl.on("hyprland.start", function()
     hl.exec_cmd("~/.config/myhypr/scripts/start-session-services.sh")
     hl.exec_cmd("quickshell -p ~/.config/quickshell/shell.qml")

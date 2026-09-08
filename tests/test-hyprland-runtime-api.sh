@@ -9,7 +9,6 @@ runtime_files=(
     dotfiles/.config/hypr/scripts/cursor-zoom.sh
     dotfiles/.config/hypr/scripts/toggle-animations.sh
     dotfiles/.config/hypr/scripts/gamemode.sh
-    dotfiles/.config/hypr/scripts/load-gamemode.sh
     dotfiles/.config/hypr/scripts/toggle-refresh.sh
     dotfiles/.config/hypr/scripts/toggleallfloat.sh
     dotfiles/.config/hypr/scripts/power.sh
@@ -33,7 +32,9 @@ while IFS= read -r line; do
 done < <(rg 'hyprctl[[:space:]]+dispatch' "${runtime_files[@]}")
 
 while IFS= read -r line; do
-    [[ $line == *'hl.config('* || $line == *'hl.monitor('* || $line == *"require('conf.runtime_actions')"* ]] || \
+    [[ $line == *'hl.config('* || $line == *'hl.monitor('* || \
+        $line == *"require('conf.runtime_actions')"* || \
+        $line == *'require("conf.gamemode_state").apply()'* ]] || \
         fail "unapproved hyprctl eval expression: $line"
 done < <(rg 'hyprctl[[:space:]]+eval' "${runtime_files[@]}")
 

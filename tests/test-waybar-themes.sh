@@ -32,6 +32,8 @@ mkdir -p -- \
     "$FAKE_BIN" "$TEST_ROOT/runtime"
 ln -s -- "$REPO_ROOT/dotfiles/.config/waybar/themes" "$CONFIG_ROOT/waybar/themes"
 ln -s -- "$REPO_ROOT/dotfiles/.config/waybar/launch.sh" "$CONFIG_ROOT/waybar/launch.sh"
+ln -s -- "$REPO_ROOT/dotfiles/.config/waybar/generate-config.py" \
+    "$CONFIG_ROOT/waybar/generate-config.py"
 ln -s -- "$REPO_ROOT/dotfiles/.config/waybar/themeswitcher.sh" \
     "$CONFIG_ROOT/waybar/themeswitcher.sh"
 
@@ -56,10 +58,53 @@ HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" XDG_RUNTIME_DIR="$TEST_ROOT/run
     PATH="$FAKE_BIN:$PATH" "$CONFIG_ROOT/waybar/launch.sh" >/dev/null
 
 sleep 0.1
-rg -q -- '--config .*/themes/myhypr-modern/config' "$WAYBAR_TEST_LOG" || \
-    fail 'expected theme config was not launched'
+rg -q -- '--config .*/runtime/waybar-config\.json' "$WAYBAR_TEST_LOG" || \
+    fail 'generated theme config was not launched'
 rg -q -- '--style .*/themes/myhypr-modern/default/style\.css' "$WAYBAR_TEST_LOG" || \
     fail 'expected theme style was not launched'
+jq -e '
+    .["modules-left"] | index("custom/appmenu") != null and
+    index("wlr/taskbar") == null and index("group/quicklinks") == null
+' "$TEST_ROOT/runtime/waybar-config.json" >/dev/null || \
+    fail 'default left-module visibility changed'
+jq -e '
+    (.["modules-center"] | index("hyprland/window") != null) and
+    (.["modules-right"] | index("network") != null and index("tray") != null)
+' "$TEST_ROOT/runtime/waybar-config.json" >/dev/null || \
+    fail 'default center/right-module visibility changed'
+jq -e '
+    (.["modules-left"] | index("custom/appmenu") < index("hyprland/workspaces")) and
+    (.["modules-center"] | index("hyprland/window") < index("custom/empty")) and
+    (.["modules-right"] | index("network") < index("battery") and
+      index("tray") < index("custom/notification"))
+' "$TEST_ROOT/runtime/waybar-config.json" >/dev/null || \
+    fail 'enabled modules moved within the selected theme layout'
+
+# Every switch exposed by Settings must alter the generated configuration.
+printf 'False\n' > "$CONFIG_ROOT/myhypr/settings/waybar_appmenu.sh"
+printf 'True\n' > "$CONFIG_ROOT/myhypr/settings/waybar_taskbar.sh"
+printf 'True\n' > "$CONFIG_ROOT/myhypr/settings/waybar_quicklinks.sh"
+printf 'False\n' > "$CONFIG_ROOT/myhypr/settings/waybar_window.sh"
+printf 'False\n' > "$CONFIG_ROOT/myhypr/settings/waybar_network.sh"
+printf 'False\n' > "$CONFIG_ROOT/myhypr/settings/waybar_systray.sh"
+HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" XDG_RUNTIME_DIR="$TEST_ROOT/runtime" \
+    PATH="$FAKE_BIN:$PATH" "$CONFIG_ROOT/waybar/launch.sh" >/dev/null
+jq -e '
+    (.["modules-left"] | index("custom/appmenu") == null and
+      index("wlr/taskbar") != null and index("group/quicklinks") != null) and
+    (.["modules-center"] | index("hyprland/window") == null) and
+    (.["modules-right"] | index("network") == null and index("tray") == null)
+' "$TEST_ROOT/runtime/waybar-config.json" >/dev/null || \
+    fail 'Settings visibility switches did not alter the generated config'
+rm -f -- "$CONFIG_ROOT/myhypr/settings"/waybar_{appmenu,taskbar,quicklinks,window,network,systray}.sh
+
+# Every shipped theme must be valid generator input.
+for shipped_config in "$CONFIG_ROOT/waybar/themes"/*/config; do
+    python3 "$CONFIG_ROOT/waybar/generate-config.py" "$shipped_config" \
+        "$CONFIG_ROOT/myhypr/settings" "$TEST_ROOT/runtime/all-themes.json"
+    jq -e 'type == "object"' "$TEST_ROOT/runtime/all-themes.json" >/dev/null || \
+        fail "theme did not generate an object: $shipped_config"
+done
 
 # Invalid runtime state must be replaced with the known-good local default.
 : > "$WAYBAR_TEST_LOG"

@@ -18,6 +18,14 @@ fail() {
     exit 1
 }
 
+matugen_config="$REPO_ROOT/dotfiles/.config/matugen/config.toml"
+[[ $(rg -c "post_hook = 'hyprctl reload'" "$matugen_config") -eq 1 ]] || \
+    fail 'Matugen must reload Hyprland exactly once per color generation'
+rg -Fq "output_path = '~/.config/hypr/colors.conf'" "$matugen_config" || \
+    fail 'Hyprland compatibility colors are no longer generated'
+rg -Fq "output_path = '~/.config/hypr/colors.lua'" "$matugen_config" || \
+    fail 'Hyprland Lua colors are no longer generated'
+
 mkdir -p -- "$FAKE_BIN"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
