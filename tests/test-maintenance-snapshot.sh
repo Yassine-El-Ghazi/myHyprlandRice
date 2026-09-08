@@ -228,7 +228,7 @@ probe_none=$(probe_case ext4-no-tool none false false false false false explicit
 probe_snapper_root=$(probe_case snapper-root snapper true true false false false healthy)
 probe_case snapper-privileged snapper true true false false false healthy >/dev/null
 probe_case snapper-nested-package snapper true false false false false healthy >/dev/null
-probe_case snapper-root-boot snapper true true false true true healthy >/dev/null
+probe_snapper_system=$(probe_case snapper-root-boot snapper true true false true true healthy)
 probe_snapper_full=$(probe_case snapper-full snapper true true true true true healthy)
 probe_timeshift=$(probe_case btrfs-timeshift timeshift true true true false false healthy)
 probe_case btrfs-timeshift-custom-home timeshift true true false false false healthy >/dev/null
@@ -237,6 +237,18 @@ probe_case both-healthy snapper true true false false false healthy >/dev/null
 probe_case snapper-broken-timeshift timeshift true true true false false healthy >/dev/null
 probe_case snapper-malformed-mount none false false false false false probe-failed >/dev/null
 probe_case broken-provider none false false false false false probe-failed >/dev/null
+
+set +e
+system_coverage_output=$(ASSUME_YES=0 _snapshot_accept_coverage \
+    "$probe_snapper_system" </dev/null 2>&1)
+system_coverage_status=$?
+set -e
+[[ $system_coverage_status -eq 0 ]] || \
+    fail 'restorable system coverage was blocked because home is a separate subvolume'
+[[ $system_coverage_output == *home* && $system_coverage_output == *'System rollback is covered'* ]] || \
+    fail 'restorable system coverage did not report its bounded home limitation'
+[[ $system_coverage_output != *'Proceed with this recovery limitation'* ]] || \
+    fail 'restorable system coverage still requested redundant confirmation'
 
 IFS=:
 _snapshot_uncovered_layers "$probe_snapper_root" >/dev/null

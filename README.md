@@ -61,6 +61,12 @@ your display manager. For an unattended machine you control:
 The bootstrap is idempotent. Running it again preserves existing runtime
 preferences and only installs or links what is missing.
 
+On Neovim's first start, the pinned plugin manager downloads the plugins and
+Tree-sitter parsers declared by the configuration. The bootstrap installs the
+required Node.js and Tree-sitter runtimes, but account authentication remains
+private; run `:Copilot auth` inside Neovim if you want to use Copilot on a new
+machine. No token or editor login is stored in this repository.
+
 ### What bootstrap automates
 
 1. Resolves the selected package profile from `packages/arch/`.
@@ -284,6 +290,12 @@ Inspect the printed coverage before using that provider for apply. The private
 transaction also contains `snapshot-probe.json`; recovery prints the provider
 identifier, uncovered layers, package log location, and provider documentation
 without composing or running a restore command.
+
+Root, package-database, and boot coverage make an update system-restorable. If
+only a separate `/home` subvolume is uncovered, maintenance prints that
+limitation but does not request redundant confirmation; use an independent
+personal-data backup if you also want complete home recovery. Missing system
+layers still require explicit confirmation before any update is applied.
 
 Each apply prepares a digest-bound `known-good.pending.json` only after its
 postflight stage succeeds. It is promoted atomically to `known-good.json` only

@@ -954,7 +954,7 @@ require('lazy').setup({
 
       -- Enable syntax highlighting via autocmd
       vim.api.nvim_create_autocmd('FileType', {
-        pattern = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'vim', 'vimdoc' },
+        pattern = { 'sh', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'vim', 'vimdoc' },
         callback = function()
           vim.treesitter.start()
           vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"

@@ -257,6 +257,10 @@ _preflight_snapshot_accepted() {
     ((${#missing[@]} == 0)) && return 0
     joined=${missing[*]}
     warn "System snapshot coverage is incomplete; uncovered layers: $joined"
+    if jq -e '.system_restorable == true' "$probe" >/dev/null 2>&1; then
+        warn 'System rollback is covered; personal home data remains outside the snapshot.'
+        return 0
+    fi
     warn 'Universal configuration recovery remains available; package rollback stays manual.'
     [[ ${ASSUME_YES:-0} == 1 ]] && return 0
     if [[ -t 0 ]]; then

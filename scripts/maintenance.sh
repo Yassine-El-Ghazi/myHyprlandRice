@@ -778,7 +778,15 @@ print_system_plan() {
         "$(jq -r '.coverage.package_db' "$probe")" \
         "$(jq -r '.coverage.home' "$probe")" \
         "$(jq -r '.coverage.boot' "$probe")"
-    printf 'Recovery limitation: package rollback is manual without a complete system snapshot.\n'
+    if jq -e '.system_restorable == true' "$probe" >/dev/null; then
+        if jq -e '.coverage.home == true' "$probe" >/dev/null; then
+            printf 'Recovery limitation: none for the declared system and home layers.\n'
+        else
+            printf 'Recovery limitation: personal home data is outside the system snapshot.\n'
+        fi
+    else
+        printf 'Recovery limitation: package rollback is manual without a restorable system snapshot.\n'
+    fi
 }
 
 print_plan() {

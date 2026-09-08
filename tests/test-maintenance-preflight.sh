@@ -321,6 +321,26 @@ assert_schema "$TX_DIR/preflight.json" system full
 jq -e '.required_passed == true and .result == "passed"' \
     "$TX_DIR/preflight.json" >/dev/null || fail 'healthy system preflight did not pass'
 
+begin_case system-home-uncovered system full
+home_probe="$TX_DIR/.snapshot-probe.next"
+jq '
+    .provider = "snapper" |
+    .reason = "healthy" |
+    .coverage = {root: true, package_db: true, home: false, boot: true} |
+    .system_restorable = true
+' "$TX_DIR/snapshot-probe.json" > "$home_probe"
+chmod 0600 -- "$home_probe"
+mv -- "$home_probe" "$TX_DIR/snapshot-probe.json"
+PREFLIGHT_SCENARIO=passed
+ASSUME_YES=0
+run_preflight system full 0
+assert_schema "$TX_DIR/preflight.json" system full
+jq -e '
+    .required_passed == true and
+    (.checks[] | select(.name == "snapshot-coverage").status) == "passed"
+' "$TX_DIR/preflight.json" >/dev/null || \
+    fail 'separate home coverage incorrectly blocked a restorable system update'
+
 begin_case system-plan-missing system full
 PREFLIGHT_SCENARIO=passed
 rm -f -- "$TX_DIR/system-plan.json"

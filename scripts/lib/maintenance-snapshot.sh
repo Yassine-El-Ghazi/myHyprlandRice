@@ -309,6 +309,10 @@ _snapshot_accept_coverage() {
     uncovered=$(_snapshot_uncovered_layers "$coverage") || return 1
     [[ -z $uncovered ]] && return 0
     warn "System snapshot coverage is incomplete; uncovered layers: $uncovered"
+    if jq -e '.system_restorable == true' <<< "$coverage" >/dev/null; then
+        warn 'System rollback is covered; personal home data remains outside the snapshot.'
+        return 0
+    fi
     warn 'Universal configuration recovery remains available; package rollback stays manual.'
     [[ ${ASSUME_YES:-0} == 1 ]] && return 0
     if [[ -t 0 ]]; then

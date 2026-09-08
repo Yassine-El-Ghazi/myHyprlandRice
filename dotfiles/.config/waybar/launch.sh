@@ -66,6 +66,11 @@ if [[ -z $instance_signature ]]; then
 fi
 
 printf 'Launching Waybar theme %s.\n' "$theme_spec"
-HYPRLAND_INSTANCE_SIGNATURE="$instance_signature" \
-    waybar --config "$config_file" --style "$style_file" &
+(
+    # Keep the launcher serialized, but do not let long-running Waybar inherit
+    # the lock and block every later reload.
+    exec {LOCK_FD}>&-
+    export HYPRLAND_INSTANCE_SIGNATURE="$instance_signature"
+    exec waybar --config "$config_file" --style "$style_file"
+) &
 disown

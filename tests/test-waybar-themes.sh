@@ -8,8 +8,14 @@ TEST_HOME="$TEST_ROOT/home"
 CONFIG_ROOT="$TEST_HOME/.config"
 FAKE_BIN="$TEST_ROOT/bin"
 export WAYBAR_TEST_LOG="$TEST_ROOT/waybar.log"
+export WAYBAR_TEST_PIDS="$TEST_ROOT/waybar.pids"
 
 cleanup() {
+    if [[ -r $WAYBAR_TEST_PIDS ]]; then
+        while IFS= read -r process_id; do
+            [[ $process_id =~ ^[0-9]+$ ]] && kill "$process_id" 2>/dev/null || true
+        done < "$WAYBAR_TEST_PIDS"
+    fi
     case $TEST_ROOT in
         "${TMPDIR:-/tmp}"/myhypr-waybar-test.*) rm -rf -- "$TEST_ROOT" ;;
     esac
@@ -29,8 +35,14 @@ ln -s -- "$REPO_ROOT/dotfiles/.config/waybar/launch.sh" "$CONFIG_ROOT/waybar/lau
 ln -s -- "$REPO_ROOT/dotfiles/.config/waybar/themeswitcher.sh" \
     "$CONFIG_ROOT/waybar/themeswitcher.sh"
 
-printf '#!/usr/bin/env bash\nprintf "%%q " "$@" >> "$WAYBAR_TEST_LOG"\nprintf "\\n" >> "$WAYBAR_TEST_LOG"\n' \
-    > "$FAKE_BIN/waybar"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'printf "%q " "$@" >> "$WAYBAR_TEST_LOG"' \
+    'printf "\n" >> "$WAYBAR_TEST_LOG"' \
+    'if [[ -n ${WAYBAR_TEST_HOLD:-} ]]; then' \
+    '    printf "%s\n" "$$" >> "$WAYBAR_TEST_PIDS"' \
+    '    exec sleep 30' \
+    'fi' > "$FAKE_BIN/waybar"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE_BIN/pkill"
 printf '#!/usr/bin/env bash\nprintf '\''[{"instance":"test-instance"}]\\n'\''\n' \
     > "$FAKE_BIN/hyprctl"
@@ -65,5 +77,19 @@ sleep 0.1
 selected=$(<"$CONFIG_ROOT/myhypr/settings/waybar-theme.sh")
 [[ $selected == '/myhypr-modern;/myhypr-modern/default' ]] || \
     fail "unexpected selector result: $selected"
+
+# A long-running Waybar must not inherit the launcher's flock. Otherwise the
+# second invocation exits without performing the requested restart.
+: > "$WAYBAR_TEST_LOG"
+WAYBAR_TEST_HOLD=1 HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" \
+    XDG_RUNTIME_DIR="$TEST_ROOT/runtime" PATH="$FAKE_BIN:$PATH" \
+    "$CONFIG_ROOT/waybar/launch.sh" >/dev/null
+sleep 0.1
+WAYBAR_TEST_HOLD=1 HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" \
+    XDG_RUNTIME_DIR="$TEST_ROOT/runtime" PATH="$FAKE_BIN:$PATH" \
+    "$CONFIG_ROOT/waybar/launch.sh" >/dev/null
+sleep 0.1
+[[ $(wc -l < "$WAYBAR_TEST_LOG") -eq 2 ]] || \
+    fail 'a running Waybar retained the launcher lock and blocked reload'
 
 printf 'Waybar theme resolution, fallback, and selection passed.\n'

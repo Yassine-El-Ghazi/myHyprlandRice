@@ -76,6 +76,7 @@ qt6-wayland
 qt6ct
 qt6-svg
 breeze
+breeze-gtk
 breeze-icons
 capitaine-cursors
 ttf-fira-sans

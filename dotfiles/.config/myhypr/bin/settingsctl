@@ -92,10 +92,41 @@ def current_value(setting: dict[str, Any]) -> str:
     return default
 
 
+def declared_choices(setting: dict[str, Any]) -> list[str]:
+    setting_type = setting.get("type")
+    if setting_type == "choose":
+        options = setting.get("options", [])
+        if not isinstance(options, list) or not all(isinstance(value, str) for value in options):
+            fail(f"Setting {setting['id']} has invalid declared options")
+        return options
+    if setting_type not in {"files", "folders"}:
+        return []
+
+    folder = target_path(str(setting.get("folder", "")))
+    if not folder.is_dir():
+        return []
+    choices: list[str] = []
+    try:
+        candidates = list(folder.iterdir())
+    except OSError as error:
+        fail(f"Unable to list setting choices in {folder}: {error}")
+    for candidate in candidates:
+        try:
+            resolved = target_path(str(candidate))
+        except SettingsError:
+            continue
+        if setting_type == "files":
+            if candidate.name.endswith(".conf") and resolved.is_file():
+                choices.append(candidate.name)
+        elif resolved.is_dir():
+            choices.append(candidate.name)
+    return sorted(choices)
+
+
 def validate_value(setting: dict[str, Any], value: str) -> None:
     if "\x00" in value or "\n" in value or "\r" in value:
         fail("Settings values must fit on one line")
-    if setting.get("type") == "choose" and value not in setting.get("options", []):
+    if setting.get("type") in {"choose", "files", "folders"} and value not in declared_choices(setting):
         fail(f"Value is not one of the declared options: {value}")
 
 
@@ -169,10 +200,16 @@ def run_post_command(setting: dict[str, Any]) -> None:
 
 
 def main(arguments: list[str]) -> int:
-    if len(arguments) not in {2, 3} or arguments[0] not in {"get", "set"}:
-        print("Usage: settingsctl get ID | settingsctl set ID VALUE", file=sys.stderr)
+    if len(arguments) not in {2, 3} or arguments[0] not in {"choices", "get", "set"}:
+        print("Usage: settingsctl choices ID | settingsctl get ID | settingsctl set ID VALUE", file=sys.stderr)
         return 2
     setting = find_setting(arguments[1])
+    if arguments[0] == "choices":
+        if len(arguments) != 2:
+            return 2
+        for choice in declared_choices(setting):
+            print(choice)
+        return 0
     if arguments[0] == "get":
         if len(arguments) != 2:
             return 2

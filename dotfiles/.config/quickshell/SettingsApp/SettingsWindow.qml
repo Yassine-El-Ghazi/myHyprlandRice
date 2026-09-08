@@ -203,14 +203,7 @@ FloatingWindow {
                                 // 2. Dynamically fetch files/folders list if needed
                                 Process {
                                     running: modelData.type === "files" || modelData.type === "folders"
-                                    command: {
-                                        if (modelData.type === "files") {
-                                            return ["find", modelData.folder.replace("~", Quickshell.env("HOME")), "-maxdepth", "1", "-type", "f", "-name", "*.conf", "-printf", "%f\\n"]
-                                        } else if (modelData.type === "folders") {
-                                            return ["find", modelData.folder.replace("~", Quickshell.env("HOME")), "-mindepth", "1", "-maxdepth", "1", "-type", "d", "-printf", "%f\\n"]
-                                        }
-                                        return ["echo", ""]
-                                    }
+                                    command: [root.scriptPath, "choices", modelData.id]
                                     stdout: StdioCollector {
                                         onStreamFinished: {
                                             var out = this.text.trim();

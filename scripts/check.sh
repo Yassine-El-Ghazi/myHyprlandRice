@@ -59,19 +59,19 @@ bash_files+=(dotfiles/.bashrc)
 while IFS= read -r -d '' file; do
     bash_files+=("$file")
 done < <(find dotfiles/.config/bashrc -maxdepth 1 -type f -print0)
-run_check 'Bash syntax' bash -n "${bash_files[@]}"
+run_check 'Bash syntax' "$SCRIPT_DIR/check-syntax-files.sh" bash "${bash_files[@]}"
 
 if command -v zsh >/dev/null 2>&1; then
     mapfile -d '' zsh_files < <(find dotfiles/.config/zshrc -maxdepth 1 -type f -print0)
     zsh_files+=(dotfiles/.zshrc)
-    run_check 'Zsh syntax' zsh -n "${zsh_files[@]}"
+    run_check 'Zsh syntax' "$SCRIPT_DIR/check-syntax-files.sh" zsh "${zsh_files[@]}"
 else
     skip 'zsh is unavailable'
 fi
 
 if command -v fish >/dev/null 2>&1; then
     mapfile -d '' fish_files < <(find dotfiles/.config/fish -type f -name '*.fish' -print0)
-    run_check 'Fish syntax' fish -n "${fish_files[@]}"
+    run_check 'Fish syntax' "$SCRIPT_DIR/check-syntax-files.sh" fish "${fish_files[@]}"
 else
     skip 'fish is unavailable'
 fi
@@ -166,6 +166,7 @@ run_check 'Window focus behavior' "$REPO_ROOT/tests/test-window-focus.sh"
 run_check 'Workspace movement behavior' "$REPO_ROOT/tests/test-workspace-move.sh"
 run_check 'Sidepad typed geometry behavior' "$REPO_ROOT/tests/test-sidepad-runtime.sh"
 run_check 'Hyprland typed runtime API guard' "$REPO_ROOT/tests/test-hyprland-runtime-api.sh"
+run_check 'Graceful power and logout behavior' "$REPO_ROOT/tests/test-power-actions.sh"
 run_check 'Keybinding inventory and command resolution' lua "$REPO_ROOT/tests/test-keybindings.lua"
 run_check 'Lua-native keybinding profile selector' "$REPO_ROOT/tests/test-keybinding-selector.sh"
 run_check 'Legacy local keybinding migration' "$REPO_ROOT/tests/test-migrate-local.sh"

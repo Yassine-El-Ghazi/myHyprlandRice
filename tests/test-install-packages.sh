@@ -18,6 +18,11 @@ trap cleanup EXIT
 desktop_manifest="$REPO_ROOT/packages/arch/desktop.txt"
 core_manifest="$REPO_ROOT/packages/arch/core.txt"
 validation_workflow="$REPO_ROOT/.github/workflows/validate.yml"
+nvim_config="$REPO_ROOT/dotfiles/.config/nvim/init.lua"
+doctor="$REPO_ROOT/scripts/doctor.sh"
+hypr_environment="$REPO_ROOT/dotfiles/.config/hypr/conf/myhypr.lua"
+hypr_environment_compat="$REPO_ROOT/dotfiles/.config/hypr/conf/myhypr.conf"
+rustup_fish="$REPO_ROOT/dotfiles/.config/fish/conf.d/rustup.fish"
 for maintenance_package in bubblewrap util-linux; do
     rg -Fxq "$maintenance_package" "$core_manifest" || {
         printf 'Core profile is missing maintenance sandbox package: %s\n' \
@@ -31,6 +36,41 @@ for maintenance_package in bubblewrap util-linux; do
         exit 1
     }
 done
+for editor_dependency in nodejs tree-sitter-cli; do
+    rg -Fxq "$editor_dependency" "$core_manifest" || {
+        printf 'Core profile is missing Neovim runtime dependency: %s\n' \
+            "$editor_dependency" >&2
+        exit 1
+    }
+done
+rg -Fxq breeze-gtk "$desktop_manifest" || {
+    printf 'Desktop profile is missing the configured GTK theme package.\n' >&2
+    exit 1
+}
+rg -Fq "pattern = { 'sh'," "$nvim_config" || {
+    printf 'Neovim Tree-sitter does not attach to normal shell filetypes.\n' >&2
+    exit 1
+}
+rg -q 'node tree-sitter' "$doctor" || {
+    printf 'Doctor does not validate Neovim runtime dependencies.\n' >&2
+    exit 1
+}
+for environment_file in "$hypr_environment" "$hypr_environment_compat"; do
+    [[ $(rg -c 'QT_QPA_PLATFORMTHEME' "$environment_file") -eq 1 ]] || {
+        printf 'Qt platform-theme ownership is ambiguous in %s.\n' "$environment_file" >&2
+        exit 1
+    }
+    rg -q 'QT_QPA_PLATFORMTHEME.*qt6ct' "$environment_file" || {
+        printf 'Qt platform-theme does not match the package manifest in %s.\n' \
+            "$environment_file" >&2
+        exit 1
+    }
+done
+mkdir -p -- "$TEST_ROOT/no-cargo-home"
+HOME="$TEST_ROOT/no-cargo-home" fish -c "source '$rustup_fish'" || {
+    printf 'Fish startup fails when optional Rust state is absent.\n' >&2
+    exit 1
+}
 rg -q 'runuser --user myhypr-validator' "$validation_workflow" || {
     printf 'CI maintenance validation is not explicitly unprivileged.\n' >&2
     exit 1

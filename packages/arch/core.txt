@@ -19,6 +19,8 @@ zsh
 fish
 neovim
 kitty
+nodejs
+tree-sitter-cli
 ripgrep
 fd
 fzf

@@ -71,12 +71,27 @@ test_hyprland_runtime() {
         fail 'not every non-root Hyprland variant received the private runtime directory'
 }
 
+test_per_file_syntax() {
+    local valid="$TEST_ROOT/valid.sh"
+    local invalid="$TEST_ROOT/invalid.sh"
+    printf 'true\n' > "$valid"
+    printf 'if\n' > "$invalid"
+
+    "$REPO_ROOT/scripts/check-syntax-files.sh" bash "$valid" >/dev/null
+    if "$REPO_ROOT/scripts/check-syntax-files.sh" bash "$valid" "$invalid" \
+        >/dev/null 2>&1; then
+        fail 'syntax validation ignored a malformed file after the first input'
+    fi
+}
+
 case ${1:-all} in
     resolver) test_resolver ;;
     runtime) test_hyprland_runtime ;;
+    syntax) test_per_file_syntax ;;
     all)
         test_resolver
         test_hyprland_runtime
+        test_per_file_syntax
         ;;
     *) fail "unknown test case: $1" ;;
 esac

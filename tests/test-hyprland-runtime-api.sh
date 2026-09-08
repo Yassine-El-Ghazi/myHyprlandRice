@@ -53,7 +53,10 @@ rg -Fq "\"on-scroll-up\": \"hyprctl dispatch \\\"hl.dsp.focus({ workspace = 'r-1
     fail 'Waybar scroll-up typed focus is not exact'
 rg -Fq "\"on-scroll-down\": \"hyprctl dispatch \\\"hl.dsp.focus({ workspace = 'r+1' })\\\"\"" "$modules" || \
     fail 'Waybar scroll-down typed focus is not exact'
-rg -Fq "hyprctl dispatch 'hl.dsp.exit()'" "$power" || fail 'power helper typed exit is missing'
+rg -Fq 'hyprshutdown "${arguments[@]}"' "$power" || fail 'graceful session exit is missing'
+if rg -q 'kill[[:space:]]+-TERM|hl\.dsp\.exit' "$power"; then
+    fail 'power helper still terminates clients or exits Hyprland directly'
+fi
 rg -Fq "sleep 1; hyprctl dispatch 'hl.dsp.exit()'" "$wlogout" || fail 'wlogout typed exit example is missing'
 rg -Fq "hyprctl dispatch 'hl.dsp.no_op()' >/dev/null 2>&1" "$doctor" || \
     fail 'doctor no-op capability probe is missing'

@@ -143,7 +143,7 @@ check_commands() {
 
 core_commands=(
     git stow rsync jq bash zsh fish nvim kitty rg fd fzf eza bat fastfetch btop
-    oh-my-posh lua luac shellcheck shfmt gitleaks python
+    node tree-sitter oh-my-posh lua luac shellcheck shfmt gitleaks python
 )
 desktop_commands=(
     Hyprland hyprctl hypridle hyprlock hyprpicker waybar 'qs|quickshell' rofi

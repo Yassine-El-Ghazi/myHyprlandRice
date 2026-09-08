@@ -29,6 +29,15 @@ class SettingsCtlTests(unittest.TestCase):
         self.choice = self.root / "settings/choice"
         self.replace = self.root / "settings/replace.conf"
         self.replace.write_text("# before\n# marker\nvalue = old\n", encoding="utf-8")
+        self.variant_selector = self.root / "settings/variant.conf"
+        self.variant_selector.write_text("source = variants/direct.conf\n", encoding="utf-8")
+        self.variants = self.root / "variants"
+        self.variants.mkdir()
+        (self.variants / "direct.conf").write_text("direct\n", encoding="utf-8")
+        (self.root / "linked-target.conf").write_text("linked\n", encoding="utf-8")
+        (self.variants / "linked.conf").symlink_to(self.root / "linked-target.conf")
+        (self.variants / "outside.conf").symlink_to(self.outside / "outside.conf")
+        (self.variants / "dangling.conf").symlink_to(self.root / "missing.conf")
         self.schema = Path(self.temporary.name) / "schema.json"
         self.schema.write_text(
             json.dumps(
@@ -51,6 +60,15 @@ class SettingsCtlTests(unittest.TestCase):
                                 "match": "value = .*",
                                 "checkpoint": "# marker",
                                 "default": "missing",
+                            },
+                            {
+                                "id": "variant",
+                                "file": str(self.variant_selector),
+                                "folder": str(self.variants),
+                                "type": "files",
+                                "mode": "replace",
+                                "match": "source = variants/.*",
+                                "default": "direct.conf",
                             },
                             {
                                 "id": "outside",
@@ -117,6 +135,18 @@ class SettingsCtlTests(unittest.TestCase):
         self.run_ctl("set", "choice", "three", success=False)
         self.run_ctl("set", "choice", "one\ntwo", success=False)
         self.assertFalse(self.choice.exists())
+
+    def test_dynamic_choices_include_safe_file_symlinks(self) -> None:
+        self.assertEqual(
+            self.run_ctl("choices", "variant").stdout,
+            "direct.conf\nlinked.conf\n",
+        )
+        self.run_ctl("set", "variant", "linked.conf")
+        self.assertEqual(
+            self.variant_selector.read_text(encoding="utf-8"),
+            "source = variants/linked.conf\n",
+        )
+        self.run_ctl("set", "variant", "outside.conf", success=False)
 
     def test_direct_and_symlink_path_escapes_are_rejected(self) -> None:
         self.run_ctl("set", "outside", "unsafe", success=False)
