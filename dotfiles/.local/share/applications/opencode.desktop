@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=OpenCode
+Comment=OpenCode AI coding agent
+Exec=/opt/OpenCode/OpenCode
+TryExec=/opt/OpenCode/OpenCode
+Icon=utilities-terminal
+Terminal=false
+Categories=Development;
+StartupNotify=true

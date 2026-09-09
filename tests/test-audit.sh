@@ -70,9 +70,12 @@ if [[ $case_name == all || $case_name == private-overrides ]]; then
     private_log="$TEST_ROOT/private-overrides.log"
     setup_repo "$repo_private"
     mkdir -p -- "$repo_private/dotfiles/.config/fish" \
+        "$repo_private/dotfiles/.config/bashrc/custom" \
         "$repo_private/dotfiles/.config/zshrc/custom"
     printf 'set -gx LOCAL_ONLY yes\n' \
         > "$repo_private/dotfiles/.config/fish/config.local.fish"
+    printf 'export LOCAL_ONLY=yes\n' \
+        > "$repo_private/dotfiles/.config/bashrc/custom/00-init"
     printf 'export LOCAL_ONLY=yes\n' \
         > "$repo_private/dotfiles/.config/zshrc/custom/00-init"
     git -C "$repo_private" add dotfiles
@@ -82,6 +85,8 @@ if [[ $case_name == all || $case_name == private-overrides ]]; then
     fi
     rg -Fq 'Sensitive filename must not be tracked: dotfiles/.config/fish/config.local.fish' \
         "$private_log" || fail 'Fish private override warning was missing'
+    rg -Fq 'Sensitive filename must not be tracked: dotfiles/.config/bashrc/custom/00-init' \
+        "$private_log" || fail 'Bash private override warning was missing'
     rg -Fq 'Sensitive filename must not be tracked: dotfiles/.config/zshrc/custom/00-init' \
         "$private_log" || fail 'Zsh private override warning was missing'
 fi

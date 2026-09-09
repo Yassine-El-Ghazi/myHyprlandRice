@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import tempfile
 from pathlib import Path
 
@@ -19,6 +18,46 @@ MODULES = {
     "network": ("waybar_network.sh", True, "modules-right", "last"),
     "tray": ("waybar_systray.sh", True, "modules-right", "last"),
 }
+
+REQUIRED_INCLUDES = (
+    "~/.config/myhypr/settings/waybar-quicklinks.json",
+    "~/.config/waybar/modules.json",
+)
+
+
+def strip_trailing_commas(source: str) -> str:
+    """Remove JSONC trailing commas while preserving quoted text."""
+    output: list[str] = []
+    index = 0
+    in_string = False
+    escaped = False
+    while index < len(source):
+        char = source[index]
+        if in_string:
+            output.append(char)
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            index += 1
+            continue
+        if char == '"':
+            in_string = True
+            output.append(char)
+            index += 1
+            continue
+        if char == ",":
+            lookahead = index + 1
+            while lookahead < len(source) and source[lookahead].isspace():
+                lookahead += 1
+            if lookahead < len(source) and source[lookahead] in "}]":
+                index += 1
+                continue
+        output.append(char)
+        index += 1
+    return "".join(output)
 
 
 def strip_jsonc(source: str) -> str:
@@ -56,7 +95,7 @@ def strip_jsonc(source: str) -> str:
         else:
             output.append(char)
             index += 1
-    return re.sub(r",\s*([}\]])", r"\1", "".join(output))
+    return strip_trailing_commas("".join(output))
 
 
 def setting_enabled(settings_root: Path, filename: str, default: bool) -> bool:
@@ -97,6 +136,20 @@ def apply_visibility(config: dict[str, object], settings_root: Path) -> None:
                 modules.append(module)
 
 
+def ensure_module_includes(config: dict[str, object]) -> None:
+    """Ensure every switchable module has a definition in every theme."""
+    includes = config.setdefault("include", [])
+    if not isinstance(includes, list) or not all(
+        isinstance(item, str) for item in includes
+    ):
+        raise ValueError("include must be an array of strings")
+
+    # Match the established include order while retaining theme-specific files.
+    for required in reversed(REQUIRED_INCLUDES):
+        if required not in includes:
+            includes.insert(0, required)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=Path)
@@ -107,6 +160,7 @@ def main() -> int:
     config = json.loads(strip_jsonc(args.source.read_text(encoding="utf-8")))
     if not isinstance(config, dict):
         raise ValueError("Waybar configuration root must be an object")
+    ensure_module_includes(config)
     apply_visibility(config, args.settings_root)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)

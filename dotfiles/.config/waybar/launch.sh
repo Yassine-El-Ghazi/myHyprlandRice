@@ -47,6 +47,24 @@ resolve_theme() {
     [[ -f $THEME_ROOT$theme_path/config && -f $THEME_ROOT$style_path/style.css ]]
 }
 
+resolve_hyprland_instance() {
+    local attempt instances resolved
+    for ((attempt = 1; attempt <= 40; attempt++)); do
+        instances=$(hyprctl -j instances 2>/dev/null || true)
+        if resolved=$(jq -er --arg display "${WAYLAND_DISPLAY:-}" '
+            [.[] | select($display != "" and .wl_socket == $display)] as $matching |
+            (if ($matching | length) > 0 then $matching else . end) |
+            max_by(.time // 0).instance
+        ' <<< "$instances" 2>/dev/null) && [[ -n $resolved ]]; then
+            printf '%s\n' "$resolved"
+            return 0
+        fi
+        sleep 0.25
+    done
+    printf 'Hyprland did not expose a valid instance within 10 seconds.\n' >&2
+    return 1
+}
+
 theme_spec=$DEFAULT_THEME
 [[ -r $THEME_SETTING ]] && theme_spec=$(<"$THEME_SETTING")
 if ! resolve_theme "$theme_spec"; then
@@ -86,7 +104,7 @@ fi
 
 instance_signature=${HYPRLAND_INSTANCE_SIGNATURE:-}
 if [[ -z $instance_signature ]]; then
-    instance_signature=$(hyprctl -j instances | jq -er '.[0].instance')
+    instance_signature=$(resolve_hyprland_instance)
 fi
 
 printf 'Launching Waybar theme %s.\n' "$theme_spec"

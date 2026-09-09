@@ -91,7 +91,7 @@ for file in "${files[@]}"; do
     lower_file=${file,,}
     case $lower_file in
         *.env.example|*.example) ;;
-        */.env|*/.env.*|.env|.env.*|*/id_rsa|*/id_ed25519|*.pem|*.key|*.p12|*.pfx|*.kdbx|*/credentials|*/credentials.*|*/secrets/*|*/.config/fish/config.local.fish|*/.config/zshrc/custom/*)
+        */.env|*/.env.*|.env|.env.*|*/id_rsa|*/id_ed25519|*.pem|*.key|*.p12|*.pfx|*.kdbx|*/credentials|*/credentials.*|*/secrets/*|*/.config/fish/config.local.fish|*/.config/bashrc/custom/*|*/.config/zshrc/custom/*)
             warn "Sensitive filename must not be tracked: $file"
             failures=$((failures + 1))
             ;;
@@ -176,7 +176,7 @@ if [[ $RUN_HISTORY -eq 1 ]]; then
         lower_path=${path,,}
         case $lower_path in
             *.env.example|*.example) ;;
-            */.env|*/.env.*|.env|.env.*|*/id_rsa|*/id_ed25519|*.pem|*.key|*.p12|*.pfx|*.kdbx|*/credentials|*/credentials.*|*/secrets/*|*/.config/fish/config.local.fish|*/.config/zshrc/custom/*)
+            */.env|*/.env.*|.env|.env.*|*/id_rsa|*/id_ed25519|*.pem|*.key|*.p12|*.pfx|*.kdbx|*/credentials|*/credentials.*|*/secrets/*|*/.config/fish/config.local.fish|*/.config/bashrc/custom/*|*/.config/zshrc/custom/*)
                 warn "Sensitive filename exists in Git history: $path"
                 history_findings=$((history_findings + 1))
                 ;;

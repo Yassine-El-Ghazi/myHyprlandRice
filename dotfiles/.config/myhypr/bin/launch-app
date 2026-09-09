@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+(($# > 0)) || {
+    printf 'Usage: %s COMMAND [ARG ...]\n' "${0##*/}" >&2
+    exit 2
+}
+
+# Waybar is supervised as a service. Interactive applications must not remain
+# in Waybar's cgroup, or restarting the bar can terminate them as collateral.
+if command -v systemd-run >/dev/null 2>&1 && \
+    systemctl --user show-environment >/dev/null 2>&1; then
+    exec systemd-run --user --scope --collect --quiet \
+        --expand-environment=no -- "$@"
+fi
+
+# Without a usable user manager, ask Hyprland to own the new process. This is
+# also outside a directly launched Waybar's process tree.
+if command -v hyprctl >/dev/null 2>&1; then
+    printf -v dispatched_command '%q ' "$@"
+    exec hyprctl dispatch exec "$dispatched_command"
+fi
+
+# Direct Waybar mode is used on systems without systemd user services, where
+# cgroup cleanup is not involved.
+exec "$@"

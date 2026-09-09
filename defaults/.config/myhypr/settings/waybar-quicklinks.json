@@ -6,42 +6,42 @@ You can reload waybar with SUPER + SHIFT + B
 {
     "custom/quicklink_browser": {
         "format": "",
-        "on-click": "~/.config/myhypr/settings/browser.sh",
+        "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/browser.sh",
         "tooltip-format": "Open Browser"
     },
     "custom/quicklink_filemanager": {
         "format": "",
-        "on-click": "~/.config/myhypr/settings/filemanager.sh",
+        "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/filemanager.sh",
         "tooltip-format": "Open Filemanager"
     },
     "custom/quicklink_email": {
         "format": "",
-        "on-click": "~/.config/myhypr/settings/email.sh",
+        "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/email.sh",
         "tooltip-format": "Open Email Client"
     },
     "custom/quicklink_chromium": {
         "format": "",
-        "on-click": "chromium",
+        "on-click": "~/.config/myhypr/bin/launch-app chromium",
         "tooltip-format": "Open Chromium"
     },
     "custom/quicklink_edge": {
         "format": "",
-        "on-click": "edge",
+        "on-click": "~/.config/myhypr/bin/launch-app edge",
         "tooltip-format": "Open Edge"
     },
     "custom/quicklink_firefox": {
         "format": "",
-        "on-click": "firefox",
+        "on-click": "~/.config/myhypr/bin/launch-app firefox",
         "tooltip-format": "Open Firefox"
     },
     "custom/quicklink_thunderbird": {
         "format": "",
-        "on-click": "thunderbird",
+        "on-click": "~/.config/myhypr/bin/launch-app thunderbird",
         "tooltip-format": "Open Thunderbird"
     },
     "custom/quicklink_calculator": {
         "format": "",
-        "on-click": "~/.config/myhypr/settings/calculator.sh",
+        "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/calculator.sh",
         "tooltip-format": "Open calculator"
     },
 /*

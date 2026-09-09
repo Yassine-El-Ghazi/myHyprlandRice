@@ -20,7 +20,7 @@ fail() {
     exit 1
 }
 
-mkdir -p -- "$CONFIG_ROOT/myhypr/bin" "$CONFIG_ROOT/myhypr/settings"
+mkdir -p -- "$CONFIG_ROOT/myhypr/bin" "$CONFIG_ROOT/myhypr/settings" "$TEST_ROOT/bin"
 ln -s -- "$REPO_ROOT/dotfiles/.config/myhypr/settings/networkmanager.sh" \
     "$CONFIG_ROOT/myhypr/settings/networkmanager.sh"
 ln -s -- "$REPO_ROOT/dotfiles/.config/myhypr/settings/system-monitor.sh" \
@@ -31,6 +31,18 @@ printf '%s\n' \
     'printf "%s\n" "$*" >> "$WAYBAR_ACTION_TEST_LOG"' \
     > "$CONFIG_ROOT/myhypr/bin/run-setting"
 chmod +x -- "$CONFIG_ROOT/myhypr/bin/run-setting"
+
+ln -s -- "$REPO_ROOT/dotfiles/.config/myhypr/bin/launch-app" \
+    "$CONFIG_ROOT/myhypr/bin/launch-app"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    '[[ $1 == --user && $2 == show-environment ]]' \
+    > "$TEST_ROOT/bin/systemctl"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'printf "%s\n" "$*" >> "$WAYBAR_ACTION_TEST_LOG"' \
+    > "$TEST_ROOT/bin/systemd-run"
+chmod +x -- "$TEST_ROOT/bin/systemctl" "$TEST_ROOT/bin/systemd-run"
 
 export WAYBAR_ACTION_TEST_LOG="$ACTION_LOG"
 HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" \
@@ -46,14 +58,31 @@ expected_monitor="terminal --class dotfiles-floating -e $CONFIG_ROOT/myhypr/bin/
 [[ ${actions[1]:-} == "$expected_monitor" ]] || \
     fail 'resource usage does not launch the configured monitor in a terminal'
 
+PATH="$TEST_ROOT/bin:$PATH" HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" \
+    "$CONFIG_ROOT/myhypr/bin/launch-app" fake-gui 'argument with spaces'
+mapfile -t actions < "$ACTION_LOG"
+expected_scope='--user --scope --collect --quiet --expand-environment=no -- fake-gui argument with spaces'
+[[ ${actions[2]:-} == "$expected_scope" ]] || \
+    fail 'interactive application was not moved to an independent user scope'
+
 modules="$REPO_ROOT/dotfiles/.config/waybar/modules.json"
 rg -Fq "\"on-scroll-up\": \"hyprctl dispatch \\\"hl.dsp.focus({ workspace = 'r-1' })\\\"\"" "$modules" || \
     fail 'workspace scroll-up does not use typed focus'
 rg -Fq "\"on-scroll-down\": \"hyprctl dispatch \\\"hl.dsp.focus({ workspace = 'r+1' })\\\"\"" "$modules" || \
     fail 'workspace scroll-down does not use typed focus'
 system_module=$(sed -n '/"custom\/system": {/,/^  },/p' "$modules")
-[[ $system_module == *'"on-click": "~/.config/myhypr/settings/system-monitor.sh"'* ]] || \
+[[ $system_module == *'"on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/system-monitor.sh"'* ]] || \
     fail 'the visible hardware module has no click action'
+rg -Fq '"on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/installupdates.sh"' \
+    "$modules" || fail 'update terminal is still owned by Waybar'
+rg -Fq '"on-click": "~/.config/myhypr/bin/launch-app pavucontrol"' \
+    "$modules" || fail 'audio control is still owned by Waybar'
+rg -Fq '"on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/networkmanager.sh"' \
+    "$modules" || fail 'network selector is still owned by Waybar'
+if rg -n '"on-click[^" ]*": "(?:nwg-look|qalculate-gtk|pavucontrol|chromium|edge|firefox|thunderbird)' \
+    "$modules" "$REPO_ROOT/defaults/.config/myhypr/settings/waybar-quicklinks.json"; then
+    fail 'a directly launched interactive application remains in Waybar config'
+fi
 rg -Fq '"format": "󰍜"' "$modules" || fail 'neutral sidebar icon is missing'
 rg -Fq '"~/.config/waybar/modules.json"' \
     "$REPO_ROOT/dotfiles/.config/waybar/themes/starter/config" || \

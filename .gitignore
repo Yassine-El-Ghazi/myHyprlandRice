@@ -35,6 +35,7 @@
 **/fish/fish_variables
 **/fish/generated_completions/
 /dotfiles/.config/fish/config.local.fish
+/dotfiles/.config/bashrc/custom/
 /dotfiles/.config/zshrc/custom/
 **/myhypr/bin/*.sh~
 **/myhypr/listeners/*.sh~

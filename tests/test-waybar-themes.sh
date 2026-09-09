@@ -10,6 +10,7 @@ FAKE_BIN="$TEST_ROOT/bin"
 export WAYBAR_TEST_LOG="$TEST_ROOT/waybar.log"
 export WAYBAR_TEST_PIDS="$TEST_ROOT/waybar.pids"
 export WAYBAR_SYSTEMD_LOG="$TEST_ROOT/systemctl.log"
+export WAYBAR_HYPRCTL_CALLS="$TEST_ROOT/hyprctl.calls"
 
 cleanup() {
     if [[ -r $WAYBAR_TEST_PIDS ]]; then
@@ -47,8 +48,17 @@ printf '%s\n' \
     '    exec sleep 30' \
     'fi' > "$FAKE_BIN/waybar"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE_BIN/pkill"
-printf '#!/usr/bin/env bash\nprintf '\''[{"instance":"test-instance"}]\\n'\''\n' \
-    > "$FAKE_BIN/hyprctl"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'calls=0' \
+    '[[ ! -r $WAYBAR_HYPRCTL_CALLS ]] || calls=$(<"$WAYBAR_HYPRCTL_CALLS")' \
+    'calls=$((calls + 1))' \
+    'printf "%s\n" "$calls" > "$WAYBAR_HYPRCTL_CALLS"' \
+    'if ((calls <= ${WAYBAR_TEST_INVALID_INSTANCES:-0})); then' \
+    '    printf "]\n"' \
+    'else' \
+    '    printf '\''[{"instance":"old-instance","time":1,"wl_socket":"wayland-old"},{"instance":"test-instance","time":2,"wl_socket":"wayland-test"}]\n'\''' \
+    'fi' > "$FAKE_BIN/hyprctl"
 printf '#!/usr/bin/env bash\nawk '\''/MyHypr Modern Default/{print NR - 1; found=1; exit} END {if (!found) exit 1}'\''\n' \
     > "$FAKE_BIN/rofi"
 printf '%s\n' \
@@ -70,9 +80,13 @@ rg -Fqx 'systemctl --user restart myhypr-waybar.service' "$WAYBAR_SYSTEMD_LOG" |
 printf '%s\n' '/myhypr-modern;/myhypr-modern/default' \
     > "$CONFIG_ROOT/myhypr/settings/waybar-theme.sh"
 HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" XDG_RUNTIME_DIR="$TEST_ROOT/runtime" \
+    HYPRLAND_INSTANCE_SIGNATURE='' WAYLAND_DISPLAY=wayland-test \
+    WAYBAR_TEST_INVALID_INSTANCES=2 \
     PATH="$FAKE_BIN:$PATH" "$CONFIG_ROOT/waybar/launch.sh" --direct >/dev/null
 
 sleep 0.1
+[[ $(<"$WAYBAR_HYPRCTL_CALLS") == 3 ]] || \
+    fail 'launcher did not wait through transient invalid Hyprland responses'
 rg -q -- '--config .*/runtime/waybar-config\.json' "$WAYBAR_TEST_LOG" || \
     fail 'generated theme config was not launched'
 rg -q -- '--style .*/themes/myhypr-modern/default/style\.css' "$WAYBAR_TEST_LOG" || \
@@ -87,6 +101,11 @@ jq -e '
     (.["modules-right"] | index("network") != null and index("tray") != null)
 ' "$TEST_ROOT/runtime/waybar-config.json" >/dev/null || \
     fail 'default center/right-module visibility changed'
+jq -e '
+    (.include | index("~/.config/myhypr/settings/waybar-quicklinks.json") != null) and
+    (.include | index("~/.config/waybar/modules.json") != null)
+' "$TEST_ROOT/runtime/waybar-config.json" >/dev/null || \
+    fail 'generated theme does not load all switchable module definitions'
 jq -e '
     (.["modules-left"] | index("custom/appmenu") < index("hyprland/workspaces")) and
     (.["modules-center"] | index("hyprland/window") < index("custom/empty")) and
@@ -113,12 +132,50 @@ jq -e '
     fail 'Settings visibility switches did not alter the generated config'
 rm -f -- "$CONFIG_ROOT/myhypr/settings"/waybar_{appmenu,taskbar,quicklinks,window,network,systray}.sh
 
+# JSONC cleanup must never alter comma/bracket sequences inside quoted text.
+cat > "$TEST_ROOT/runtime/string-safe.jsonc" <<'EOF'
+{
+    // A real trailing comma should be accepted.
+    "tooltip": "keep, ] literally",
+    "escaped": "keep \\\"quote\\\", } literally",
+    "modules-left": [],
+}
+EOF
+python3 "$CONFIG_ROOT/waybar/generate-config.py" \
+    "$TEST_ROOT/runtime/string-safe.jsonc" "$CONFIG_ROOT/myhypr/settings" \
+    "$TEST_ROOT/runtime/string-safe.json"
+jq -e '
+    .tooltip == "keep, ] literally" and
+    .escaped == "keep \\\"quote\\\", } literally"
+' "$TEST_ROOT/runtime/string-safe.json" >/dev/null || \
+    fail 'Waybar JSONC preprocessing changed quoted text'
+python3 - "$REPO_ROOT/scripts/validate-jsonc.py" <<'PY'
+import importlib.util
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location("validate_jsonc", path)
+module = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+spec.loader.exec_module(module)
+source = '{"value": "keep, ] and , } literally",}'
+expected = '{"value": "keep, ] and , } literally"}'
+if module.strip_trailing_commas(source) != expected:
+    raise SystemExit("shared JSONC validator changed quoted text")
+PY
+
 # Every shipped theme must be valid generator input.
 for shipped_config in "$CONFIG_ROOT/waybar/themes"/*/config; do
     python3 "$CONFIG_ROOT/waybar/generate-config.py" "$shipped_config" \
         "$CONFIG_ROOT/myhypr/settings" "$TEST_ROOT/runtime/all-themes.json"
     jq -e 'type == "object"' "$TEST_ROOT/runtime/all-themes.json" >/dev/null || \
         fail "theme did not generate an object: $shipped_config"
+    jq -e '
+        (.include | index("~/.config/myhypr/settings/waybar-quicklinks.json") != null) and
+        (.include | index("~/.config/waybar/modules.json") != null)
+    ' "$TEST_ROOT/runtime/all-themes.json" >/dev/null || \
+        fail "theme omitted switchable module definitions: $shipped_config"
 done
 
 # Invalid runtime state must be replaced with the known-good local default.

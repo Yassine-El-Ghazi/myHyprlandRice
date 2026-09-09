@@ -89,9 +89,9 @@
   // Cliphist
   "custom/cliphist": {
     "format": "",
-    "on-click": "sleep 0.1 && ~/.config/myhypr/scripts/cliphist.sh",
-    "on-click-right": "sleep 0.1 && ~/.config/myhypr/scripts/cliphist.sh d",
-    "on-click-middle": "sleep 0.1 && ~/.config/myhypr/scripts/cliphist.sh w",
+    "on-click": "sleep 0.1 && ~/.config/myhypr/bin/launch-app ~/.config/myhypr/scripts/cliphist.sh",
+    "on-click-right": "sleep 0.1 && ~/.config/myhypr/bin/launch-app ~/.config/myhypr/scripts/cliphist.sh d",
+    "on-click-middle": "sleep 0.1 && ~/.config/myhypr/bin/launch-app ~/.config/myhypr/scripts/cliphist.sh w",
     "tooltip-format": "Left: Open clipboard Manager\nRight: Delete an entry\nMiddle: Clear list",
     "on-scroll-up": "true",
     "on-scroll-down": "true"
@@ -105,37 +105,37 @@
     "interval": 1800,
     "signal": 1,
     "hide-empty-text": true,
-    "on-click": "~/.config/myhypr/settings/installupdates.sh"
+    "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/installupdates.sh"
   },
   // Wallpaper
   "custom/wallpaper": {
     "format": "",
-    "on-click": "~/.config/hypr/scripts/waypaper.sh",
-    "on-click-right": "~/.config/hypr/scripts/wallpaper-effects.sh",
+    "on-click": "~/.config/myhypr/bin/launch-app ~/.config/hypr/scripts/waypaper.sh",
+    "on-click-right": "~/.config/myhypr/bin/launch-app ~/.config/hypr/scripts/wallpaper-effects.sh",
     "tooltip-format": "Left: Select a wallpaper\nRight: Select wallpaper effect"
   },
   // Waybar Themes
   "custom/waybarthemes": {
     "format": "",
-    "on-click": "~/.config/waybar/themeswitcher.sh",
+    "on-click": "~/.config/myhypr/bin/launch-app ~/.config/waybar/themeswitcher.sh",
     "tooltip-format": "Select a waybar theme"
   },
   // Settings
   "custom/settings": {
   "format": "",
-  "on-click": "nwg-look",
+  "on-click": "~/.config/myhypr/bin/launch-app nwg-look",
   "tooltip-format": "Appearance settings"
 },
   // Keybindings
   "custom/keybindings": {
     "format": "",
-    "on-click": "~/.config/hypr/scripts/keybindings.sh",
+    "on-click": "~/.config/myhypr/bin/launch-app ~/.config/hypr/scripts/keybindings.sh",
     "tooltip": false
   },
   // Calculator
   "custom/calculator": {
     "format": "",
-    "on-click": "qalculate-gtk",
+    "on-click": "~/.config/myhypr/bin/launch-app qalculate-gtk",
     "tooltip-format": "Open calculator"
   },
   // Rofi Application Launcher
@@ -143,22 +143,22 @@
     // START APPS LABEL
     "format": "Apps",
     // END APPS LABEL
-    "on-click": "~/.config/hypr/scripts/launcher.sh",
-    "on-click-right": "~/.config/hypr/scripts/keybindings.sh",
+    "on-click": "~/.config/myhypr/bin/launch-app ~/.config/hypr/scripts/launcher.sh",
+    "on-click-right": "~/.config/myhypr/bin/launch-app ~/.config/hypr/scripts/keybindings.sh",
     "tooltip-format": "Left: Open the application launcher\nRight: Show all keybindings"
   },
   // Rofi Application Launcher
   "custom/appmenuicon": {
     "format": "",
-    "on-click": "sleep 0.2;rofi -show drun -replace",
-    "on-click-right": "~/.config/hypr/scripts/keybindings.sh",
+    "on-click": "sleep 0.2 && ~/.config/myhypr/bin/launch-app ~/.config/hypr/scripts/launcher.sh",
+    "on-click-right": "~/.config/myhypr/bin/launch-app ~/.config/hypr/scripts/keybindings.sh",
     "tooltip-format": "Left: Open the application launcher\nRight: Show all keybindings"
   },
   // Power Menu
   "custom/exit": {
   "format": "",
   "on-click": "qs ipc call power toggle",
-  "on-click-right": "hyprlock",
+  "on-click-right": "~/.config/myhypr/bin/launch-app hyprlock",
   "tooltip-format": "Left: Power menu\nRight: Lock screen"
   },
   // SwayNC
@@ -187,7 +187,7 @@
     "format": "",
     "tooltip-format": "Toggle Screen Shader",
     "on-click": "sleep 0.5; ~/.config/hypr/scripts/hyprshade.sh",
-    "on-click-right": "sleep 0.5; ~/.config/hypr/scripts/hyprshade.sh rofi",
+    "on-click-right": "sleep 0.5 && ~/.config/myhypr/bin/launch-app ~/.config/hypr/scripts/hyprshade.sh rofi",
     "on-scroll-up": "true",
     "on-scroll-down": "true"
   },
@@ -231,21 +231,21 @@
   "custom/system": {
     "format": "",
     "tooltip": false,
-    "on-click": "~/.config/myhypr/settings/system-monitor.sh",
+    "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/system-monitor.sh",
     "on-scroll-up": "true",
     "on-scroll-down": "true"
   },
   // CPU
   "cpu": {
     "format": "/ C {usage}% ",
-    "on-click": "~/.config/myhypr/settings/system-monitor.sh",
+    "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/system-monitor.sh",
     "on-scroll-up": "true",
     "on-scroll-down": "true"
   },
   // Memory
   "memory": {
     "format": "/ M {}% ",
-    "on-click": "~/.config/myhypr/settings/system-monitor.sh",
+    "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/system-monitor.sh",
     "on-scroll-up": "true",
     "on-scroll-down": "true"
   },
@@ -254,7 +254,7 @@
     "interval": 30,
     "format": "D {percentage_used}% ",
     "path": "/",
-    "on-click": "~/.config/myhypr/settings/system-monitor.sh",
+    "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/system-monitor.sh",
     "on-scroll-up": "true",
     "on-scroll-down": "true"
   },
@@ -328,8 +328,8 @@
     "tooltip-format-ethernet": " {ifname}\nIP: {ipaddr}\n up: {bandwidthUpBits} down: {bandwidthDownBits}",
     "tooltip-format-disconnected": "Disconnected",
     "max-length": 50,
-    "on-click": "~/.config/myhypr/settings/networkmanager.sh",
-    "on-click-right": "~/.config/myhypr/scripts/nm-applet.sh toggle",
+    "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/networkmanager.sh",
+    "on-click-right": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/scripts/nm-applet.sh toggle",
   },
   // Battery
   "battery": {
@@ -389,7 +389,7 @@
         ""
       ]
     },
-    "on-click": "pavucontrol"
+    "on-click": "~/.config/myhypr/bin/launch-app pavucontrol"
   },
   // Bluetooth
   "bluetooth": {
@@ -397,7 +397,7 @@
   "format-disabled": "",
   "format-off": "",
   "interval": 30,
-  "on-click": "sleep 0.1 && ~/.config/myhypr/settings/bluetooth.sh",
+  "on-click": "sleep 0.1 && ~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/bluetooth.sh",
   "tooltip-format-connected": "Connected devices: {num_connections} connected\n\n{device_enumerate}",
   "tooltip-format-enumerate-connected": "{device_alias}",
   "tooltip-format-enumerate-connected-battery": "{device_alias}\t| Battery life: {device_battery_percentage}%",

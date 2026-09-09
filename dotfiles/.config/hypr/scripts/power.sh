@@ -7,21 +7,13 @@ set -Eeuo pipefail
 #                           
 
 finish_session() {
-    local system_action=${1:-}
-
     "$HOME/.config/myhypr/listeners.sh" --stopall || true
     systemctl --user stop myhypr-session.target || true
-    case $system_action in
-        '') ;;
-        reboot) systemctl reboot ;;
-        poweroff) systemctl poweroff ;;
-        *) return 2 ;;
-    esac
 }
 
 graceful_exit() {
     local requested_action=$1
-    local label finish_action finish_command
+    local label finish_command
     local -a arguments=()
 
     command -v hyprshutdown >/dev/null 2>&1 || {
@@ -31,19 +23,10 @@ graceful_exit() {
     case $requested_action in
         exit)
             label='Logging out...'
-            finish_action=finish-exit
-            ;;
-        reboot)
-            label='Restarting...'
-            finish_action=finish-reboot
-            ;;
-        shutdown)
-            label='Shutting down...'
-            finish_action=finish-poweroff
             ;;
     esac
     printf -v finish_command '%q %q' \
-        "$HOME/.config/hypr/scripts/power.sh" "$finish_action"
+        "$HOME/.config/hypr/scripts/power.sh" finish-exit
     arguments=(
         --top-label "$label"
         --post-cmd "$finish_command"
@@ -53,7 +36,7 @@ graceful_exit() {
 
 action=${1:-}
 case $action in
-    exit|lock|reboot|shutdown|suspend|hibernate|finish-exit|finish-reboot|finish-poweroff) ;;
+    exit|lock|reboot|shutdown|suspend|hibernate|finish-exit) ;;
     *)
         printf 'Usage: %s {exit|lock|reboot|shutdown|suspend|hibernate}\n' "${0##*/}" >&2
         exit 2
@@ -61,17 +44,17 @@ case $action in
 esac
 
 case $action in
-    exit|reboot|shutdown)
-        graceful_exit "$action"
+    exit)
+        graceful_exit exit
         ;;
     finish-exit)
         finish_session
         ;;
-    finish-reboot)
-        finish_session reboot
+    reboot)
+        systemctl reboot
         ;;
-    finish-poweroff)
-        finish_session poweroff
+    shutdown)
+        systemctl poweroff
         ;;
     lock)
         sleep 0.5

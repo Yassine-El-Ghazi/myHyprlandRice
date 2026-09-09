@@ -40,31 +40,26 @@ printf '%s\n' \
 chmod +x -- "$FAKE_BIN/hyprshutdown" "$FAKE_BIN/systemctl" \
     "$TEST_HOME/.config/myhypr/listeners.sh"
 
-for action in exit reboot shutdown; do
-    HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" POWER_TEST_LOG="$TEST_LOG" \
-        "$POWER_SCRIPT" "$action"
-done
+HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" POWER_TEST_LOG="$TEST_LOG" \
+    "$POWER_SCRIPT" exit
 
 printf -v exit_command '%q %q' "$TEST_HOME/.config/hypr/scripts/power.sh" finish-exit
-printf -v reboot_command '%q %q' "$TEST_HOME/.config/hypr/scripts/power.sh" finish-reboot
-printf -v poweroff_command '%q %q' "$TEST_HOME/.config/hypr/scripts/power.sh" finish-poweroff
 rg -Fq "hyprshutdown <--top-label> <Logging out...> <--post-cmd> <$exit_command>" "$TEST_LOG" || \
     fail 'logout is not delegated to graceful shutdown'
-rg -Fq "hyprshutdown <--top-label> <Restarting...> <--post-cmd> <$reboot_command>" "$TEST_LOG" || \
-    fail 'reboot is not deferred until applications close'
-rg -Fq "hyprshutdown <--top-label> <Shutting down...> <--post-cmd> <$poweroff_command>" "$TEST_LOG" || \
-    fail 'poweroff is not deferred until applications close'
 
 : > "$TEST_LOG"
-for action in finish-exit finish-reboot finish-poweroff; do
+for action in finish-exit reboot shutdown; do
     HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" POWER_TEST_LOG="$TEST_LOG" \
         "$POWER_SCRIPT" "$action"
 done
-[[ $(rg -c '^listeners <--stopall>$' "$TEST_LOG") -eq 3 ]] || \
-    fail 'session listeners were not stopped for every completed exit'
-[[ $(rg -c '^systemctl <--user> <stop> <myhypr-session\.target>$' "$TEST_LOG") -eq 3 ]] || \
-    fail 'session services were not stopped for every completed exit'
-rg -q '^systemctl <reboot>$' "$TEST_LOG" || fail 'completed reboot was not requested'
-rg -q '^systemctl <poweroff>$' "$TEST_LOG" || fail 'completed poweroff was not requested'
+[[ $(rg -c '^listeners <--stopall>$' "$TEST_LOG") -eq 1 ]] || \
+    fail 'session listeners were not stopped for completed logout'
+[[ $(rg -c '^systemctl <--user> <stop> <myhypr-session\.target>$' "$TEST_LOG") -eq 1 ]] || \
+    fail 'session services were not stopped for completed logout'
+rg -q '^systemctl <reboot>$' "$TEST_LOG" || fail 'reboot was not requested directly'
+rg -q '^systemctl <poweroff>$' "$TEST_LOG" || fail 'poweroff was not requested directly'
+if rg -q 'hyprshutdown .*<(Restarting|Shutting down)\.\.\.>' "$TEST_LOG"; then
+    fail 'system power actions still depend on a post-Hyprland callback'
+fi
 
-printf 'Power actions close applications before ending the session.\n'
+printf 'Power actions use reliable system requests and graceful logout.\n'
