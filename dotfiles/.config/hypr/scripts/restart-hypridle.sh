@@ -1,5 +1,3 @@
 #!/usr/bin/env bash
-killall hypridle
-sleep 1
-hypridle &
-notify-send "hypridle has been restarted."
+set -Eeuo pipefail
+exec "${XDG_CONFIG_HOME:-$HOME/.config}/hypr/scripts/hypridle.sh" restart

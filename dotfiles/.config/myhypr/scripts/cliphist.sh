@@ -17,7 +17,17 @@ if [[ -r $launcher_file ]]; then
     IFS= read -r launcher < "$launcher_file" || true
 fi
 if [[ $launcher == walker ]]; then
-    exec "$HOME/.config/walker/launch.sh" -m clipboard -N -H
+    case ${1:-} in
+        w) exec elephant activate 'clipboard;;remove_all;;' ;;
+        d)
+            # Keep Walker's native clipboard store and expose its existing
+            # Ctrl+D delete action instead of silently opening copy mode.
+            exec "$HOME/.config/walker/launch.sh" -m clipboard -H \
+                -p 'Delete entry: Ctrl+D'
+            ;;
+        '') exec "$HOME/.config/walker/launch.sh" -m clipboard -N -H ;;
+        *) printf 'Usage: %s [d|w]\n' "$0" >&2; exit 2 ;;
+    esac
 else
     [[ $launcher == rofi ]] || {
         printf 'Unsupported launcher setting: %s\n' "$launcher" >&2
@@ -31,10 +41,11 @@ else
         w)
             cliphist wipe
             ;;
-        *)
+        '')
             cliphist list | rofi -dmenu -replace \
                 -config "$HOME/.config/rofi/config-cliphist.rasi" | \
                 cliphist decode | wl-copy
             ;;
+        *) printf 'Usage: %s [d|w]\n' "$0" >&2; exit 2 ;;
     esac
 fi

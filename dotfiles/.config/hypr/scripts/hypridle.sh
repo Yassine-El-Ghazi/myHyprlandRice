@@ -9,6 +9,11 @@ set -Eeuo pipefail
 
 SERVICE="hypridle"
 
+start_idle() {
+    # A Waybar restart must not terminate the daemon started by this button.
+    "${XDG_CONFIG_HOME:-$HOME/.config}/myhypr/bin/launch-app" "$SERVICE" >/dev/null &
+}
+
 print_status() {
     if pgrep -x "$SERVICE" >/dev/null ; then
         printf '%s\n' '{"text": "RUNNING", "class": "active", "tooltip": "Screen locking active\nLeft: Deactivate\nRight: Lock Screen"}'
@@ -25,16 +30,21 @@ case "${1:-}" in
         ;;
     toggle)
         if pgrep -x "$SERVICE" >/dev/null ; then
-            killall "$SERVICE"
+            pkill -x "$SERVICE"
         else
-            "$SERVICE" &
+            start_idle
         fi
         # Give it a moment to start/stop before checking again
         sleep 0.2
         print_status
         ;;
+    restart)
+        pkill -x "$SERVICE" || true
+        sleep 1
+        start_idle
+        ;;
     *)
-        echo "Usage: $0 {status|toggle}"
+        echo "Usage: $0 {status|toggle|restart}"
         exit 1
         ;;
 esac

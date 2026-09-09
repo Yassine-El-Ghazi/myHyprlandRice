@@ -36,4 +36,20 @@ HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
 [[ $(<"$CLIPHIST_TEST_LOG") == wipe ]] || \
     fail 'clipboard wipe action was not reached'
 
-printf 'Clipboard handling accepts a no-newline launcher setting.\n'
+mkdir -p -- "$TEST_HOME/.config/walker"
+printf '%s\n' '#!/usr/bin/env bash' \
+    'printf "%s\\n" "$*" > "$CLIPHIST_TEST_LOG"' \
+    > "$TEST_HOME/.config/walker/launch.sh"
+printf '%s\n' '#!/usr/bin/env bash' \
+    'printf "%s\\n" "$*" > "$CLIPHIST_TEST_LOG"' > "$FAKE_BIN/elephant"
+chmod +x -- "$TEST_HOME/.config/walker/launch.sh" "$FAKE_BIN/elephant"
+printf walker > "$SETTINGS_ROOT/launcher"
+HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
+    "$REPO_ROOT/dotfiles/.config/myhypr/scripts/cliphist.sh" w
+[[ $(<"$CLIPHIST_TEST_LOG") == 'activate clipboard;;remove_all;;' ]] || \
+    fail 'Walker clear did not address the active clipboard provider'
+HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
+    "$REPO_ROOT/dotfiles/.config/myhypr/scripts/cliphist.sh" d
+[[ $(<"$CLIPHIST_TEST_LOG") == '-m clipboard -H -p Delete entry: Ctrl+D' ]] || \
+    fail 'Walker delete mode does not expose its delete action'
+printf 'Clipboard controls address the selected backend and accept no-newline settings.\n'

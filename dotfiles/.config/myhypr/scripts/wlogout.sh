@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-monitor=$(hyprctl -j monitors | jq -cer '.[] | select(.focused == true)')
-res_h=$(jq -r '.height' <<< "$monitor")
-h_scale=$(jq -r '.scale' <<< "$monitor" | sed 's/\.//')
-[[ $res_h =~ ^[0-9]+$ && $h_scale =~ ^[0-9]+$ && $h_scale -gt 0 ]]
-w_margin=$((res_h * 27 / h_scale))
+# Wayland margins use logical pixels. Keep scale numeric: deleting its decimal
+# point makes 1, 1.5 and 1.25 produce wildly different, often off-screen margins.
+w_margin=$(hyprctl -j monitors | jq -er '
+    first(.[] | select(.focused == true)) |
+    select((.height | type) == "number" and (.scale | type) == "number") |
+    select(.height > 0 and .scale > 0) |
+    (.height / .scale * 0.27 | floor)
+')
 exec wlogout -b 5 -T "$w_margin" -B "$w_margin"
