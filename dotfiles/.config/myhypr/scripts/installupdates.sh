@@ -45,16 +45,14 @@ else
 fi
 
 printf '\n:: Update started...\n'
-"$REPO_ROOT/scripts/maintenance.sh" apply system
+"$REPO_ROOT/scripts/update-system.sh"
 update_status=$?
 
 pkill -RTMIN+1 waybar >/dev/null 2>&1 || true
 
 if [[ $update_status -ne 0 ]]; then
-    printf '\n:: Update stopped safely with status %d. Review the output above.\n' \
+    printf '\n:: Update failed with status %d. Review the package-manager output above.\n' \
         "$update_status" >&2
-    printf ':: Inspect recovery state with: %s/scripts/maintenance.sh status\n' \
-        "$REPO_ROOT" >&2
     pause_before_exit
     exit "$update_status"
 fi

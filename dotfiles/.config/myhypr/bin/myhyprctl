@@ -68,8 +68,7 @@ case ${1:-} in
         ;;
     update-system)
         [[ $# -eq 1 ]] || usage_error "$1"
-        exec "$REPO_ROOT/scripts/maintenance.sh" apply system \
-            --profile desktop
+        exec "$REPO_ROOT/scripts/update-system.sh"
         ;;
     update-plan)
         [[ $# -eq 1 ]] || usage_error "$1"

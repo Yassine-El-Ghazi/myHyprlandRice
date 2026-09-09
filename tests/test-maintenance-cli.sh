@@ -364,6 +364,9 @@ printf '%s\n' \
     > "$MYHYPR_FIXTURE/scripts/maintenance.sh"
 chmod 0755 -- "$MYHYPR_FIXTURE/dotfiles/.config/myhypr/bin/myhyprctl" \
     "$MYHYPR_FIXTURE/scripts/maintenance.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'printf "simple-system\\n"' \
+    > "$MYHYPR_FIXTURE/scripts/update-system.sh"
+chmod +x -- "$MYHYPR_FIXTURE/scripts/update-system.sh"
 
 route() {
     HOME="$RUN_HOME" "$MYHYPR_FIXTURE/dotfiles/.config/myhypr/bin/myhyprctl" "$@"
@@ -371,7 +374,7 @@ route() {
 
 [[ $(route update) == '<apply><dotfiles><--profile><desktop>' ]] || \
     fail 'myhyprctl update route differs'
-[[ $(route update-system) == '<apply><system><--profile><desktop>' ]] || \
+[[ $(route update-system) == 'simple-system' ]] || \
     fail 'myhyprctl update-system route differs'
 [[ $(route update-plan) == '<plan><dotfiles><--profile><desktop>' ]] || \
     fail 'myhyprctl update-plan route differs'

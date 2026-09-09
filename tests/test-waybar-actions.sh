@@ -65,6 +65,23 @@ expected_scope='--user --scope --collect --quiet --expand-environment=no -- fake
 [[ ${actions[2]:-} == "$expected_scope" ]] || \
     fail 'interactive application was not moved to an independent user scope'
 
+# Exercise the fallback when a user manager cannot be reached. Parse the Lua
+# expression with a stub dispatcher and retain the command as inert data.
+printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$TEST_ROOT/bin/systemctl"
+printf '%s\n' '#!/usr/bin/env bash' \
+    '[[ $1 == dispatch ]] || exit 1' \
+    'printf "%s" "$2"' > "$TEST_ROOT/bin/hyprctl"
+chmod +x -- "$TEST_ROOT/bin/hyprctl"
+fallback=$(PATH="$TEST_ROOT/bin:$PATH" "$CONFIG_ROOT/myhypr/bin/launch-app" \
+    fake-gui 'argument with spaces' "quote's")
+lua - "$fallback" <<'LUA'
+local received
+hl = { dsp = { exec_cmd = function(command) received = command end } }
+assert(load(arg[1]))()
+assert(received:find('argument\\ with\\ spaces', 1, true))
+assert(received:find("quote\\'s", 1, true))
+LUA
+
 modules="$REPO_ROOT/dotfiles/.config/waybar/modules.json"
 rg -Fq "\"on-scroll-up\": \"hyprctl dispatch \\\"hl.dsp.focus({ workspace = 'r-1' })\\\"\"" "$modules" || \
     fail 'workspace scroll-up does not use typed focus'

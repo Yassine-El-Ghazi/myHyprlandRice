@@ -4,6 +4,7 @@ set -Eeuo pipefail
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd -- "$REPO_ROOT"
 runtime_files=(
+    dotfiles/.config/myhypr/bin/launch-app
     dotfiles/.config/myhypr/scripts/focus.sh
     dotfiles/.config/hypr/scripts/moveTo.sh
     dotfiles/.config/hypr/scripts/cursor-zoom.sh

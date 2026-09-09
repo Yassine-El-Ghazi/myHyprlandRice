@@ -124,18 +124,6 @@ confirm 'Continue with the standalone namespace migration?'
 
 run mkdir -p -- "$new_settings"
 
-if [[ $quicklinks_need_migration -eq 1 ]]; then
-    if [[ $DRY_RUN -eq 1 ]]; then
-        info "Would update legacy Waybar quicklink commands in $quicklinks"
-    else
-        quicklinks_temporary=$(mktemp "$new_settings/.waybar-quicklinks.XXXXXXXX")
-        printf '%s\n' "$quicklinks_updated" > "$quicklinks_temporary"
-        chmod --reference="$quicklinks" "$quicklinks_temporary"
-        mv -- "$quicklinks_temporary" "$quicklinks"
-        success 'Waybar quicklink commands migrated.'
-    fi
-fi
-
 copy_setting() {
     local new_name=$1
     local legacy_name=${2:-$1}
@@ -167,6 +155,27 @@ if [[ -d $default_settings ]]; then
             *) copy_setting "$name" ;;
         esac
     done < <(find "$default_settings" -maxdepth 1 -type f -print0)
+fi
+
+# Repair after copying too: a first migration may not have standalone settings
+# yet. Preserve the original file so this repair is reversible.
+if [[ $DRY_RUN -eq 1 ]]; then
+    [[ $quicklinks_need_migration -eq 0 ]] || \
+        info "Would update legacy Waybar quicklink commands in $quicklinks"
+elif [[ -f $quicklinks && ! -L $quicklinks ]]; then
+    quicklinks_current=$(<"$quicklinks")
+    quicklinks_updated=$(rewrite_quicklink_content "$quicklinks_current")
+    if [[ $quicklinks_updated != "$quicklinks_current" ]]; then
+        quicklinks_backup_root="$TARGET/.local/state/myhyprlandrice/migrations"
+        mkdir -p -- "$quicklinks_backup_root"
+        quicklinks_backup=$(mktemp -d "$quicklinks_backup_root/quicklinks.XXXXXXXX")
+        cp -p -- "$quicklinks" "$quicklinks_backup/waybar-quicklinks.json"
+        quicklinks_temporary=$(mktemp "$new_settings/.waybar-quicklinks.XXXXXXXX")
+        printf '%s\n' "$quicklinks_updated" > "$quicklinks_temporary"
+        chmod --reference="$quicklinks" "$quicklinks_temporary"
+        mv -- "$quicklinks_temporary" "$quicklinks"
+        success "Waybar quicklink commands migrated; original saved in $quicklinks_backup"
+    fi
 fi
 
 for color_name in primary secondary onsurface; do

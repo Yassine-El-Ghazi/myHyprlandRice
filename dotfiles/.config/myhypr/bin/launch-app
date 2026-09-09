@@ -18,7 +18,10 @@ fi
 # also outside a directly launched Waybar's process tree.
 if command -v hyprctl >/dev/null 2>&1; then
     printf -v dispatched_command '%q ' "$@"
-    exec hyprctl dispatch exec "$dispatched_command"
+    # Shell quoting above preserves argv; JSON quoting also produces a Lua
+    # string for the typed dispatcher (ASCII command text, including escapes).
+    lua_command=$(printf '%s' "$dispatched_command" | jq -Rs .)
+    exec hyprctl dispatch "hl.dsp.exec_cmd($lua_command)"
 fi
 
 # Direct Waybar mode is used on systems without systemd user services, where

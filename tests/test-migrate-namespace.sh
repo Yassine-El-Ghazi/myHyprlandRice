@@ -123,6 +123,20 @@ rg -Fq '~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/calculator.sh'
     fail 'standalone legacy quicklink was not repaired'
 
 # Canonicalization must catch aliases for the filesystem root.
+fresh_target="$TEST_ROOT/fresh-legacy-home"
+mkdir -p -- "$fresh_target/.config/ml4w/settings"
+printf '%s\n' '{"custom/browser":{"on-click":"~/.config/ml4w/settings/browser.sh"}}' \
+    > "$fresh_target/.config/ml4w/settings/waybar-quicklinks.json"
+"$REPO_ROOT/scripts/migrate-namespace.sh" --target "$fresh_target" --yes >/dev/null
+rg -Fq 'launch-app ~/.config/myhypr/settings/browser.sh' \
+    "$fresh_target/.config/myhypr/settings/waybar-quicklinks.json" || \
+    fail 'first migration copied broken quicklinks without repairing them'
+mapfile -t saved_quicklinks < <(find "$fresh_target/.local/state/myhyprlandrice/migrations" \
+    -path '*/quicklinks.*/waybar-quicklinks.json')
+[[ ${#saved_quicklinks[@]} -eq 1 ]] || fail 'original quicklinks were not saved'
+rg -Fq '~/.config/ml4w/settings/browser.sh' "${saved_quicklinks[0]}" || \
+    fail 'quicklinks backup does not contain the original'
+
 if "$REPO_ROOT/scripts/migrate-namespace.sh" --target /tmp/.. --yes >/dev/null 2>&1; then
     fail 'root target alias was accepted'
 fi

@@ -248,7 +248,18 @@ After reviewing and committing the worktree, fast-forward `main` and run
 `./scripts/link-dotfiles.sh` once from the main checkout to deploy any newly
 tracked files.
 
-### Transactional updates and recovery
+### System updates
+
+The Waybar Update button, `updates` shell alias, and `myhyprctl update-system`
+run the normal Arch/AUR upgrade, followed by Flatpak updates for configured
+user and system remotes. Package-manager prompts remain interactive, and
+administrator authentication uses `pkexec`. AUR builds run as your user.
+
+These everyday updates do not run snapshot preflight checks, create dotfiles
+transactions, or block on home snapshot coverage. Existing Btrfs/snapshot
+hooks keep their own behavior. Failures remain visible in the terminal.
+
+### Optional transactional maintenance and recovery
 
 Use the separate dotfiles and system operations deliberately:
 
@@ -276,7 +287,8 @@ restore the previous Git revision, managed links, allow-listed mutable state,
 selectors, graphical user-service state, and displaced-file backups on every
 supported filesystem.
 
-System maintenance performs a complete Arch upgrade through `paru`, `yay`, or
+The optional `scripts/maintenance.sh apply system` command performs a complete
+Arch upgrade through `paru`, `yay`, or
 `pacman`; it does not construct a partial-upgrade command. Flatpak user and
 system installations are handled separately and only when their scope has a
 configured remote. Immediately before privileged apply stages, the engine

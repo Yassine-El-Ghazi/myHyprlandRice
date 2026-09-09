@@ -376,15 +376,15 @@ printf '%s\n' \
     'printf "<%s>" "$@" > "$SYSTEM_WRAPPER_LOG"' \
     'printf "\n" >> "$SYSTEM_WRAPPER_LOG"' \
     'exit "${SYSTEM_WRAPPER_STATUS:-0}"' \
-    > "$WRAPPER_ROOT/scripts/maintenance.sh"
+    > "$WRAPPER_ROOT/scripts/update-system.sh"
 chmod 0755 -- "$WRAPPER_BIN/gum" "$WRAPPER_BIN/pkill" \
-    "$WRAPPER_ROOT/scripts/maintenance.sh" \
+    "$WRAPPER_ROOT/scripts/update-system.sh" \
     "$WRAPPER_ROOT/dotfiles/.config/myhypr/scripts/installupdates.sh"
 SYSTEM_WRAPPER_LOG="$WRAPPER_LOG" SYSTEM_WRAPPER_STATUS=0 HOME="$WRAPPER_HOME" \
     PATH="$WRAPPER_BIN" \
     "$WRAPPER_ROOT/dotfiles/.config/myhypr/scripts/installupdates.sh" \
     > "$WRAPPER_ROOT/success.log" 2>&1
-[[ $(<"$WRAPPER_LOG") == '<apply><system>' ]] || \
+[[ $(<"$WRAPPER_LOG") == '<>' ]] || \
     fail 'graphical updater did not delegate exactly once'
 rg -q 'All updates completed successfully' "$WRAPPER_ROOT/success.log" || \
     fail 'graphical updater omitted successful presentation'
@@ -398,8 +398,11 @@ set -e
 [[ $wrapper_status -eq 42 ]] || fail 'graphical updater hid the transaction status'
 ! rg -q 'All updates completed successfully' "$WRAPPER_ROOT/failure.log" || \
     fail 'graphical updater printed false success'
-rg -Fq 'scripts/maintenance.sh status' "$WRAPPER_ROOT/failure.log" || \
-    fail 'graphical updater omitted status guidance'
+rg -Fq 'package-manager output' "$WRAPPER_ROOT/failure.log" || \
+    fail 'graphical updater omitted failure guidance'
+if rg -q 'maintenance.sh|snapshot|recovery state' "$WRAPPER_ROOT/failure.log"; then
+    fail 'everyday updater still displays transaction recovery instructions'
+fi
 if rg -n '(paru|yay|pacman)[[:space:]].*-Syu|flatpak[[:space:]]+update' \
     "$PROJECT_ROOT/dotfiles/.config/myhypr/scripts/installupdates.sh"; then
     fail 'graphical updater still executes package managers directly'
