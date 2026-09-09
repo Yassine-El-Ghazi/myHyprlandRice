@@ -22,7 +22,7 @@ jobs:
       - name: Install validation dependencies
         run: >-
           pacman -Syu --noconfirm --needed
-          bash bubblewrap fish git gitleaks hyprland jq lua python
+          bash bubblewrap desktop-file-utils fish git gitleaks hyprland jq lua python
           qt6-declarative ripgrep rsync shellcheck stow util-linux zsh
 
       - name: Check out repository

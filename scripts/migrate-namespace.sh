@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2034  # Flags are consumed by run()/confirm() from lib.sh.
+# shellcheck disable=SC2034,SC2088
+# Flags are consumed by run()/confirm(); tildes below are literal JSON values.
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -40,6 +41,42 @@ legacy_root="$TARGET/.config/ml4w"
 new_root="$TARGET/.config/myhypr"
 new_settings="$new_root/settings"
 default_settings="$REPO_ROOT/defaults/.config/myhypr/settings"
+quicklinks="$new_settings/waybar-quicklinks.json"
+
+rewrite_quicklink_content() {
+    local updated=$1 old new
+
+    replace_click() {
+        old="\"on-click\": \"$1\""
+        new="\"on-click\": \"$2\""
+        updated=${updated//"$old"/"$new"}
+        old="\"on-click\":\"$1\""
+        new="\"on-click\":\"$2\""
+        updated=${updated//"$old"/"$new"}
+    }
+
+    replace_click '~/.config/ml4w/settings/browser.sh' \
+        '~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/browser.sh'
+    replace_click '~/.config/ml4w/settings/filemanager.sh' \
+        '~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/filemanager.sh'
+    replace_click '~/.config/ml4w/settings/email.sh' \
+        '~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/email.sh'
+    replace_click '~/.config/ml4w/settings/calculator.sh' \
+        '~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/calculator.sh'
+    replace_click '~/.config/myhypr/settings/browser.sh' \
+        '~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/browser.sh'
+    replace_click '~/.config/myhypr/settings/filemanager.sh' \
+        '~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/filemanager.sh'
+    replace_click '~/.config/myhypr/settings/email.sh' \
+        '~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/email.sh'
+    replace_click '~/.config/myhypr/settings/calculator.sh' \
+        '~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/calculator.sh'
+    for old in chromium edge firefox thunderbird; do
+        replace_click "$old" "~/.config/myhypr/bin/launch-app $old"
+    done
+    unset -f replace_click
+    printf '%s' "$updated"
+}
 
 legacy_paths=(
     "$legacy_root"
@@ -60,19 +97,44 @@ done
 
 legacy_cache="$TARGET/.cache/ml4w/hyprland-dotfiles"
 legacy_welcome_marker="$TARGET/.cache/ml4w-welcome-autostart"
+quicklinks_need_migration=0
+quicklinks_current=''
+quicklinks_updated=''
+if [[ -f $quicklinks && ! -L $quicklinks ]]; then
+    quicklinks_current=$(<"$quicklinks")
+    quicklinks_updated=$(rewrite_quicklink_content "$quicklinks_current")
+    [[ $quicklinks_updated == "$quicklinks_current" ]] || quicklinks_need_migration=1
+fi
 if ((${#found_paths[@]} == 0)) && \
-    [[ ! -e $legacy_cache && ! -e $legacy_welcome_marker ]]; then
+    [[ ! -e $legacy_cache && ! -e $legacy_welcome_marker && \
+        $quicklinks_need_migration -eq 0 ]]; then
     success 'No legacy ML4W runtime state found.'
     exit 0
 fi
 
-warn 'Legacy ML4W runtime state will be migrated and archived:'
-printf '  %s\n' "${found_paths[@]}" >&2
+if ((${#found_paths[@]})); then
+    warn 'Legacy ML4W runtime state will be migrated and archived:'
+    printf '  %s\n' "${found_paths[@]}" >&2
+fi
 [[ -e $legacy_cache ]] && printf '  %s\n' "$legacy_cache" >&2
 [[ -e $legacy_welcome_marker ]] && printf '  %s\n' "$legacy_welcome_marker" >&2
+[[ $quicklinks_need_migration -eq 0 ]] || \
+    warn "Legacy Waybar quicklink commands will be updated in $quicklinks"
 confirm 'Continue with the standalone namespace migration?'
 
 run mkdir -p -- "$new_settings"
+
+if [[ $quicklinks_need_migration -eq 1 ]]; then
+    if [[ $DRY_RUN -eq 1 ]]; then
+        info "Would update legacy Waybar quicklink commands in $quicklinks"
+    else
+        quicklinks_temporary=$(mktemp "$new_settings/.waybar-quicklinks.XXXXXXXX")
+        printf '%s\n' "$quicklinks_updated" > "$quicklinks_temporary"
+        chmod --reference="$quicklinks" "$quicklinks_temporary"
+        mv -- "$quicklinks_temporary" "$quicklinks"
+        success 'Waybar quicklink commands migrated.'
+    fi
+fi
 
 copy_setting() {
     local new_name=$1

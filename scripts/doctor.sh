@@ -316,6 +316,13 @@ else
     ok 'No legacy ML4W runtime paths remain active'
 fi
 
+quicklinks="$HOME/.config/myhypr/settings/waybar-quicklinks.json"
+if [[ -r $quicklinks ]] && rg -q '\.config/ml4w/' "$quicklinks"; then
+    problem 'Legacy ML4W commands remain in Waybar quicklinks; run scripts/migrate-namespace.sh'
+else
+    ok 'Waybar quicklinks contain no legacy ML4W commands'
+fi
+
 if command -v flatpak >/dev/null 2>&1 && \
     flatpak remotes --columns=name 2>/dev/null | grep -Fxq ml4w-repo; then
     problem "Obsolete Flatpak remote 'ml4w-repo' remains (run scripts/repair-flatpak.sh)"

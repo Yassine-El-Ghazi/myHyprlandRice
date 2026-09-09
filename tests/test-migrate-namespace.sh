@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016  # Legacy filename syntax must remain literal test data.
+# shellcheck disable=SC2016,SC2088
+# Legacy filename syntax and tilde-prefixed JSON values are literal test data.
 set -Eeuo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -33,7 +34,8 @@ mkdir -p -- \
     "$target/.local/share/ml4w-dotfiles-settings" \
     "$target/.local/bin" \
     "$target/.cache/ml4w/hyprland-dotfiles" \
-    "$target/Pictures/CustomWallpapers"
+    "$target/Pictures/CustomWallpapers" \
+    "$target/.config/myhypr/settings"
 
 printf 'firefox\n' > "$legacy/settings/browser.sh"
 printf 'ml4w-kitty\n' > "$legacy/settings/sidepad-active"
@@ -51,6 +53,18 @@ printf 'legacy\n' > "$target/.local/share/ml4w-dotfiles-settings/state"
 printf '#!/bin/sh\n' > "$target/.local/bin/ml4w-dotfiles-settings"
 printf 'cache\n' > "$target/.cache/ml4w/hyprland-dotfiles/current_wallpaper"
 printf 'disabled\n' > "$target/.cache/ml4w-welcome-autostart"
+printf '%s\n' \
+    '{' \
+    '  "custom/browser": {' \
+    '    "on-click": "~/.config/ml4w/settings/browser.sh"' \
+    '  },' \
+    '  "custom/firefox": {' \
+    '    "on-click": "firefox"' \
+    '  },' \
+    '  "custom/private": {' \
+    '    "on-click": "my-private-command"' \
+    '  }' \
+    '}' > "$target/.config/myhypr/settings/waybar-quicklinks.json"
 
 "$REPO_ROOT/scripts/migrate-namespace.sh" --target "$target" --yes >/dev/null
 
@@ -67,6 +81,15 @@ assert_content "$target/.config/myhypr/settings/screenshot-filename" \
 assert_content "$target/.config/myhypr/settings/welcome-on-startup" False
 assert_content "$target/.config/myhypr/colors/primary" '#112233'
 assert_content "$target/.cache/myhypr/current_wallpaper" cache
+rg -Fq '"on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/browser.sh"' \
+    "$target/.config/myhypr/settings/waybar-quicklinks.json" || \
+    fail 'legacy browser quicklink was not migrated'
+rg -Fq '"on-click": "~/.config/myhypr/bin/launch-app firefox"' \
+    "$target/.config/myhypr/settings/waybar-quicklinks.json" || \
+    fail 'direct application quicklink was not isolated'
+rg -Fq '"on-click": "my-private-command"' \
+    "$target/.config/myhypr/settings/waybar-quicklinks.json" || \
+    fail 'custom quicklink command was changed'
 
 [[ ! -e $legacy ]] || fail 'legacy configuration was not archived'
 [[ ! -e $target/.local/bin/ml4w-dotfiles-settings ]] || fail 'legacy launcher remains active'
@@ -86,6 +109,18 @@ printf 'firefox\n' > "$dry_target/.config/ml4w/settings/browser.sh"
     --target "$dry_target" --dry-run --yes >/dev/null
 [[ -f $dry_target/.config/ml4w/settings/browser.sh ]] || fail 'dry run moved legacy data'
 [[ ! -e $dry_target/.config/myhypr ]] || fail 'dry run created standalone data'
+
+# Existing standalone settings must be repaired even after legacy roots are gone.
+standalone_target="$TEST_ROOT/standalone-home"
+mkdir -p -- "$standalone_target/.config/myhypr/settings"
+printf '%s\n' \
+    '{"custom/calculator":{"on-click":"~/.config/ml4w/settings/calculator.sh"}}' \
+    > "$standalone_target/.config/myhypr/settings/waybar-quicklinks.json"
+"$REPO_ROOT/scripts/migrate-namespace.sh" \
+    --target "$standalone_target" --yes >/dev/null
+rg -Fq '~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/calculator.sh' \
+    "$standalone_target/.config/myhypr/settings/waybar-quicklinks.json" || \
+    fail 'standalone legacy quicklink was not repaired'
 
 # Canonicalization must catch aliases for the filesystem root.
 if "$REPO_ROOT/scripts/migrate-namespace.sh" --target /tmp/.. --yes >/dev/null 2>&1; then

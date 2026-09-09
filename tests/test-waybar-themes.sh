@@ -132,6 +132,43 @@ jq -e '
     fail 'Settings visibility switches did not alter the generated config'
 rm -f -- "$CONFIG_ROOT/myhypr/settings"/waybar_{appmenu,taskbar,quicklinks,window,network,systray}.sh
 
+# The minimal theme intentionally uses the icon launcher variant. The app-menu
+# switch must preserve that choice and must not create a duplicate text launcher.
+minimal_config="$CONFIG_ROOT/waybar/themes/myhypr-minimal/config"
+python3 "$CONFIG_ROOT/waybar/generate-config.py" "$minimal_config" \
+    "$CONFIG_ROOT/myhypr/settings" "$TEST_ROOT/runtime/minimal.json"
+jq -e '
+    (.["modules-left"] | index("custom/appmenuicon") != null) and
+    (.["modules-left"] | index("custom/appmenu") == null)
+' "$TEST_ROOT/runtime/minimal.json" >/dev/null || \
+    fail 'minimal theme launcher variant was not preserved'
+printf 'False\n' > "$CONFIG_ROOT/myhypr/settings/waybar_appmenu.sh"
+python3 "$CONFIG_ROOT/waybar/generate-config.py" "$minimal_config" \
+    "$CONFIG_ROOT/myhypr/settings" "$TEST_ROOT/runtime/minimal.json"
+jq -e '
+    .["modules-left"] |
+    index("custom/appmenuicon") == null and index("custom/appmenu") == null
+' "$TEST_ROOT/runtime/minimal.json" >/dev/null || \
+    fail 'app-menu switch left the icon launcher visible'
+rm -f -- "$CONFIG_ROOT/myhypr/settings/waybar_appmenu.sh"
+
+# Required fallback definitions belong after existing custom includes so an
+# established theme override keeps Waybar's earlier-value precedence.
+printf '%s\n' \
+    '{' \
+    '  "include": ["custom-modules.json"],' \
+    '  "modules-left": []' \
+    '}' > "$TEST_ROOT/runtime/custom-include.json"
+python3 "$CONFIG_ROOT/waybar/generate-config.py" \
+    "$TEST_ROOT/runtime/custom-include.json" "$CONFIG_ROOT/myhypr/settings" \
+    "$TEST_ROOT/runtime/custom-include-generated.json"
+jq -e '.include == [
+    "custom-modules.json",
+    "~/.config/myhypr/settings/waybar-quicklinks.json",
+    "~/.config/waybar/modules.json"
+]' "$TEST_ROOT/runtime/custom-include-generated.json" >/dev/null || \
+    fail 'fallback includes overrode the custom include order'
+
 # JSONC cleanup must never alter comma/bracket sequences inside quoted text.
 cat > "$TEST_ROOT/runtime/string-safe.jsonc" <<'EOF'
 {

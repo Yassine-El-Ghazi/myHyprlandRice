@@ -79,8 +79,9 @@ rg -Fq '"on-click": "~/.config/myhypr/bin/launch-app pavucontrol"' \
     "$modules" || fail 'audio control is still owned by Waybar'
 rg -Fq '"on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/networkmanager.sh"' \
     "$modules" || fail 'network selector is still owned by Waybar'
-if rg -n '"on-click[^" ]*": "(?:nwg-look|qalculate-gtk|pavucontrol|chromium|edge|firefox|thunderbird)' \
-    "$modules" "$REPO_ROOT/defaults/.config/myhypr/settings/waybar-quicklinks.json"; then
+if rg -n '"on-click[^" ]*": "(?:nwg-look|qalculate-gtk|pavucontrol|chromium|edge|firefox|thunderbird|~/.config/(?:waybar/themeswitcher|myhypr/settings/(?:installupdates|software))\.sh)' \
+    "$modules" "$REPO_ROOT/defaults/.config/myhypr/settings/waybar-quicklinks.json" \
+    "$REPO_ROOT"/dotfiles/.config/waybar/themes/*/config; then
     fail 'a directly launched interactive application remains in Waybar config'
 fi
 rg -Fq '"format": "󰍜"' "$modules" || fail 'neutral sidebar icon is missing'

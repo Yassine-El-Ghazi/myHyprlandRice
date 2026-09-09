@@ -43,6 +43,7 @@ ttf-firacode-nerd
 ttf-jetbrains-mono-nerd
 
 # Local and CI-equivalent quality checks
+desktop-file-utils
 shellcheck
 shfmt
 gitleaks

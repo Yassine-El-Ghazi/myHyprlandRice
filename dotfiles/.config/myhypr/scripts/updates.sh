@@ -19,24 +19,64 @@ count_lines() {
 }
 
 updates=0
+check_failed=0
 if command -v pacman >/dev/null 2>&1; then
     repo_updates=0
     aur_updates=0
+    check_output=''
+    check_code=0
 
     if command -v checkupdates >/dev/null 2>&1; then
-        repo_updates=$(checkupdates 2>/dev/null | count_lines)
+        check_output=$(checkupdates 2>/dev/null)
+        check_code=$?
+        case $check_code in
+            0) repo_updates=$(count_lines <<< "$check_output") ;;
+            2) repo_updates=0 ;;
+            *) check_failed=1 ;;
+        esac
     else
-        repo_updates=$(pacman -Qu 2>/dev/null | count_lines)
+        check_output=$(pacman -Qu 2>/dev/null)
+        check_code=$?
+        if [[ $check_code -eq 0 ]]; then
+            repo_updates=$(count_lines <<< "$check_output")
+        else
+            check_failed=1
+        fi
     fi
 
     if command -v paru >/dev/null 2>&1; then
-        aur_updates=$(timeout 20 paru -Qua 2>/dev/null | count_lines)
+        check_output=$(timeout 20 paru -Qua 2>/dev/null)
+        check_code=$?
+        if [[ $check_code -eq 0 ]]; then
+            aur_updates=$(count_lines <<< "$check_output")
+        else
+            check_failed=1
+        fi
     elif command -v yay >/dev/null 2>&1; then
-        aur_updates=$(timeout 20 yay -Qua 2>/dev/null | count_lines)
+        check_output=$(timeout 20 yay -Qua 2>/dev/null)
+        check_code=$?
+        if [[ $check_code -eq 0 ]]; then
+            aur_updates=$(count_lines <<< "$check_output")
+        else
+            check_failed=1
+        fi
     fi
     updates=$((repo_updates + aur_updates))
 elif command -v dnf >/dev/null 2>&1; then
-    updates=$(dnf check-update -q 2>/dev/null | awk '/^[[:alnum:]]/ { count++ } END { print count + 0 }')
+    check_output=$(dnf check-update -q 2>/dev/null)
+    check_code=$?
+    case $check_code in
+        0|100)
+            updates=$(awk '/^[[:alnum:]]/ { count++ } END { print count + 0 }' \
+                <<< "$check_output")
+            ;;
+        *) check_failed=1 ;;
+    esac
+fi
+
+if [[ $check_failed -eq 1 ]]; then
+    json_status '!' red 'Update check failed; click to run the updater'
+    exit 0
 fi
 
 css_class=green

@@ -17,8 +17,8 @@
         "return-type": "json",
         "exec": "~/.config/myhypr/scripts/updates.sh",
         "restart-interval": 60,
-        "on-click": "~/.config/myhypr/settings/installupdates.sh",
-        "on-click-right": "~/.config/myhypr/settings/software.sh"
+        "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/installupdates.sh",
+        "on-click-right": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/software.sh"
     },
     // Pulseaudio
     "pulseaudio": {
@@ -42,7 +42,7 @@
                 " "
             ]
         },
-        "on-click": "pavucontrol"
+        "on-click": "~/.config/myhypr/bin/launch-app pavucontrol"
     },
     // Modules Left
     "modules-left": [

@@ -19,6 +19,10 @@ MODULES = {
     "tray": ("waybar_systray.sh", True, "modules-right", "last"),
 }
 
+MODULE_ALIASES = {
+    "custom/appmenu": ("custom/appmenu", "custom/appmenuicon"),
+}
+
 REQUIRED_INCLUDES = (
     "~/.config/myhypr/settings/waybar-quicklinks.json",
     "~/.config/waybar/modules.json",
@@ -114,13 +118,14 @@ def setting_enabled(settings_root: Path, filename: str, default: bool) -> bool:
 def apply_visibility(config: dict[str, object], settings_root: Path) -> None:
     for module, (filename, default, destination, placement) in MODULES.items():
         enabled = setting_enabled(settings_root, filename, default)
+        candidates = MODULE_ALIASES.get(module, (module,))
         found = False
         for key in ("modules-left", "modules-center", "modules-right"):
             modules = config.get(key)
             if isinstance(modules, list):
                 filtered = []
                 for item in modules:
-                    if item != module:
+                    if item not in candidates:
                         filtered.append(item)
                     elif enabled and not found:
                         filtered.append(item)
@@ -144,10 +149,11 @@ def ensure_module_includes(config: dict[str, object]) -> None:
     ):
         raise ValueError("include must be an array of strings")
 
-    # Match the established include order while retaining theme-specific files.
-    for required in reversed(REQUIRED_INCLUDES):
+    # Waybar keeps values from the main and earlier included files. Shared
+    # definitions are fallbacks, so custom includes must retain precedence.
+    for required in REQUIRED_INCLUDES:
         if required not in includes:
-            includes.insert(0, required)
+            includes.append(required)
 
 
 def main() -> int:

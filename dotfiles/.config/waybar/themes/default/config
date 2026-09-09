@@ -28,7 +28,7 @@
     // Waybar Themes
     "custom/waybarthemes": {
         "format": "Themes",
-        "on-click": "~/.config/waybar/themeswitcher.sh",
+        "on-click": "~/.config/myhypr/bin/launch-app ~/.config/waybar/themeswitcher.sh",
         "tooltip": false
     },
     "sway/mode": {
@@ -143,7 +143,7 @@
             "car": "",
             "default": ["", "", ""]
         },
-        "on-click": "pavucontrol"
+        "on-click": "~/.config/myhypr/bin/launch-app pavucontrol"
     },
     "custom/media": {
         "format": "{icon} {}",

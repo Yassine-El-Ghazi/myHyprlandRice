@@ -16,8 +16,8 @@ installer, Flatpak remote, or hosted settings service is required at runtime.
 - One command installs declared Arch/AUR dependencies, enables desktop
   services, backs up conflicts, links configuration, seeds runtime state, and
   runs diagnostics.
-- Hyprland 0.56+ uses a Lua entrypoint, with all 56 shipped environment,
-  keybinding, monitor, and appearance combinations validated.
+- Hyprland 0.56+ uses a Lua entrypoint, with 56 shipped environment,
+  keybinding, monitor, and appearance variants validated individually.
 - Mutable selectors, generated colors, wallpaper state, and machine-specific
   configuration stay out of Git.
 - MyHypr's local Quickshell panels control settings, audio, brightness,
@@ -61,11 +61,17 @@ your display manager. For an unattended machine you control:
 The bootstrap is idempotent. Running it again preserves existing runtime
 preferences and only installs or links what is missing.
 
-On Neovim's first start, the pinned plugin manager downloads the plugins and
-Tree-sitter parsers declared by the configuration. The bootstrap installs the
-required Node.js and Tree-sitter runtimes, but account authentication remains
-private; run `:Copilot auth` inside Neovim if you want to use Copilot on a new
-machine. No token or editor login is stored in this repository.
+On Neovim's first start, the plugin manager's moving `stable` branch downloads
+plugins recorded in `lazy-lock.json` and the configured Tree-sitter parsers.
+The plugin revisions are locked; the plugin manager branch and parser/tool
+downloads are not immutable. The bootstrap installs the required Node.js and
+Tree-sitter runtimes, but account authentication remains private; run
+`:Copilot auth` inside Neovim if you want to use Copilot on a new machine. No
+token or editor login is stored in this repository.
+
+The tracked OpenCode desktop entry exposes an existing GUI installation at
+`/opt/OpenCode/OpenCode`; bootstrap does not install that externally packaged
+GUI. Install OpenCode separately if you want that launcher on another machine.
 
 ### What bootstrap automates
 
@@ -213,7 +219,7 @@ make audit
 ## Validate and maintain
 
 ```bash
-make check                         # Full suite and all 56 Hyprland variants
+make check                         # Full suite and 56 shipped Hyprland variants
 ./scripts/check.sh --quick         # Fast syntax and integration suite
 make audit                         # Tracked and untracked worktree audit
 make audit-history                 # Scan every reachable Git blob too
@@ -226,6 +232,21 @@ bootstrap, Stow backups, runtime seeding, namespace migration, settings path
 containment, graphical-session environment isolation, service activation,
 desktop controls, Waybar/Walker theme fallbacks, and declarative wallpaper
 effects.
+
+Because the live desktop links directly to the main checkout, make future
+changes in a separate Git worktree so an unfinished branch cannot alter the
+running session:
+
+```bash
+git worktree add ../myHyprlandRice-work -b fix/short-description main
+cd ../myHyprlandRice-work
+make check
+make audit
+```
+
+After reviewing and committing the worktree, fast-forward `main` and run
+`./scripts/link-dotfiles.sh` once from the main checkout to deploy any newly
+tracked files.
 
 ### Transactional updates and recovery
 

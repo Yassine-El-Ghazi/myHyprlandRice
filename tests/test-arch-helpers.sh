@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016  # Mock scripts intentionally contain literal variables.
 set -Eeuo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -33,6 +34,40 @@ rg -q 'pgrep -x' "$ARCH_ROOT/unlock-pacman.sh" || \
     fail 'pacman unlock does not check active package processes'
 rg -q 'fuser "\$lock_file"' "$ARCH_ROOT/unlock-pacman.sh" || \
     fail 'pacman unlock does not check the lock owner'
+
+UPDATES_SCRIPT="$REPO_ROOT/dotfiles/.config/myhypr/scripts/updates.sh"
+TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/myhypr-update-count-test.XXXXXXXX")
+cleanup() {
+    case $TEST_ROOT in
+        "${TMPDIR:-/tmp}"/myhypr-update-count-test.*) rm -rf -- "$TEST_ROOT" ;;
+    esac
+}
+trap cleanup EXIT
+mkdir -p -- "$TEST_ROOT/bin"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$TEST_ROOT/bin/pacman"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'case ${UPDATE_COUNT_TEST_MODE:-none} in' \
+    '  updates) printf "%s\n" package-one package-two; exit 0 ;;' \
+    '  none) exit 2 ;;' \
+    '  failure) exit 1 ;;' \
+    'esac' > "$TEST_ROOT/bin/checkupdates"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$TEST_ROOT/bin/paru"
+chmod +x -- "$TEST_ROOT/bin/pacman" "$TEST_ROOT/bin/checkupdates" \
+    "$TEST_ROOT/bin/paru"
+
+update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=updates \
+    "$UPDATES_SCRIPT")
+jq -e '.text == "2" and .tooltip == "Click to update the system"' \
+    <<< "$update_json" >/dev/null || fail 'available updates were not counted'
+update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=none \
+    "$UPDATES_SCRIPT")
+jq -e '.text == "0" and .tooltip == "System is up to date"' \
+    <<< "$update_json" >/dev/null || fail 'documented no-update status was rejected'
+update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=failure \
+    "$UPDATES_SCRIPT")
+jq -e '.text == "!" and .tooltip == "Update check failed; click to run the updater"' \
+    <<< "$update_json" >/dev/null || fail 'failed update check was reported as current'
 
 "$ARCH_ROOT/installprinters.sh" --help >/dev/null
 "$ARCH_ROOT/installtimeshift.sh" --help >/dev/null
