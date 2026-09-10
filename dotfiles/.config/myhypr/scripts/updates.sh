@@ -21,6 +21,9 @@ count_lines() {
 
 updates=0
 check_failed=0
+failure_tooltip='Update check failed; click to run the updater'
+check_timeout=${MYHYPR_UPDATE_CHECK_TIMEOUT_SECONDS:-30}
+[[ $check_timeout =~ ^[0-9]+([.][0-9]+)?$ ]] || check_timeout=30
 if command -v pacman >/dev/null 2>&1; then
     repo_updates=0
     aur_updates=0
@@ -28,11 +31,15 @@ if command -v pacman >/dev/null 2>&1; then
     check_code=0
 
     if command -v checkupdates >/dev/null 2>&1; then
-        check_output=$(checkupdates 2>/dev/null)
+        check_output=$(timeout "$check_timeout" checkupdates 2>/dev/null)
         check_code=$?
         case $check_code in
             0) repo_updates=$(count_lines <<< "$check_output") ;;
             2) repo_updates=0 ;;
+            124)
+                check_failed=1
+                failure_tooltip='Update check timed out; click to run the updater'
+                ;;
             *) check_failed=1 ;;
         esac
     else
@@ -45,7 +52,7 @@ if command -v pacman >/dev/null 2>&1; then
         fi
     fi
 
-    if command -v paru >/dev/null 2>&1; then
+    if [[ $check_failed -eq 0 ]] && command -v paru >/dev/null 2>&1; then
         check_output=$(timeout 20 paru -Qua 2>/dev/null)
         check_code=$?
         if [[ $check_code -eq 0 ]]; then
@@ -53,7 +60,7 @@ if command -v pacman >/dev/null 2>&1; then
         else
             check_failed=1
         fi
-    elif command -v yay >/dev/null 2>&1; then
+    elif [[ $check_failed -eq 0 ]] && command -v yay >/dev/null 2>&1; then
         check_output=$(timeout 20 yay -Qua 2>/dev/null)
         check_code=$?
         if [[ $check_code -eq 0 ]]; then
@@ -76,14 +83,14 @@ elif command -v dnf >/dev/null 2>&1; then
 fi
 
 if [[ $check_failed -eq 1 ]]; then
-    json_status '!' red 'Update check failed; click to run the updater'
+    json_status '!' red "$failure_tooltip"
     exit 0
 fi
 
 css_class=green
 if ((updates > 100)); then
     css_class=red
-elif ((updates > 25)); then
+elif ((updates > 0)); then
     css_class=yellow
 fi
 

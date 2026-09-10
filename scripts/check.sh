@@ -132,6 +132,7 @@ fi
 
 run_check 'Git whitespace checks' git diff --check
 run_check 'Simple package updates' "$REPO_ROOT/tests/test-simple-updates.sh"
+run_check 'Flatpak compatibility repair' "$REPO_ROOT/tests/test-flatpak-repair.sh"
 run_check 'Idle controls and logout geometry' "$REPO_ROOT/tests/test-idle-and-logout.sh"
 run_check 'Hyprshade filter compatibility' "$REPO_ROOT/tests/test-hyprshade.sh"
 run_check 'Asset provenance manifest' "$REPO_ROOT/tests/test-assets.sh"

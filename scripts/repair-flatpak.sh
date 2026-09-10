@@ -9,6 +9,8 @@ source "$SCRIPT_DIR/lib.sh"
 DRY_RUN=0
 ASSUME_YES=0
 LEGACY_REMOTE=ml4w-repo
+LEGACY_GTK_THEME=org.gtk.Gtk3theme.Breeze-Dark
+SUPPORTED_GTK_THEME=org.gtk.Gtk3theme.Breeze
 
 while (($#)); do
     case $1 in
@@ -97,3 +99,22 @@ if [[ ${removed_scope[user]} -eq 1 || ${removed_scope[system]} -eq 1 ]]; then
 else
     success "No stale '$LEGACY_REMOTE' Flatpak remote is configured."
 fi
+
+# Breeze now includes its dark stylesheet in the supported Breeze extension.
+# The tracked GTK settings select Breeze with prefer-dark, so the retired
+# separate Breeze-Dark extension can be removed once Breeze is available.
+for scope in user system; do
+    scope_flag="--$scope"
+    flatpak "$scope_flag" info "$LEGACY_GTK_THEME" >/dev/null 2>&1 || continue
+    if ! flatpak "$scope_flag" info "$SUPPORTED_GTK_THEME" >/dev/null 2>&1; then
+        warn "Keeping retired $scope GTK theme because its replacement is unavailable."
+        continue
+    fi
+    confirm "Remove retired $scope Flatpak GTK theme '$LEGACY_GTK_THEME'?"
+    if [[ $scope == user ]]; then
+        run flatpak --user uninstall --runtime -y "$LEGACY_GTK_THEME"
+    else
+        require_command pkexec
+        run pkexec flatpak --system uninstall --runtime -y "$LEGACY_GTK_THEME"
+    fi
+done

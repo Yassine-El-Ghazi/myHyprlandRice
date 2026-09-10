@@ -11,6 +11,8 @@ Usage: desktopctl status COMPONENT
        desktopctl audio get|set [PERCENT]
        desktopctl brightness get|set [PERCENT]
        desktopctl wifi get|set [enabled|disabled]
+       desktopctl bluetooth get|set [enabled|disabled]
+       desktopctl mute get|set [enabled|disabled]
 
 Components: waybar, dock, gamemode
 EOF
@@ -115,6 +117,51 @@ wifi_control() {
     esac
 }
 
+bluetooth_control() {
+    local current desired
+
+    case ${1:-} in
+        get)
+            current=$(rfkill -n -o SOFT list bluetooth 2>/dev/null) || current=''
+            if awk 'BEGIN { ok = 1 } NF { seen = 1; if ($1 != "unblocked") ok = 0 } END { exit !(seen && ok) }' \
+                <<< "$current"; then
+                printf 'true\n'
+            else
+                printf 'false\n'
+            fi
+            ;;
+        set)
+            desired=${2:-${SWAYNC_TOGGLE_STATE:-}}
+            case $desired in
+                true|enabled|on) exec rfkill unblock bluetooth ;;
+                false|disabled|off) exec rfkill block bluetooth ;;
+                *) return 2 ;;
+            esac
+            ;;
+        *) return 2 ;;
+    esac
+}
+
+mute_control() {
+    local current desired
+
+    case ${1:-} in
+        get)
+            current=$(wpctl get-volume @DEFAULT_AUDIO_SINK@) || return 1
+            [[ $current == *'[MUTED]'* ]] && printf 'false\n' || printf 'true\n'
+            ;;
+        set)
+            desired=${2:-${SWAYNC_TOGGLE_STATE:-}}
+            case $desired in
+                true|enabled|on) exec wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 ;;
+                false|disabled|off) exec wpctl set-mute @DEFAULT_AUDIO_SINK@ 1 ;;
+                *) return 2 ;;
+            esac
+            ;;
+        *) return 2 ;;
+    esac
+}
+
 case ${1:-} in
     status)
         (($# == 2)) || { usage >&2; exit 2; }
@@ -135,6 +182,14 @@ case ${1:-} in
     wifi)
         shift
         wifi_control "$@" || { usage >&2; exit 2; }
+        ;;
+    bluetooth)
+        shift
+        bluetooth_control "$@" || { usage >&2; exit 2; }
+        ;;
+    mute)
+        shift
+        mute_control "$@" || { usage >&2; exit 2; }
         ;;
     -h|--help|help)
         usage

@@ -37,7 +37,7 @@ printf '%s\n' \
 
 printf '%s\n' \
     '#!/usr/bin/env bash' \
-    'if [[ $1 == get-volume ]]; then printf "Volume: 0.42\\n"; else printf "wpctl %s\\n" "$*" >> "$DESKTOPCTL_TEST_LOG"; fi' \
+    'if [[ $1 == get-volume ]]; then printf "Volume: 0.42%s\\n" "${DESKTOPCTL_TEST_MUTED:+ [MUTED]}"; else printf "wpctl %s\\n" "$*" >> "$DESKTOPCTL_TEST_LOG"; fi' \
     > "$FAKE_BIN/wpctl"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
@@ -47,11 +47,15 @@ printf '%s\n' \
     '#!/usr/bin/env bash' \
     'if [[ $* == "radio wifi" ]]; then printf "enabled\\n"; else printf "nmcli %s\\n" "$*" >> "$DESKTOPCTL_TEST_LOG"; fi' \
     > "$FAKE_BIN/nmcli"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'if [[ $1 == -n ]]; then printf "%s\\n" "${DESKTOPCTL_TEST_BLUETOOTH:-unblocked}"; else printf "rfkill %s\\n" "$*" >> "$DESKTOPCTL_TEST_LOG"; fi' \
+    > "$FAKE_BIN/rfkill"
 chmod +x -- \
     "$CONFIG_ROOT/waybar/launch.sh" \
     "$CONFIG_ROOT/nwg-dock-hyprland/launch.sh" \
     "$CONFIG_ROOT/hypr/scripts/gamemode.sh" \
-    "$FAKE_BIN/wpctl" "$FAKE_BIN/brightnessctl" "$FAKE_BIN/nmcli"
+    "$FAKE_BIN/wpctl" "$FAKE_BIN/brightnessctl" "$FAKE_BIN/nmcli" "$FAKE_BIN/rfkill"
 
 run_ctl() {
     HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" PATH="$FAKE_BIN:$PATH" \
@@ -91,6 +95,14 @@ SWAYNC_TOGGLE_STATE=true run_ctl wifi set
 if run_ctl wifi set invalid >/dev/null 2>&1; then
     fail 'invalid Wi-Fi state was accepted'
 fi
+[[ $(run_ctl bluetooth get) == true ]] || fail 'Bluetooth enabled state was not detected'
+[[ $(DESKTOPCTL_TEST_BLUETOOTH=blocked run_ctl bluetooth get) == false ]] || \
+    fail 'Bluetooth blocked state was not detected'
+SWAYNC_TOGGLE_STATE=false run_ctl bluetooth set
+[[ $(run_ctl mute get) == true ]] || fail 'unmuted audio state was not detected'
+[[ $(DESKTOPCTL_TEST_MUTED=1 run_ctl mute get) == false ]] || \
+    fail 'muted audio state was not detected'
+SWAYNC_TOGGLE_STATE=false run_ctl mute set
 
 rg -q '^waybar$' "$DESKTOPCTL_TEST_LOG"
 rg -q '^dock$' "$DESKTOPCTL_TEST_LOG"
@@ -98,5 +110,7 @@ rg -q '^wpctl set-volume @DEFAULT_AUDIO_SINK@ 75%$' "$DESKTOPCTL_TEST_LOG"
 rg -q '^brightness set 80%$' "$DESKTOPCTL_TEST_LOG"
 rg -q '^nmcli radio wifi off$' "$DESKTOPCTL_TEST_LOG"
 rg -q '^nmcli radio wifi on$' "$DESKTOPCTL_TEST_LOG"
+rg -q '^rfkill block bluetooth$' "$DESKTOPCTL_TEST_LOG"
+rg -q '^wpctl set-mute @DEFAULT_AUDIO_SINK@ 1$' "$DESKTOPCTL_TEST_LOG"
 
-printf 'Desktop state, audio, brightness, and Wi-Fi controls passed.\n'
+printf 'Desktop state, audio, brightness, Wi-Fi, Bluetooth, and mute controls passed.\n'

@@ -76,15 +76,15 @@
           "label": "",
           "type": "toggle",
           "active": true,
-          "command": "rfkill toggle bluetooth",
-          "update-command": ""
+          "command": "~/.config/myhypr/bin/desktopctl bluetooth set",
+          "update-command": "~/.config/myhypr/bin/desktopctl bluetooth get"
         },
         {
           "label": "󰕾",
           "type": "toggle",
           "active": true,
-          "command": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
-          "update-command": ""
+          "command": "~/.config/myhypr/bin/desktopctl mute set",
+          "update-command": "~/.config/myhypr/bin/desktopctl mute get"
         },
         {
           "label": "",

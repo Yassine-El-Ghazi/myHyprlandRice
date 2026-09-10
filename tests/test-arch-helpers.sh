@@ -51,6 +51,7 @@ printf '%s\n' \
     '  updates) printf "%s\n" package-one package-two; exit 0 ;;' \
     '  none) exit 2 ;;' \
     '  failure) exit 1 ;;' \
+    '  timeout) sleep 2; exit 0 ;;' \
     'esac' > "$TEST_ROOT/bin/checkupdates"
 printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$TEST_ROOT/bin/paru"
 chmod +x -- "$TEST_ROOT/bin/pacman" "$TEST_ROOT/bin/checkupdates" \
@@ -68,14 +69,20 @@ update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=updates
     "$UPDATES_SCRIPT")
 jq -e '.text == "2" and .tooltip == "Click to update the system"' \
     <<< "$update_json" >/dev/null || fail 'available updates were not counted'
+jq -e '.class == "yellow"' <<< "$update_json" >/dev/null || \
+    fail 'available updates did not use the warning color'
 update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=none \
     "$UPDATES_SCRIPT")
-jq -e '.text == "0" and .tooltip == "System is up to date"' \
+jq -e '.text == "0" and .class == "green" and .tooltip == "System is up to date"' \
     <<< "$update_json" >/dev/null || fail 'documented no-update status was rejected'
 update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=failure \
     "$UPDATES_SCRIPT")
 jq -e '.text == "!" and .tooltip == "Update check failed; click to run the updater"' \
     <<< "$update_json" >/dev/null || fail 'failed update check was reported as current'
+update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=timeout \
+    MYHYPR_UPDATE_CHECK_TIMEOUT_SECONDS=0.1 "$UPDATES_SCRIPT")
+jq -e '.text == "!" and .class == "red" and (.tooltip | contains("timed out"))' \
+    <<< "$update_json" >/dev/null || fail 'stalled update check was not bounded'
 
 "$ARCH_ROOT/installprinters.sh" --help >/dev/null
 "$ARCH_ROOT/installtimeshift.sh" --help >/dev/null
