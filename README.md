@@ -138,7 +138,7 @@ myhyprctl reload        # Reload Hyprland and print config errors
 myhyprctl doctor
 myhyprctl update-plan   # Validate and preview a dotfiles update
 myhyprctl update        # Apply a transactional dotfiles update
-myhyprctl update-system # Apply a transactional full system update
+myhyprctl update-system # Run the normal Arch/AUR and Flatpak updates
 myhyprctl update-status # Inspect the latest maintenance transaction
 myhyprctl recover ID    # Recover a failed or interrupted transaction
 myhyprctl docs
@@ -181,6 +181,10 @@ Press `SUPER + CTRL + K` to search the active described shortcuts. The viewer
 queries the running compositor, so described bindings from both `custom.lua`
 and `local.lua` appear automatically. Use `wev` when you need to discover an
 uncommon key name or keycode.
+
+Walker/Elephant and the optional Rofi/Cliphist path keep separate clipboard
+histories. Waybar's middle-click clear action clears the history belonging to
+the currently selected launcher; it does not erase the inactive backend.
 
 ## State model
 
@@ -267,7 +271,8 @@ Use the separate dotfiles and system operations deliberately:
 | --- | --- |
 | Preview a dotfiles update | `myhyprctl update-plan` |
 | Apply a dotfiles update | `myhyprctl update` |
-| Apply a full system update | `myhyprctl update-system` |
+| Run normal package updates | `myhyprctl update-system` |
+| Apply optional transactional system maintenance | `./scripts/maintenance.sh apply system` |
 | Show the latest transaction | `myhyprctl update-status` |
 | Show one transaction | `myhyprctl update-status TRANSACTION_ID` |
 | Recover an interrupted or failed transaction | `myhyprctl recover TRANSACTION_ID` |

@@ -92,7 +92,7 @@
     "on-click": "sleep 0.1 && ~/.config/myhypr/bin/launch-app ~/.config/myhypr/scripts/cliphist.sh",
     "on-click-right": "sleep 0.1 && ~/.config/myhypr/bin/launch-app ~/.config/myhypr/scripts/cliphist.sh d",
     "on-click-middle": "sleep 0.1 && ~/.config/myhypr/bin/launch-app ~/.config/myhypr/scripts/cliphist.sh w",
-    "tooltip-format": "Left: Open clipboard manager\nRight: Delete an entry (Walker: Ctrl+D)\nMiddle: Clear list",
+    "tooltip-format": "Left: Open clipboard manager\nRight: Delete an entry (Walker: Ctrl+D)\nMiddle: Clear current history",
     "on-scroll-up": "true",
     "on-scroll-down": "true"
   },

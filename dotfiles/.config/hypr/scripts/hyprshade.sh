@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
 SETTING_FILE="$CONFIG_ROOT/myhypr/settings/hyprshade.sh"
-default_filter='blue-light-filter-50'
+default_filter='blue-light-filter'
 
 mapfile -t filters < <(hyprshade ls | sed 's/^[ *]*//' | sed '/^$/d')
 is_known_filter() {

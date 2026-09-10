@@ -9,7 +9,8 @@ json_status() {
         "$count" "$count" "$tooltip" "$css_class"
 }
 
-if [[ -e /var/lib/pacman/db.lck || -e ${TMPDIR:-/tmp}/checkup-db-${UID}/db.lck ]]; then
+pacman_db_lock=${MYHYPR_TEST_PACMAN_DB_LOCK:-/var/lib/pacman/db.lck}
+if [[ -e $pacman_db_lock || -e ${TMPDIR:-/tmp}/checkup-db-${UID}/db.lck ]]; then
     json_status '…' yellow 'Package database is busy'
     exit 0
 fi

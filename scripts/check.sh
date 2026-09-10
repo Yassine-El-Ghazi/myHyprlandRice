@@ -133,6 +133,7 @@ fi
 run_check 'Git whitespace checks' git diff --check
 run_check 'Simple package updates' "$REPO_ROOT/tests/test-simple-updates.sh"
 run_check 'Idle controls and logout geometry' "$REPO_ROOT/tests/test-idle-and-logout.sh"
+run_check 'Hyprshade filter compatibility' "$REPO_ROOT/tests/test-hyprshade.sh"
 run_check 'Asset provenance manifest' "$REPO_ROOT/tests/test-assets.sh"
 run_check 'Staged snapshot and history audit behavior' \
     "$REPO_ROOT/tests/test-audit.sh"
@@ -170,6 +171,7 @@ run_check 'Sidepad typed geometry behavior' "$REPO_ROOT/tests/test-sidepad-runti
 run_check 'Hyprland typed runtime API guard' "$REPO_ROOT/tests/test-hyprland-runtime-api.sh"
 run_check 'Graceful power and logout behavior' "$REPO_ROOT/tests/test-power-actions.sh"
 run_check 'Keybinding inventory and command resolution' lua "$REPO_ROOT/tests/test-keybindings.lua"
+run_check 'Neovim LSP API compatibility' lua "$REPO_ROOT/tests/test-nvim-lsp.lua" "$REPO_ROOT"
 run_check 'Lua-native keybinding profile selector' "$REPO_ROOT/tests/test-keybinding-selector.sh"
 run_check 'Legacy local keybinding migration' "$REPO_ROOT/tests/test-migrate-local.sh"
 run_check 'Namespace migration behavior' "$REPO_ROOT/tests/test-migrate-namespace.sh"
@@ -181,6 +183,7 @@ run_check 'Graphical session service isolation' "$REPO_ROOT/tests/test-session-s
 run_check 'Managed desktop autostart behavior' "$REPO_ROOT/tests/test-autostart.sh"
 run_check 'Dock replacement behavior' "$REPO_ROOT/tests/test-dock-launch.sh"
 run_check 'Application launcher behavior' "$REPO_ROOT/tests/test-launcher.sh"
+run_check 'Interactive finder behavior' "$REPO_ROOT/tests/test-finder.sh"
 run_check 'Clipboard launcher behavior' "$REPO_ROOT/tests/test-cliphist-launcher.sh"
 run_check 'Keybinding viewer behavior' "$REPO_ROOT/tests/test-keybinding-viewer.sh"
 run_check 'Welcome startup setting behavior' "$REPO_ROOT/tests/test-welcome-setting.sh"

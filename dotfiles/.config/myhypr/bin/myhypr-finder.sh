@@ -44,4 +44,7 @@ command -v "${editor_command[0]}" >/dev/null 2>&1 || {
     printf 'Editor is unavailable: %s\n' "${editor_command[0]}" >&2
     exit 127
 }
+if [[ -e /proc/self/fd/3 ]]; then
+    exec "${editor_command[@]}" "$selected_path" >&3
+fi
 exec "${editor_command[@]}" "$selected_path"

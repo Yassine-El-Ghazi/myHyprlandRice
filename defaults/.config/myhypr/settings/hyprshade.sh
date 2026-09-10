@@ -1,1 +1,1 @@
-blue-light-filter-50
+blue-light-filter

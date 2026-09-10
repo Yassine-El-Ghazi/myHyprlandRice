@@ -71,6 +71,22 @@ check_shadow() {
 check_shadow matugen "$HOME/.local/bin/matugen" /usr/bin/matugen
 check_shadow oh-my-posh "$HOME/.local/bin/oh-my-posh" /usr/bin/oh-my-posh
 
+# Hyprshade renamed the shipped blue-light filter. Correct only the obsolete
+# repository default; preserve every other explicit local choice.
+hyprshade_setting="$HOME/.config/myhypr/settings/hyprshade.sh"
+if [[ -f $hyprshade_setting && ! -L $hyprshade_setting && \
+    $(<"$hyprshade_setting") == blue-light-filter-50 ]]; then
+    if [[ $DRY_RUN -eq 1 ]]; then
+        info 'Would migrate Hyprshade filter: blue-light-filter-50 -> blue-light-filter'
+    else
+        temporary_hyprshade=$(mktemp "${hyprshade_setting%/*}/.hyprshade.XXXXXXXX")
+        printf '%s\n' blue-light-filter > "$temporary_hyprshade"
+        chmod 0600 -- "$temporary_hyprshade"
+        mv -- "$temporary_hyprshade" "$hyprshade_setting"
+        success 'Migrated the obsolete Hyprshade filter name.'
+    fi
+fi
+
 # Hyprland's active configuration is Lua-only. Preserve the old default/French
 # choice in the new bounded runtime setting, then archive the retired selector.
 legacy_keybinding_selector="$HOME/.config/hypr/conf/keybinding.conf"

@@ -55,6 +55,14 @@ printf '%s\n' \
 printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$TEST_ROOT/bin/paru"
 chmod +x -- "$TEST_ROOT/bin/pacman" "$TEST_ROOT/bin/checkupdates" \
     "$TEST_ROOT/bin/paru"
+export MYHYPR_TEST_PACMAN_DB_LOCK="$TEST_ROOT/pacman-db.lck"
+
+: > "$MYHYPR_TEST_PACMAN_DB_LOCK"
+update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=updates \
+    "$UPDATES_SCRIPT")
+jq -e '.text == "…" and .tooltip == "Package database is busy"' \
+    <<< "$update_json" >/dev/null || fail 'active package database was not reported as busy'
+rm -- "$MYHYPR_TEST_PACMAN_DB_LOCK"
 
 update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=updates \
     "$UPDATES_SCRIPT")

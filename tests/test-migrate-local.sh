@@ -59,4 +59,18 @@ HOME="$dry_home" XDG_STATE_HOME="$dry_home/.local/state" \
 [[ ! -e $dry_home/.config/myhypr/settings/keybinding-profile ]] || \
     fail 'dry-run created the Lua-native profile'
 
-printf 'Legacy local keybinding selection migrates safely and idempotently.\n'
+shader_home="$TEST_ROOT/shader-home"
+shader_setting="$shader_home/.config/myhypr/settings/hyprshade.sh"
+mkdir -p -- "${shader_setting%/*}"
+printf '%s\n' blue-light-filter-50 > "$shader_setting"
+HOME="$shader_home" XDG_STATE_HOME="$shader_home/.local/state" \
+    "$REPO_ROOT/scripts/migrate-local.sh" --yes >/dev/null
+[[ $(<"$shader_setting") == blue-light-filter ]] || \
+    fail 'obsolete Hyprshade filter was not migrated'
+printf '%s\n' vibrance > "$shader_setting"
+HOME="$shader_home" XDG_STATE_HOME="$shader_home/.local/state" \
+    "$REPO_ROOT/scripts/migrate-local.sh" --yes >/dev/null
+[[ $(<"$shader_setting") == vibrance ]] || \
+    fail 'migration overwrote an explicit Hyprshade filter'
+
+printf 'Legacy local settings migrate safely and idempotently.\n'
