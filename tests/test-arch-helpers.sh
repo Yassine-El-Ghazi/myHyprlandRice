@@ -58,6 +58,16 @@ chmod +x -- "$TEST_ROOT/bin/pacman" "$TEST_ROOT/bin/checkupdates" \
     "$TEST_ROOT/bin/paru"
 export MYHYPR_TEST_PACMAN_DB_LOCK="$TEST_ROOT/pacman-db.lck"
 
+mkdir -p "$TEST_ROOT/runtime"
+export XDG_RUNTIME_DIR="$TEST_ROOT/runtime"
+: > "$TEST_ROOT/runtime/myhypr-update-complete"
+update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=failure \
+    "$UPDATES_SCRIPT")
+jq -e '.text == "0" and .class == "green" and .tooltip == "System is up to date"' \
+    <<< "$update_json" >/dev/null || fail 'successful update marker was not consumed'
+[[ ! -e $TEST_ROOT/runtime/myhypr-update-complete ]] || \
+    fail 'successful update marker was not one-shot'
+
 : > "$MYHYPR_TEST_PACMAN_DB_LOCK"
 update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=updates \
     "$UPDATES_SCRIPT")

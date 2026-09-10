@@ -9,6 +9,18 @@ json_status() {
         "$count" "$count" "$tooltip" "$css_class"
 }
 
+# A completed full upgrade is authoritative for that moment. Consume its
+# one-shot session marker before starting another potentially slow mirror sync.
+runtime_root=${XDG_RUNTIME_DIR:-}
+if [[ -n $runtime_root && -d $runtime_root && -O $runtime_root && ! -L $runtime_root ]]; then
+    update_complete_marker="$runtime_root/myhypr-update-complete"
+    if [[ -f $update_complete_marker && ! -L $update_complete_marker ]]; then
+        rm -f -- "$update_complete_marker"
+        json_status 0 green 'System is up to date'
+        exit 0
+    fi
+fi
+
 pacman_db_lock=${MYHYPR_TEST_PACMAN_DB_LOCK:-/var/lib/pacman/db.lck}
 if [[ -e $pacman_db_lock || -e ${TMPDIR:-/tmp}/checkup-db-${UID}/db.lck ]]; then
     json_status '…' yellow 'Package database is busy'

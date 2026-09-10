@@ -47,4 +47,31 @@ PATH="$TEST_ROOT/bin" "$REPO_ROOT/scripts/update-system.sh"
 rm -- "$TEST_ROOT/bin/yay"
 PATH="$TEST_ROOT/bin" "$REPO_ROOT/scripts/update-system.sh"
 rg -Fxq 'pkexec <pacman -Syu>' "$UPDATE_TEST_LOG"
+
+fixture_root="$TEST_ROOT/repo"
+runtime_root="$TEST_ROOT/runtime"
+mkdir -p "$fixture_root/dotfiles/.config/myhypr/scripts" \
+    "$fixture_root/scripts" "$runtime_root"
+cp -- "$REPO_ROOT/dotfiles/.config/myhypr/scripts/installupdates.sh" \
+    "$fixture_root/dotfiles/.config/myhypr/scripts/installupdates.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'exit "${UPDATE_TEST_FAIL:-0}"' \
+    > "$fixture_root/scripts/update-system.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$TEST_ROOT/bin/gum"
+printf '%s\n' '#!/usr/bin/env bash' \
+    'printf "signal <%s>\\n" "$*" >> "$UPDATE_TEST_LOG"' \
+    > "$TEST_ROOT/bin/pkill"
+chmod +x "$fixture_root/dotfiles/.config/myhypr/scripts/installupdates.sh" \
+    "$fixture_root/scripts/update-system.sh" "$TEST_ROOT/bin/gum" "$TEST_ROOT/bin/pkill"
+
+PATH="$TEST_ROOT/bin:/usr/bin:/bin" XDG_RUNTIME_DIR="$runtime_root" \
+    "$fixture_root/dotfiles/.config/myhypr/scripts/installupdates.sh" >/dev/null
+[[ -f $runtime_root/myhypr-update-complete ]]
+rg -Fxq 'signal <-RTMIN+1 waybar>' "$UPDATE_TEST_LOG"
+
+UPDATE_TEST_FAIL=1 PATH="$TEST_ROOT/bin:/usr/bin:/bin" XDG_RUNTIME_DIR="$runtime_root" \
+    "$fixture_root/dotfiles/.config/myhypr/scripts/installupdates.sh" >/dev/null 2>&1 &&
+    fail 'failed update unexpectedly returned success'
+[[ ! -e $runtime_root/myhypr-update-complete ]] ||
+    fail 'failed update retained a stale successful-update marker'
+
 printf 'Simple updates use full upgrades, graphical auth, and honest failures.\n'

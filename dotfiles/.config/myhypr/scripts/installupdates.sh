@@ -45,17 +45,29 @@ else
 fi
 
 printf '\n:: Update started...\n'
+
+update_complete_marker=
+runtime_root=${XDG_RUNTIME_DIR:-}
+if [[ -n $runtime_root && -d $runtime_root && -O $runtime_root && ! -L $runtime_root ]]; then
+    update_complete_marker="$runtime_root/myhypr-update-complete"
+    rm -f -- "$update_complete_marker"
+fi
+
 "$REPO_ROOT/scripts/update-system.sh"
 update_status=$?
 
-pkill -RTMIN+1 waybar >/dev/null 2>&1 || true
-
 if [[ $update_status -ne 0 ]]; then
+    pkill -RTMIN+1 waybar >/dev/null 2>&1 || true
     printf '\n:: Update failed with status %d. Review the package-manager output above.\n' \
         "$update_status" >&2
     pause_before_exit
     exit "$update_status"
 fi
+
+if [[ -n $update_complete_marker ]]; then
+    : > "$update_complete_marker"
+fi
+pkill -RTMIN+1 waybar >/dev/null 2>&1 || true
 
 printf '\n:: All updates completed successfully.\n'
 pause_before_exit
