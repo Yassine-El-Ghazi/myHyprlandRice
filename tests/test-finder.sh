@@ -11,7 +11,10 @@ cleanup() {
 }
 trap cleanup EXIT
 mkdir -p "$TEST_ROOT/bin" "$TEST_ROOT/work/folder"
+mkdir -p "$TEST_ROOT/user-root/.config/myhypr/bin"
 printf 'content\n' >"$TEST_ROOT/work/file with spaces.txt"
+ln -s "$REPO_ROOT/dotfiles/.config/myhypr/bin/myhypr-finder.sh" \
+    "$TEST_ROOT/user-root/.config/myhypr/bin/myhypr-finder.sh"
 
 printf '%s\n' '#!/usr/bin/env bash' \
     'awk -F "\\t" -v pick="$FINDER_PICK" '\''$2 ~ pick { print; exit }'\''' \
@@ -31,4 +34,25 @@ captured_stdout=$(FINDER_PICK='file with spaces.txt$' EDITOR=test-editor \
 [[ -z $captured_stdout ]]
 [[ $(<"$TEST_ROOT/captured") == './file with spaces.txt' ]]
 
-printf 'Finder preserves its directory protocol and interactive editor output.\n'
+for shell_name in bash zsh; do
+    command -v "$shell_name" >/dev/null 2>&1 || {
+        printf 'Required shell is unavailable: %s\n' "$shell_name" >&2
+        exit 1
+    }
+
+    case $shell_name in
+    bash) wrapper="$REPO_ROOT/dotfiles/.config/bashrc/30-autostart" ;;
+    zsh) wrapper="$REPO_ROOT/dotfiles/.config/zshrc/30-autostart" ;;
+    esac
+
+    : >"$TEST_ROOT/${shell_name}-wrapper-output"
+    (
+        cd "$TEST_ROOT/work"
+        HOME="$TEST_ROOT/user-root" FINDER_PICK='file with spaces.txt$' \
+            EDITOR=test-editor PATH="$TEST_ROOT/bin:/usr/bin:/bin" \
+            "$shell_name" -f -c 'source "$1"; finder' finder-test "$wrapper"
+    ) >"$TEST_ROOT/${shell_name}-wrapper-output"
+    [[ $(<"$TEST_ROOT/${shell_name}-wrapper-output") == './file with spaces.txt' ]]
+done
+
+printf 'Finder preserves its directory protocol and terminal output through Bash and Zsh.\n'
