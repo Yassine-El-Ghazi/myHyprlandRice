@@ -3,20 +3,41 @@ name: Validate
 on:
   push:
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 6 * * 2' # Tuesdays at 06:23 UTC.
 
 permissions:
   contents: read
 
 concurrency:
-  group: validate-${{ github.ref }}
+  group: validate-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  workflow-security:
+    name: GitHub Actions security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Scan workflow security
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          inputs: .github/workflows
+          version: '1.30.1'
+          persona: pedantic
+          advanced-security: false
+          annotations: true
+
   validate:
     name: Arch configuration and privacy gates
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    container: archlinux:base-devel
+    container: archlinux:base-devel@sha256:5b987b0196907ea97dd10e7b48e7d403c35c0389986da015aa86cf8d0b058084
 
     steps:
       - name: Install validation dependencies
@@ -44,6 +65,7 @@ jobs:
             ./scripts/check.sh --require-tools
 
       - name: Audit worktree and history
+        if: ${{ !cancelled() }}
         run: |
           validator_home=$(getent passwd myhypr-validator | cut -d: -f6)
           runuser --user myhypr-validator -- env HOME="$validator_home" \

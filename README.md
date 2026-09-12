@@ -392,6 +392,9 @@ Remove managed links while retaining packages and all mutable state:
 
 ## Security, license, and attribution
 
+See [automated security maintenance](.github/SECURITY-MAINTENANCE.md) for the
+weekly/manual CI scans, workflow security scanner, and custom security agent.
+
 The local pre-commit hook runs `./scripts/audit.sh --staged`. The scanner checks
 sensitive filenames, credential signatures, unsafe credential storage,
 machine-specific home paths, all files over 10 MiB unless a digest-bound
