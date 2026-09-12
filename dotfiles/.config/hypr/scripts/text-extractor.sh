@@ -4,13 +4,19 @@
 set -Eeuo pipefail
 
 PICKER_PID=''
+ocr_output=''
 SLURP_TIMEOUT=10
 DEPS=(grim slurp magick tesseract wl-copy timeout hyprpicker rofi)
 
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 safe_kill() { [[ -n "${1:-}" ]] && kill "$1" 2>/dev/null || true; }
-cleanup() { safe_kill "$PICKER_PID"; }
+cleanup() {
+    safe_kill "$PICKER_PID"
+    [[ -z $ocr_output ]] || rm -f -- "$ocr_output"
+}
 trap cleanup EXIT INT TERM
+
+ocr_output=$(mktemp "${TMPDIR:-/tmp}/myhypr-ocr.XXXXXXXX")
 
 # Check dependencies
 check_deps() {
@@ -69,5 +75,7 @@ grim -g "$REGION" - \
     | magick - -colorspace Gray -normalize -contrast-stretch 2% \
         -sharpen 0x1.0 -resize 200% png:- \
     | tesseract - stdout -l "$OCR_LANGUAGE" --psm 6 \
-    | wl-copy \
+        > "$ocr_output" \
     || die 'Failed to capture or process text'
+[[ -s $ocr_output ]] || die 'OCR did not produce any text'
+wl-copy < "$ocr_output" || die 'Failed to copy extracted text'

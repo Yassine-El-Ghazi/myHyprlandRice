@@ -8,6 +8,7 @@ TEST_HOME="$TEST_ROOT/home"
 FAKE_BIN="$TEST_ROOT/bin"
 export THEME_LISTENER_LOG="$TEST_ROOT/matugen.log"
 export THEME_LISTENER_COUNT="$TEST_ROOT/matugen.count"
+export THEME_GTK_LOG="$TEST_ROOT/gtk.log"
 
 cleanup() {
     case $TEST_ROOT in
@@ -45,10 +46,12 @@ printf '%s\n' \
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE_BIN/swaync-client"
 for script in \
     "$TEST_HOME/.config/nwg-dock-hyprland/launch.sh" \
-    "$TEST_HOME/.config/waybar/launch.sh" \
-    "$TEST_HOME/.config/hypr/scripts/gtk.sh"; do
+    "$TEST_HOME/.config/waybar/launch.sh"; do
     printf '#!/usr/bin/env bash\nexit 0\n' > "$script"
 done
+printf '%s\n' '#!/usr/bin/env bash' \
+    'printf "gtk\n" >> "$THEME_GTK_LOG"' \
+    > "$TEST_HOME/.config/hypr/scripts/gtk.sh"
 chmod +x -- "$FAKE_BIN/inotifywait" "$FAKE_BIN/matugen" \
     "$FAKE_BIN/swaync-client" \
     "$TEST_HOME/.config/nwg-dock-hyprland/launch.sh" \
@@ -63,6 +66,8 @@ HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
     fail 'listener stopped after the first transient Matugen failure'
 [[ $(rg -c '^matugen image ' "$THEME_LISTENER_LOG") -eq 2 ]] || \
     fail 'listener did not process both GTK events'
+[[ $(rg -c '^gtk$' "$THEME_GTK_LOG") -eq 2 ]] || \
+    fail 'GTK settings were not applied independently of Matugen success'
 rg -Fq 'Theme update failed; continuing to monitor GTK settings.' \
     "$TEST_ROOT/stderr.log" || fail 'transient failure was not reported'
 

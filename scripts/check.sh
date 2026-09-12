@@ -186,6 +186,11 @@ run_check 'Dock replacement behavior' "$REPO_ROOT/tests/test-dock-launch.sh"
 run_check 'Application launcher behavior' "$REPO_ROOT/tests/test-launcher.sh"
 run_check 'Interactive finder behavior' "$REPO_ROOT/tests/test-finder.sh"
 run_check 'Clipboard launcher behavior' "$REPO_ROOT/tests/test-cliphist-launcher.sh"
+run_check 'OCR clipboard behavior' "$REPO_ROOT/tests/test-text-extractor.sh"
+run_check 'Wallpaper automation lifecycle' \
+    "$REPO_ROOT/tests/test-wallpaper-automation.sh"
+run_check 'Quickshell application lifecycle' \
+    "$REPO_ROOT/tests/test-quickshell-launchers.sh"
 run_check 'Keybinding viewer behavior' "$REPO_ROOT/tests/test-keybinding-viewer.sh"
 run_check 'Welcome startup setting behavior' "$REPO_ROOT/tests/test-welcome-setting.sh"
 run_check 'Local settings editor behavior' python "$REPO_ROOT/tests/test-settingsctl.py"

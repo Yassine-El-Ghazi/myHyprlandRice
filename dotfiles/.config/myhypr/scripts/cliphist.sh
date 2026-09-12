@@ -33,18 +33,38 @@ else
         printf 'Unsupported launcher setting: %s\n' "$launcher" >&2
         exit 1
     }
+    selection_file=$(mktemp "${TMPDIR:-/tmp}/myhypr-cliphist-selection.XXXXXXXX")
+    decoded_file=$(mktemp "${TMPDIR:-/tmp}/myhypr-cliphist-decoded.XXXXXXXX")
+    cleanup() {
+        rm -f -- "$selection_file" "$decoded_file"
+    }
+    trap cleanup EXIT
     case ${1:-} in
         d)
-            cliphist list | rofi -dmenu -replace \
-                -config "$HOME/.config/rofi/config-cliphist.rasi" | cliphist delete
+            if ! cliphist list | rofi -dmenu -replace \
+                -config "$HOME/.config/rofi/config-cliphist.rasi" \
+                > "$selection_file"; then
+                exit 0
+            fi
+            [[ -s $selection_file ]] || exit 0
+            cliphist delete < "$selection_file"
             ;;
         w)
             cliphist wipe
             ;;
         '')
-            cliphist list | rofi -dmenu -replace \
-                -config "$HOME/.config/rofi/config-cliphist.rasi" | \
-                cliphist decode | wl-copy
+            if ! cliphist list | rofi -dmenu -replace \
+                -config "$HOME/.config/rofi/config-cliphist.rasi" \
+                > "$selection_file"; then
+                exit 0
+            fi
+            [[ -s $selection_file ]] || exit 0
+            cliphist decode < "$selection_file" > "$decoded_file"
+            [[ -s $decoded_file ]] || {
+                printf 'The selected clipboard entry decoded to empty data.\n' >&2
+                exit 1
+            }
+            wl-copy < "$decoded_file"
             ;;
         *) printf 'Usage: %s [d|w]\n' "$0" >&2; exit 2 ;;
     esac

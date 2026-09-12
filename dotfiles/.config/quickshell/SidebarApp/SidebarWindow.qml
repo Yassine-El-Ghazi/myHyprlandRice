@@ -76,9 +76,16 @@ PanelWindow {
     Theme { id: theme }
 
     // --- PROCESS RUNNERS ---
-    Process {
+    QtObject {
         id: appLauncher
-        running: false
+        property var command: []
+        property bool running: false
+        onRunningChanged: {
+            if (running && command.length > 0) {
+                Quickshell.execDetached(command)
+                running = false
+            }
+        }
     }
 
     // --- REUSABLE COMPONENTS ---

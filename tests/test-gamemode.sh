@@ -18,7 +18,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p -- "$FAKE_BIN" "$CONFIG_ROOT/myhypr/settings" "$CACHE_ROOT"
+mkdir -p -- "$FAKE_BIN" "$CONFIG_ROOT/myhypr/settings" \
+    "$CONFIG_ROOT/hypr/scripts" "$CONFIG_ROOT/hypr/conf/monitors" "$CACHE_ROOT"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
     'if [[ ${GAMEMODE_TEST_FAIL:-0} -eq 1 && ${1:-} == eval ]]; then exit 9; fi' \
@@ -26,7 +27,17 @@ printf '%s\n' \
     'printf "hyprctl %s\n" "$*" >> "$GAMEMODE_TEST_LOG"' \
     > "$FAKE_BIN/hyprctl"
 printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$FAKE_BIN/notify-send"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'printf "automation %s\n" "$*" >> "$GAMEMODE_TEST_LOG"' \
+    'case ${1:-} in' \
+    '  --status) [[ ${GAMEMODE_AUTOMATION_RUNNING:-0} -eq 1 ]] ;;' \
+    '  --stop) [[ ${GAMEMODE_AUTOMATION_STOP_FAIL:-0} -eq 0 ]] ;;' \
+    '  --start) exit 0 ;;' \
+    '  *) exit 2 ;;' \
+    'esac' > "$CONFIG_ROOT/hypr/scripts/wallpaper-automation.sh"
 chmod +x -- "$FAKE_BIN/hyprctl" "$FAKE_BIN/notify-send"
+chmod +x -- "$CONFIG_ROOT/hypr/scripts/wallpaper-automation.sh"
 
 gamemode="$REPO_ROOT/dotfiles/.config/hypr/scripts/gamemode.sh"
 marker="$CONFIG_ROOT/myhypr/settings/gamemode-enabled"
@@ -41,6 +52,31 @@ HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" XDG_CACHE_HOME="$CACHE_ROOT" \
     PATH="$FAKE_BIN:/usr/bin:/bin" "$gamemode"
 rg -Fqx 'hyprctl reload' "$GAMEMODE_TEST_LOG"
 [[ ! -e $marker ]]
+
+# A running wallpaper worker is paused for gamemode and resumed only after
+# the persisted gamemode marker has been removed and normal config reloaded.
+: > "$GAMEMODE_TEST_LOG"
+HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" XDG_CACHE_HOME="$CACHE_ROOT" \
+    PATH="$FAKE_BIN:/usr/bin:/bin" GAMEMODE_AUTOMATION_RUNNING=1 "$gamemode"
+rg -Fqx 'automation --stop' "$GAMEMODE_TEST_LOG"
+[[ -f $marker && -f $CACHE_ROOT/myhypr/restart-wpauto ]]
+HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" XDG_CACHE_HOME="$CACHE_ROOT" \
+    PATH="$FAKE_BIN:/usr/bin:/bin" "$gamemode"
+rg -Fqx 'automation --start' "$GAMEMODE_TEST_LOG"
+[[ ! -e $marker && ! -e $CACHE_ROOT/myhypr/restart-wpauto ]]
+
+# A failed wallpaper stop must not persist gamemode or alter the monitor
+# selector, otherwise a later compositor reload could apply a partial state.
+printf 'source = normal-monitor\n' > "$CONFIG_ROOT/hypr/conf/monitor.conf"
+printf 'source = gaming-monitor\n' > "$CONFIG_ROOT/hypr/conf/monitors/gamemode.conf"
+if HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" XDG_CACHE_HOME="$CACHE_ROOT" \
+    PATH="$FAKE_BIN:/usr/bin:/bin" GAMEMODE_AUTOMATION_RUNNING=1 \
+    GAMEMODE_AUTOMATION_STOP_FAIL=1 "$gamemode" 2>/dev/null; then
+    printf 'Gamemode continued after wallpaper automation failed to stop.\n' >&2
+    exit 1
+fi
+[[ $(<"$CONFIG_ROOT/hypr/conf/monitor.conf") == 'source = normal-monitor' ]]
+[[ ! -e $marker && ! -e $CACHE_ROOT/myhypr/restart-wpauto ]]
 
 # The Lua configuration load must reapply enabled gamemode and do nothing when
 # disabled. This catches missing startup wiring rather than testing a dead script.
@@ -59,6 +95,7 @@ printf '%s\n' \
     'assert(state.apply_persisted() == expected)' \
     'assert(calls == (expected and 1 or 0))' > "$lua_test"
 rm -f -- "$marker"
+: > "$GAMEMODE_TEST_LOG"
 HOME="$TEST_HOME" GAMEMODE_STATE_MODULE="$gamemode_state" GAMEMODE_EXPECTED=0 \
     lua "$lua_test"
 : > "$marker"
@@ -70,10 +107,14 @@ rg -Fq 'require("conf.gamemode_state").apply_persisted()' \
 
 rm -f -- "$marker"
 if HOME="$TEST_HOME" XDG_CONFIG_HOME="$CONFIG_ROOT" XDG_CACHE_HOME="$CACHE_ROOT" \
-    PATH="$FAKE_BIN:/usr/bin:/bin" GAMEMODE_TEST_FAIL=1 "$gamemode"; then
+    PATH="$FAKE_BIN:/usr/bin:/bin" GAMEMODE_TEST_FAIL=1 \
+    GAMEMODE_AUTOMATION_RUNNING=1 "$gamemode"; then
     printf 'Gamemode persisted state after a rejected config update.\n' >&2
     exit 1
 fi
 [[ ! -e $marker ]]
+[[ ! -e $CACHE_ROOT/myhypr/restart-wpauto ]]
+tail -n 4 "$GAMEMODE_TEST_LOG" | rg -Fq 'automation --stop'
+tail -n 4 "$GAMEMODE_TEST_LOG" | rg -Fq 'automation --start'
 
 printf 'Gamemode uses typed config and persists only accepted state.\n'

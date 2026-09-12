@@ -29,6 +29,7 @@ apply_theme() {
     # Extract the value of gtk-application-prefer-dark-theme
     # We use grep to find the line and awk to get the value after the '='
     local theme_pref wallpaper
+    local result=0
     local -a mode_args=(-m light)
     theme_pref=$(awk -F= '$1 == "gtk-application-prefer-dark-theme" {print $2; exit}' "$SETTINGS_FILE")
 
@@ -46,15 +47,18 @@ apply_theme() {
             return 1
             ;;
     esac
-    [[ -r $HOME/.cache/myhypr/current_wallpaper ]] || return 0
+    # Keep the desktop toolkit preference synchronized even when adaptive
+    # wallpaper color generation is temporarily unavailable.
+    "$HOME/.config/hypr/scripts/gtk.sh" || result=1
+    [[ -r $HOME/.cache/myhypr/current_wallpaper ]] || return "$result"
     wallpaper=$(<"$HOME/.cache/myhypr/current_wallpaper")
-    [[ -f $wallpaper ]] || return 0
+    [[ -f $wallpaper ]] || return "$result"
 
     matugen image "$wallpaper" "${mode_args[@]}" || return 1
     "$HOME/.config/nwg-dock-hyprland/launch.sh" &
     "$HOME/.config/waybar/launch.sh" &
-    "$HOME/.config/hypr/scripts/gtk.sh" &
-    swaync-client -rs || return 1
+    swaync-client -rs || result=1
+    return "$result"
 }
 
 # Loop indefinitely, reading output from inotifywait

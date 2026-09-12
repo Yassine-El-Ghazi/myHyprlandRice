@@ -33,29 +33,126 @@ read_running_pid() {
 }
 
 run_automation() {
-    trap 'rm -f -- "$pid_file"' EXIT INT TERM
+    local child_pid=''
+
+    cleanup_worker() {
+        local recorded_pid=''
+        if [[ -r $pid_file ]]; then
+            IFS= read -r recorded_pid < "$pid_file" || true
+        fi
+        [[ $recorded_pid != "$$" ]] || rm -f -- "$pid_file"
+    }
+    stop_worker() {
+        trap - INT TERM
+        if [[ -n $child_pid ]] && kill -0 "$child_pid" 2>/dev/null; then
+            kill "$child_pid" 2>/dev/null || true
+            wait "$child_pid" 2>/dev/null || true
+        fi
+        exit 0
+    }
+    run_child() {
+        local child_status
+        "$@" &
+        child_pid=$!
+        set +e
+        wait "$child_pid"
+        child_status=$?
+        set -e
+        child_pid=''
+        return "$child_status"
+    }
+
+    trap cleanup_worker EXIT
+    trap stop_worker INT TERM
     printf '%s\n' "$$" > "$pid_file"
     while :; do
-        waypaper --backend awww --random
-        sleep "$interval"
+        run_child waypaper --backend awww --random
+        run_child sleep "$interval"
     done
 }
 
-if [[ ${1:-} == --run ]]; then
-    run_automation
-    exit 0
-fi
+stop_automation() {
+    local running_pid=$1
+    local confirmed_pid=''
+    local attempt
 
-if running_pid=$(read_running_pid); then
     kill "$running_pid"
+    for ((attempt = 0; attempt < 40; attempt++)); do
+        kill -0 "$running_pid" 2>/dev/null || break
+        sleep 0.05
+    done
+    if kill -0 "$running_pid" 2>/dev/null; then
+        confirmed_pid=$(read_running_pid || true)
+        if [[ $confirmed_pid == "$running_pid" ]]; then
+            kill -KILL "$running_pid"
+        else
+            printf 'Refusing to terminate a process no longer owned by wallpaper automation.\n' >&2
+            return 1
+        fi
+    fi
     rm -f -- "$pid_file"
-    notify-send 'Wallpaper automation stopped.'
-    printf ':: Wallpaper automation process %s stopped\n' "$running_pid"
-    exit 0
-fi
+}
 
-rm -f -- "$pid_file"
-nohup "$script_path" --run >/dev/null 2>&1 &
-notify-send 'Wallpaper automation started' \
-    "Wallpaper will change every $interval seconds."
-printf ':: Wallpaper automation started with a %s second interval\n' "$interval"
+start_automation() {
+    local attempt
+
+    if running_pid=$(read_running_pid); then
+        printf ':: Wallpaper automation is already running as process %s\n' \
+            "$running_pid"
+        return 0
+    fi
+    rm -f -- "$pid_file"
+    nohup "$script_path" --run >/dev/null 2>&1 &
+    for ((attempt = 0; attempt < 20; attempt++)); do
+        read_running_pid >/dev/null && break
+        sleep 0.05
+    done
+    read_running_pid >/dev/null || {
+        printf 'Wallpaper automation failed to start.\n' >&2
+        return 1
+    }
+    notify-send 'Wallpaper automation started' \
+        "Wallpaper will change every $interval seconds."
+    printf ':: Wallpaper automation started with a %s second interval\n' "$interval"
+}
+
+action=${1:-toggle}
+case $action in
+    --run)
+        run_automation
+        ;;
+    --status)
+        if running_pid=$(read_running_pid); then
+            printf 'running %s\n' "$running_pid"
+            exit 0
+        fi
+        printf 'stopped\n'
+        exit 1
+        ;;
+    --start)
+        start_automation
+        ;;
+    --stop)
+        if running_pid=$(read_running_pid); then
+            stop_automation "$running_pid"
+            notify-send 'Wallpaper automation stopped.'
+            printf ':: Wallpaper automation process %s stopped\n' "$running_pid"
+        else
+            rm -f -- "$pid_file"
+            printf ':: Wallpaper automation is already stopped\n'
+        fi
+        ;;
+    toggle)
+        if running_pid=$(read_running_pid); then
+            stop_automation "$running_pid"
+            notify-send 'Wallpaper automation stopped.'
+            printf ':: Wallpaper automation process %s stopped\n' "$running_pid"
+        else
+            start_automation
+        fi
+        ;;
+    *)
+        printf 'Usage: %s [--start|--stop|--status]\n' "${0##*/}" >&2
+        exit 2
+        ;;
+esac

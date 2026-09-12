@@ -23,9 +23,16 @@ FloatingWindow {
         id: theme
     }
 
-    Process {
+    QtObject {
         id: appLauncher
-        running: false
+        property var command: []
+        property bool running: false
+        onRunningChanged: {
+            if (running && command.length > 0) {
+                Quickshell.execDetached(command)
+                running = false
+            }
+        }
     }
 
     // Define a custom reusable styled MenuItem
