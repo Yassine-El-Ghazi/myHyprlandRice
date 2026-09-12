@@ -31,6 +31,7 @@ credentials?
 ^/\.config/waypaper/config\.ini$
 ^/\.config/myhypr/settings/(?:dock-disabled|gamemode-enabled|waybar-disabled)$
 ^/\.config/(?:gtk-3\.0|gtk-4\.0|waybar|wlogout|swaync|walker|nwg-dock-hyprland)/colors\.css$
+^/\.config/(?:gtk-3\.0|gtk-4\.0)/settings\.ini$
 ^/\.config/hypr/colors\.(?:conf|lua)$
 ^/\.config/kitty/colors-matugen\.conf$
 ^/\.config/myhypr/colors/(?:primary|secondary|onsurface)$

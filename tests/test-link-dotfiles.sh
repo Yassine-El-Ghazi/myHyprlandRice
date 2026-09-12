@@ -29,6 +29,13 @@ runtime_selector="$TEST_HOME/.config/hypr/conf/monitor.conf"
 ln -s -- "$REPO_ROOT/dotfiles/.config/hypr/conf/monitor.conf" "$runtime_selector"
 [[ -L $runtime_selector && ! -e $runtime_selector ]]
 
+# GTK color preference is mutable state. Upgrades must retire its former
+# managed link and seed a normal local file without losing the dark default.
+runtime_gtk="$TEST_HOME/.config/gtk-3.0/settings.ini"
+mkdir -p -- "${runtime_gtk%/*}"
+ln -s -- "$REPO_ROOT/dotfiles/.config/gtk-3.0/settings.ini" "$runtime_gtk"
+[[ -L $runtime_gtk && ! -e $runtime_gtk ]]
+
 HOME="$TEST_HOME" "$REPO_ROOT/scripts/seed-runtime.sh" \
     --target "$TEST_HOME" >/dev/null
 
@@ -42,6 +49,8 @@ HOME="$TEST_HOME" "$REPO_ROOT/scripts/seed-runtime.sh" \
 [[ -f $runtime_selector && ! -L $runtime_selector ]]
 cmp -s -- "$runtime_selector" \
     "$REPO_ROOT/defaults/.config/hypr/conf/monitor.conf"
+[[ -f $runtime_gtk && ! -L $runtime_gtk ]]
+cmp -s -- "$runtime_gtk" "$REPO_ROOT/defaults/.config/gtk-3.0/settings.ini"
 
 mapfile -t backups < <(
     find "$TEST_HOME/.local/state/myhyprlandrice/backups" \

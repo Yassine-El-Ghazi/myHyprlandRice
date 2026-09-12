@@ -67,3 +67,32 @@ rg -Fq 'Theme update failed; continuing to monitor GTK settings.' \
     "$TEST_ROOT/stderr.log" || fail 'transient failure was not reported'
 
 printf 'GTK theme listener survives transient update failures.\n'
+
+toggle_root="$TEST_ROOT/toggle-home"
+toggle_config="$toggle_root/.config"
+mkdir -p -- "$toggle_config/gtk-3.0" "$toggle_config/gtk-4.0"
+printf '[Settings]\ngtk-application-prefer-dark-theme=true\n' \
+    > "$toggle_config/gtk-3.0/settings.ini"
+printf '[Settings]\ngtk-application-prefer-dark-theme=1\n' \
+    > "$toggle_config/gtk-4.0/settings.ini"
+
+HOME="$toggle_root" XDG_CONFIG_HOME="$toggle_config" \
+    "$REPO_ROOT/dotfiles/.config/myhypr/scripts/toggle-theme.sh" >/dev/null
+for settings_file in \
+    "$toggle_config/gtk-3.0/settings.ini" \
+    "$toggle_config/gtk-4.0/settings.ini"; do
+    rg -Fxq 'gtk-application-prefer-dark-theme=false' "$settings_file" || \
+        fail "light mode was not written to $settings_file"
+    [[ ! -L $settings_file ]] || fail "toggle replaced $settings_file with a symlink"
+done
+
+HOME="$toggle_root" XDG_CONFIG_HOME="$toggle_config" \
+    "$REPO_ROOT/dotfiles/.config/myhypr/scripts/toggle-theme.sh" >/dev/null
+for settings_file in \
+    "$toggle_config/gtk-3.0/settings.ini" \
+    "$toggle_config/gtk-4.0/settings.ini"; do
+    rg -Fxq 'gtk-application-prefer-dark-theme=true' "$settings_file" || \
+        fail "dark mode was not restored in $settings_file"
+done
+
+printf 'GTK theme toggle accepts boolean variants and preserves local files.\n'

@@ -15,7 +15,7 @@ cp -- "$REPO_ROOT/scripts/repair-flatpak.sh" "$REPO_ROOT/scripts/lib.sh" \
     "$TEST_ROOT/repo/scripts/"
 
 export FLATPAK_REPAIR_TEST_LOG="$TEST_ROOT/commands.log"
-rg -q '^gtk-theme-name=Breeze$' "$REPO_ROOT/dotfiles/.config/gtk-3.0/settings.ini"
+rg -q '^gtk-theme-name=Breeze$' "$REPO_ROOT/defaults/.config/gtk-3.0/settings.ini"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
     'case "$*" in' \

@@ -100,6 +100,8 @@
 # Matugen and application-generated runtime output (defaults live in defaults/)
 /dotfiles/.config/gtk-3.0/colors.css
 /dotfiles/.config/gtk-4.0/colors.css
+/dotfiles/.config/gtk-3.0/settings.ini
+/dotfiles/.config/gtk-4.0/settings.ini
 /dotfiles/.config/hypr/colors.conf
 /dotfiles/.config/hypr/colors.lua
 /dotfiles/.config/kitty/colors-matugen.conf

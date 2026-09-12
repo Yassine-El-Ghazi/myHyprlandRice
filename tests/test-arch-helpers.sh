@@ -44,7 +44,16 @@ cleanup() {
 }
 trap cleanup EXIT
 mkdir -p -- "$TEST_ROOT/bin"
-printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$TEST_ROOT/bin/pacman"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'if [[ ${1:-} == -Qu ]]; then' \
+    '  case ${LOCAL_REPO_TEST_MODE:-none} in' \
+    '    updates) printf "%s\n" local-one local-two; exit 0 ;;' \
+    '    none) exit 1 ;;' \
+    '    failure) printf "local database failed\n" >&2; exit 3 ;;' \
+    '  esac' \
+    'fi' \
+    'exit 0' > "$TEST_ROOT/bin/pacman"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
     'case ${UPDATE_COUNT_TEST_MODE:-none} in' \
@@ -53,20 +62,29 @@ printf '%s\n' \
     '  failure) exit 1 ;;' \
     '  timeout) sleep 2; exit 0 ;;' \
     'esac' > "$TEST_ROOT/bin/checkupdates"
-printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$TEST_ROOT/bin/paru"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'case ${AUR_TEST_MODE:-none} in' \
+    '  updates) printf "%s\n" aur-one; exit 0 ;;' \
+    '  none) exit 1 ;;' \
+    '  failure) printf "AUR failed\n" >&2; exit 1 ;;' \
+    'esac' > "$TEST_ROOT/bin/paru"
 chmod +x -- "$TEST_ROOT/bin/pacman" "$TEST_ROOT/bin/checkupdates" \
     "$TEST_ROOT/bin/paru"
 export MYHYPR_TEST_PACMAN_DB_LOCK="$TEST_ROOT/pacman-db.lck"
+export MYHYPR_TEST_CHECKUPDATES_DB_LOCK="$TEST_ROOT/checkupdates-db.lck"
 
 mkdir -p "$TEST_ROOT/runtime"
 export XDG_RUNTIME_DIR="$TEST_ROOT/runtime"
-: > "$TEST_ROOT/runtime/myhypr-update-complete"
+: > "$TEST_ROOT/runtime/myhypr-update-status.json"
+printf '%s\n' '{"text":"3","alt":"3","tooltip":"Verified after update","class":"yellow"}' \
+    > "$TEST_ROOT/runtime/myhypr-update-status.json"
 update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=failure \
     "$UPDATES_SCRIPT")
-jq -e '.text == "0" and .class == "green" and .tooltip == "System is up to date"' \
-    <<< "$update_json" >/dev/null || fail 'successful update marker was not consumed'
-[[ ! -e $TEST_ROOT/runtime/myhypr-update-complete ]] || \
-    fail 'successful update marker was not one-shot'
+jq -e '.text == "3" and .tooltip == "Verified after update"' \
+    <<< "$update_json" >/dev/null || fail 'verified update status was not consumed'
+[[ ! -e $TEST_ROOT/runtime/myhypr-update-status.json ]] || \
+    fail 'verified update status was not one-shot'
 
 : > "$MYHYPR_TEST_PACMAN_DB_LOCK"
 update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=updates \
@@ -87,12 +105,31 @@ jq -e '.text == "0" and .class == "green" and .tooltip == "System is up to date"
     <<< "$update_json" >/dev/null || fail 'documented no-update status was rejected'
 update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=failure \
     "$UPDATES_SCRIPT")
-jq -e '.text == "!" and .tooltip == "Update check failed; click to run the updater"' \
-    <<< "$update_json" >/dev/null || fail 'failed update check was reported as current'
+jq -e '.text == "0" and .class == "green" and (.tooltip | contains("local package data"))' \
+    <<< "$update_json" >/dev/null || fail 'local fallback did not replace a failed refresh'
 update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=timeout \
     MYHYPR_UPDATE_CHECK_TIMEOUT_SECONDS=0.1 "$UPDATES_SCRIPT")
-jq -e '.text == "!" and .class == "red" and (.tooltip | contains("timed out"))' \
-    <<< "$update_json" >/dev/null || fail 'stalled update check was not bounded'
+jq -e '.text == "0" and .class == "green" and (.tooltip | contains("timed out"))' \
+    <<< "$update_json" >/dev/null || fail 'stalled refresh did not use local data'
+
+update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" UPDATE_COUNT_TEST_MODE=failure \
+    LOCAL_REPO_TEST_MODE=failure AUR_TEST_MODE=failure "$UPDATES_SCRIPT")
+jq -e '.text == "!" and .class == "red"' <<< "$update_json" >/dev/null || \
+    fail 'complete update-check failure was not reported'
+
+update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" LOCAL_REPO_TEST_MODE=updates \
+    AUR_TEST_MODE=updates "$UPDATES_SCRIPT" --local)
+jq -e '.text == "3" and .class == "yellow"' <<< "$update_json" >/dev/null || \
+    fail 'post-update local verification did not count repository and AUR updates'
+
+update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" LOCAL_REPO_TEST_MODE=failure \
+    AUR_TEST_MODE=updates "$UPDATES_SCRIPT" --local)
+jq -e '.text == "1" and (.tooltip | contains("Repository update status unavailable"))' \
+    <<< "$update_json" >/dev/null || fail 'partial local verification claimed full success'
+
+update_json=$(PATH="$TEST_ROOT/bin:/usr/bin:/bin" "$UPDATES_SCRIPT" --local)
+jq -e '.text == "0" and .class == "green" and .tooltip == "System is up to date"' \
+    <<< "$update_json" >/dev/null || fail 'no-update exit status was treated as failure'
 
 "$ARCH_ROOT/installprinters.sh" --help >/dev/null
 "$ARCH_ROOT/installtimeshift.sh" --help >/dev/null

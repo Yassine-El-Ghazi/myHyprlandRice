@@ -360,6 +360,26 @@ if command -v systemctl >/dev/null 2>&1; then
                 fi
             fi
         done
+        waybar_unit="$HOME/.config/systemd/user/myhypr-waybar.service"
+        waybar_disabled="$HOME/.config/myhypr/settings/waybar-disabled"
+        if [[ -f $waybar_unit ]]; then
+            ok 'myhypr-waybar.service is installed for the MyHypr session'
+        else
+            problem 'myhypr-waybar.service is not installed for the MyHypr session'
+        fi
+        if [[ -n ${WAYLAND_DISPLAY:-}${DISPLAY:-} ]]; then
+            if [[ -f $waybar_disabled ]]; then
+                if systemctl --user is-active myhypr-waybar.service >/dev/null 2>&1; then
+                    problem 'Waybar is active despite its disabled setting'
+                else
+                    ok 'Waybar is intentionally disabled'
+                fi
+            elif systemctl --user is-active myhypr-waybar.service >/dev/null 2>&1; then
+                ok 'myhypr-waybar.service is active'
+            else
+                problem 'myhypr-waybar.service is not active in this graphical session'
+            fi
+        fi
     fi
 fi
 
