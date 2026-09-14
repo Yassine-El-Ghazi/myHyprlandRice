@@ -71,6 +71,16 @@ run_automation() {
     done
 }
 
+process_is_live() {
+    local process_stat
+    kill -0 "$1" 2>/dev/null || return 1
+    # A container without a reaping init may retain exited workers as zombies.
+    # Failure to read state is conservative: retain the ownership check below.
+    IFS= read -r process_stat 2>/dev/null < "/proc/$1/stat" || return 0
+    process_stat=${process_stat##*) }
+    [[ ${process_stat%% *} != [ZxX] ]]
+}
+
 stop_automation() {
     local running_pid=$1
     local confirmed_pid=''
@@ -78,10 +88,10 @@ stop_automation() {
 
     kill "$running_pid"
     for ((attempt = 0; attempt < 40; attempt++)); do
-        kill -0 "$running_pid" 2>/dev/null || break
+        process_is_live "$running_pid" || break
         sleep 0.05
     done
-    if kill -0 "$running_pid" 2>/dev/null; then
+    if process_is_live "$running_pid"; then
         confirmed_pid=$(read_running_pid || true)
         if [[ $confirmed_pid == "$running_pid" ]]; then
             kill -KILL "$running_pid"

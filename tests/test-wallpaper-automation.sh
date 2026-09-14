@@ -3,6 +3,9 @@
 set -Eeuo pipefail
 
 REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+if [[ ${1:-} != --subreaper ]]; then
+    exec python3 "$REPO_ROOT/tests/wallpaper-subreaper.py"
+fi
 TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/myhypr-wallpaper-auto.XXXXXXXX")
 TEST_HOME="$TEST_ROOT/home"
 FAKE_BIN="$TEST_ROOT/bin"
@@ -34,9 +37,18 @@ HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" "$automation" --start >/dev/nul
 HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" "$automation" --status >/dev/null || \
     fail 'started worker was not reported as running'
 pid=$(<"$TEST_HOME/.cache/myhypr/wallpaper-automation.pid")
+for ((attempt = 0; attempt < 40; attempt++)); do
+    [[ ! -s $WALLPAPER_CHILD_PID ]] || break
+    sleep 0.05
+done
+[[ -s $WALLPAPER_CHILD_PID ]] || fail 'wallpaper child did not start'
 child_pid=$(<"$WALLPAPER_CHILD_PID")
 HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" "$automation" --stop >/dev/null
-kill -0 "$pid" 2>/dev/null && fail 'stopped worker remained alive'
+# The harness deliberately retains the exited worker; kill -0 still succeeds.
+[[ -r /proc/$pid/stat ]] || fail 'subreaper did not retain the worker'
+worker_stat=$(<"/proc/$pid/stat")
+worker_stat=${worker_stat##*) }
+[[ ${worker_stat%% *} == Z ]] || fail 'stopped worker remained alive'
 kill -0 "$child_pid" 2>/dev/null && fail 'stopped worker left its wallpaper child alive'
 [[ ! -e $TEST_HOME/.cache/myhypr/wallpaper-automation.pid ]] || \
     fail 'stopped worker retained its PID file'
@@ -44,5 +56,11 @@ if HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
     "$automation" --status >/dev/null; then
     fail 'stopped worker was reported as running'
 fi
+
+# An unrelated live PID in a stale marker must never be terminated.
+printf '%s\n' "$$" > "$TEST_HOME/.cache/myhypr/wallpaper-automation.pid"
+HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" "$automation" --stop >/dev/null
+[[ ! -e $TEST_HOME/.cache/myhypr/wallpaper-automation.pid ]] || \
+    fail 'unrelated PID marker was not cleared'
 
 printf 'Wallpaper automation starts, reports, and stops one owned worker.\n'
