@@ -8,10 +8,13 @@ source "$SCRIPT_DIR/lib.sh"
 MODE=worktree
 RUN_HISTORY=0
 audit_snapshot=''
+audit_workspace=''
 cleanup() {
-    [[ -n $audit_snapshot ]] || return 0
     case $audit_snapshot in
         "${TMPDIR:-/tmp}"/myhypr-audit-index.*) rm -rf -- "$audit_snapshot" ;;
+    esac
+    case $audit_workspace in
+        "${TMPDIR:-/tmp}"/myhypr-audit-scan.*) rm -rf -- "$audit_workspace" ;;
     esac
 }
 trap cleanup EXIT
@@ -35,11 +38,21 @@ while (($#)); do
 done
 
 cd -- "$REPO_ROOT"
+require_command rg
+require_command gitleaks
+umask 077
+audit_workspace=$(mktemp -d "${TMPDIR:-/tmp}/myhypr-audit-scan.XXXXXXXX")
+scan_file="$audit_workspace/content"
 
 if [[ $MODE == staged ]]; then
-    mapfile -d '' files < <(git diff --cached --name-only -z --diff-filter=ACMR)
+    git diff --cached --name-only -z --diff-filter=ACMR > "$audit_workspace/files" || \
+        die 'Unable to inventory staged files.'
 else
-    mapfile -d '' files < <(git ls-files -z --cached --others --exclude-standard)
+    git ls-files -z --cached --others --exclude-standard > "$audit_workspace/files" || \
+        die 'Unable to inventory worktree files.'
+fi
+mapfile -d '' files < "$audit_workspace/files"
+if [[ $MODE != staged ]]; then
     existing_files=()
     for file in "${files[@]}"; do
         [[ -e $file || -L $file ]] && existing_files+=("$file")
@@ -56,6 +69,34 @@ read_file() {
     else
         command cat -- "$file"
     fi
+}
+
+# Do not use quiet/early-exit pipelines: consume the complete input and
+# distinguish no matches (1) from an incomplete scan (any other failure).
+scan_matches() {
+    local status
+    if rg -I --pcre2 -e "$1" -- "$scan_file" >/dev/null 2>&1; then
+        return 0
+    else
+        status=$?
+    fi
+    [[ $status -eq 1 ]] || die 'Built-in content scanner failed.'
+    return 1
+}
+
+scan_generic_secret() {
+    local status
+    local -a statuses=()
+    if rg -I --pcre2 -e "$generic_secret_pattern" -- "$scan_file" 2>/dev/null | \
+        rg -I -v --pcre2 -e "$placeholder_pattern" >/dev/null 2>&1; then
+        statuses=("${PIPESTATUS[@]}")
+    else
+        statuses=("${PIPESTATUS[@]}")
+    fi
+    for status in "${statuses[@]}"; do
+        [[ $status -eq 0 || $status -eq 1 ]] || die 'Built-in content scanner failed.'
+    done
+    [[ ${statuses[1]} -eq 0 ]]
 }
 
 run_quick_validation() {
@@ -105,17 +146,16 @@ home_pattern='/home/(?!(?:user|example|username)\b)[A-Za-z0-9._-]+'
 unsafe_pattern='credential\.helper[[:space:]]+store|CYBENCH_ACKNOWLEDGE_RISKS[[:space:]]*=|chmod[[:space:]]+777'
 
 for file in "${files[@]}"; do
-    if read_file "$file" | rg -I -q --pcre2 "$high_confidence_pattern" || \
-        read_file "$file" | rg -I --pcre2 "$generic_secret_pattern" | \
-            rg -I -v -q --pcre2 "$placeholder_pattern"; then
+    read_file "$file" > "$scan_file" 2>/dev/null || die 'Unable to read audit input.'
+    if scan_matches "$high_confidence_pattern" || scan_generic_secret; then
         warn "Potential secret content detected in: $file"
         failures=$((failures + 1))
     fi
-    if read_file "$file" | rg -I -q --pcre2 "$home_pattern"; then
+    if scan_matches "$home_pattern"; then
         warn "Machine-specific absolute home path detected in: $file"
         failures=$((failures + 1))
     fi
-    if [[ $file != scripts/audit.sh ]] && read_file "$file" | rg -I -q -e "$unsafe_pattern"; then
+    if [[ $file != scripts/audit.sh ]] && scan_matches "$unsafe_pattern"; then
         warn "Unsafe dotfiles pattern detected in: $file"
         failures=$((failures + 1))
     fi
@@ -145,10 +185,10 @@ if command -v gitleaks >/dev/null 2>&1; then
     if gitleaks_works; then
         gitleaks_ready=1
     else
-        warn 'Gitleaks failed its synthetic-secret self-test; using the built-in scanner only.'
+        die 'Gitleaks failed its synthetic-secret self-test; audit incomplete.'
     fi
 else
-    warn 'Gitleaks is unavailable; the built-in signature scan was used.'
+    die 'Gitleaks is unavailable; audit incomplete.'
 fi
 
 if [[ $gitleaks_ready -eq 1 ]]; then
@@ -167,10 +207,14 @@ if [[ $RUN_HISTORY -eq 1 ]]; then
     info 'Scanning unique reachable Git blobs without printing their contents'
     declare -A scanned_blobs=()
     history_findings=0
+    git rev-list --objects --all > "$audit_workspace/history" || \
+        die 'Unable to inventory Git history.'
     while read -r object path; do
         [[ -n ${path:-} ]] || continue
         [[ -z ${scanned_blobs[$object]+x} ]] || continue
-        [[ $(git cat-file -t "$object" 2>/dev/null) == blob ]] || continue
+        object_type=$(git cat-file -t "$object" 2>/dev/null) || \
+            die 'Unable to inspect Git history object.'
+        [[ $object_type == blob ]] || continue
         scanned_blobs[$object]=1
 
         lower_path=${path,,}
@@ -182,22 +226,22 @@ if [[ $RUN_HISTORY -eq 1 ]]; then
                 ;;
         esac
 
-        if git cat-file blob "$object" | rg -I -q --pcre2 "$high_confidence_pattern" || \
-            git cat-file blob "$object" | rg -I --pcre2 "$generic_secret_pattern" | \
-                rg -I -v -q --pcre2 "$placeholder_pattern"; then
+        git cat-file blob "$object" > "$scan_file" 2>/dev/null || \
+            die 'Unable to read Git history blob.'
+        if scan_matches "$high_confidence_pattern" || scan_generic_secret; then
             warn "Potential secret content exists in Git history: $path"
             history_findings=$((history_findings + 1))
         fi
-        if git cat-file blob "$object" | rg -I -q --pcre2 "$home_pattern"; then
+        if scan_matches "$home_pattern"; then
             warn "Machine-specific absolute home path exists in Git history: $path"
             history_findings=$((history_findings + 1))
         fi
         if [[ $path != scripts/audit.sh ]] && \
-            git cat-file blob "$object" | rg -I -q -e "$unsafe_pattern"; then
+            scan_matches "$unsafe_pattern"; then
             warn "Unsafe dotfiles pattern exists in Git history: $path"
             history_findings=$((history_findings + 1))
         fi
-    done < <(git rev-list --objects --all)
+    done < "$audit_workspace/history"
     failures=$((failures + history_findings))
 
     if [[ $gitleaks_ready -eq 1 ]]; then

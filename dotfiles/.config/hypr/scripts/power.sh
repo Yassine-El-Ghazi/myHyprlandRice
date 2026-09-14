@@ -58,7 +58,9 @@ case $action in
         ;;
     lock)
         sleep 0.5
-        pgrep -x hyprlock >/dev/null 2>&1 || hyprlock
+        # The compositor arbitrates locks for this Wayland session. A process
+        # name (even for this user) is not evidence that this session is locked.
+        exec hyprlock
         ;;
     suspend)
         sleep 0.5

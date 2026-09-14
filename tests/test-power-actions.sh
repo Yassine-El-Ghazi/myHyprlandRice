@@ -62,4 +62,24 @@ if rg -q 'hyprshutdown .*<(Restarting|Shutting down)\.\.\.>' "$TEST_LOG"; then
     fail 'system power actions still depend on a post-Hyprland callback'
 fi
 
+# A matching process elsewhere must not suppress a request for this display.
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$FAKE_BIN/pgrep"
+printf '%s\n' '#!/usr/bin/env bash' \
+    'printf "lock <%s>\n" "$WAYLAND_DISPLAY" >> "$POWER_TEST_LOG"' \
+    'exit "${POWER_LOCK_STATUS:-0}"' > "$FAKE_BIN/hyprlock"
+chmod +x -- "$FAKE_BIN/pgrep" "$FAKE_BIN/hyprlock"
+for display in wayland-test-one wayland-test-two; do
+    HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" POWER_TEST_LOG="$TEST_LOG" \
+        WAYLAND_DISPLAY="$display" "$POWER_SCRIPT" lock
+    rg -Fxq "lock <$display>" "$TEST_LOG" || fail 'current display was not locked'
+done
+if HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" POWER_TEST_LOG="$TEST_LOG" \
+    WAYLAND_DISPLAY=wayland-test-one POWER_LOCK_STATUS=7 "$POWER_SCRIPT" lock; then
+    fail 'locker failure was hidden'
+else
+    [[ $? -eq 7 ]] || fail 'locker failure status was not preserved'
+fi
+rg -Fq 'lock_cmd = ~/.config/hypr/scripts/power.sh lock' \
+    "$REPO_ROOT/dotfiles/.config/hypr/hypridle.conf" || fail 'idle lock does not use shared helper'
+
 printf 'Power actions use reliable system requests and graceful logout.\n'

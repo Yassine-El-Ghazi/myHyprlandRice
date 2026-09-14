@@ -38,6 +38,11 @@ transfers, issue writers, or automatic merges are introduced. Existing Gitleaks,
 ShellCheck, custom checks, and regression tests remain the primary dotfiles
 checks. Additional general-purpose scanners are not required for this change.
 
+Audits require a working Gitleaks installation, including its synthetic-secret
+self-test. Missing/broken scanners, unreadable inputs, and failed Git inventories
+fail the audit rather than silently reducing coverage. Temporary scan data is
+private and removed on exit; diagnostics do not print input contents.
+
 ## Issue and agent delegation: future opt-in
 
 The custom agent is .github/agents/dotfiles-security.agent.md. Once this file is

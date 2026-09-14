@@ -28,7 +28,10 @@ setup_repo() {
         cp -- "$REPO_ROOT/scripts/audit-large-files.sh" "$target/scripts/"
         chmod +x -- "$target/scripts/audit-large-files.sh"
     fi
-    printf '%s\n' '#!/usr/bin/env bash' 'exit 2' > "$target/bin/gitleaks"
+    # Explicit working-scanner mock; scanner failures are tested separately.
+    printf '%s\n' '#!/usr/bin/env bash' \
+        'if [[ $1 == stdin ]]; then cat >/dev/null; exit 1; fi' \
+        'exit 0' > "$target/bin/gitleaks"
     chmod +x -- "$target/bin/gitleaks"
     printf '%s\n' \
         '#!/usr/bin/env bash' \
@@ -48,9 +51,75 @@ setup_repo() {
 case_name=${1:-all}
 case $case_name in
     all|staged-invalid|staged-valid|private-overrides|history|large-files|hook-environment|setup-mktemp|\
-        setup-checkout|setup-cd|setup-init|setup-add) ;;
+        setup-checkout|setup-cd|setup-init|setup-add|scanner-errors) ;;
     *) fail "unknown case: $case_name" ;;
 esac
+
+if [[ $case_name == all || $case_name == scanner-errors ]]; then
+    repo_missing="$TEST_ROOT/missing-scanner"
+    setup_repo "$repo_missing"
+    mkdir -- "$repo_missing/limited-bin"
+    for tool in bash dirname rg; do
+        ln -s -- "/usr/bin/$tool" "$repo_missing/limited-bin/$tool"
+    done
+    if PATH="$repo_missing/limited-bin" /usr/bin/bash \
+        "$repo_missing/scripts/audit.sh" > "$TEST_ROOT/missing.log" 2>&1; then
+        fail 'missing Gitleaks was accepted'
+    fi
+    rg -Fq 'Required command not found: gitleaks' "$TEST_ROOT/missing.log" || \
+        fail 'missing Gitleaks diagnostic was missing'
+
+    for fault in gitleaks rg generic-filter read staged-read inventory history-inventory history-type history-read; do
+        repo_fault="$TEST_ROOT/fault-$fault"
+        setup_repo "$repo_fault"
+        printf 'changed\n' > "$repo_fault/fixture.txt"
+        git -C "$repo_fault" add fixture.txt
+        fault_args=()
+        case $fault in
+            gitleaks)
+                printf '%s\n' '#!/usr/bin/env bash' 'cat >/dev/null' 'exit 2' \
+                    > "$repo_fault/bin/gitleaks"
+                expected_error='Gitleaks failed its synthetic-secret self-test'
+                ;;
+            rg|generic-filter)
+                printf '%s\n' '#!/usr/bin/env bash' \
+                    'if [[ $AUDIT_TEST_FAULT == rg || " $* " == *" -v "* ]]; then exit 2; fi' \
+                    'exec /usr/bin/rg "$@"' > "$repo_fault/bin/rg"
+                expected_error='Built-in content scanner failed'
+                ;;
+            read)
+                printf '%s\n' '#!/usr/bin/env bash' \
+                    '[[ $* != "-- fixture.txt" ]] || exit 2' \
+                    'exec /usr/bin/cat "$@"' > "$repo_fault/bin/cat"
+                expected_error='Unable to read audit input'
+                ;;
+            *)
+                printf '%s\n' '#!/usr/bin/env bash' \
+                    'case "$AUDIT_TEST_FAULT:$1:${2:-}" in' \
+                    '  staged-read:show:*|inventory:ls-files:*|history-inventory:rev-list:*|history-type:cat-file:-t|history-read:cat-file:blob) exit 2 ;;' \
+                    'esac' \
+                    'exec "$AUDIT_TEST_REAL_GIT" "$@"' > "$repo_fault/bin/git"
+                case $fault in
+                    staged-read) fault_args=(--staged); expected_error='Unable to read audit input' ;;
+                    inventory) expected_error='Unable to inventory worktree files' ;;
+                    history-inventory) fault_args=(--history); expected_error='Unable to inventory Git history' ;;
+                    history-type) fault_args=(--history); expected_error='Unable to inspect Git history object' ;;
+                    history-read) fault_args=(--history); expected_error='Unable to read Git history blob' ;;
+                esac
+                ;;
+        esac
+        chmod +x -- "$repo_fault/bin/"*
+        if AUDIT_TEST_FAULT="$fault" AUDIT_TEST_REAL_GIT="$REAL_GIT" \
+            PATH="$repo_fault/bin:/usr/bin:/bin" \
+            "$repo_fault/scripts/audit.sh" "${fault_args[@]}" > "$TEST_ROOT/fault.log" 2>&1; then
+            fail "$fault was accepted as a clean scan"
+        fi
+        rg -Fq "$expected_error" "$TEST_ROOT/fault.log" || fail "$fault diagnostic was missing"
+        if rg -Fq 'Privacy and security audit passed' "$TEST_ROOT/fault.log"; then
+            fail "$fault printed a successful audit"
+        fi
+    done
+fi
 
 if [[ $case_name == all || $case_name == staged-invalid ]]; then
     repo_a="$TEST_ROOT/staged-invalid"
