@@ -16,18 +16,21 @@ fi
 # zsh ties PATH to the `path` array. `typeset -U` keeps the first occurrence
 # and removes duplicates introduced by installers or nested shells.
 typeset -U path PATH
+typeset -a inherited_path
+inherited_path=("${path[@]}")
 path=(
+    /usr/local/sbin
+    /usr/local/bin
+    /usr/bin
+    /bin
+    /usr/sbin
     "$HOME/.config/myhypr/bin"
     "$HOME/.local/bin"
     "$HOME/.cargo/bin"
     "$HOME/go/bin"
-    /usr/local/bin
-    /usr/bin
-    /bin
-    /usr/local/sbin
-    /usr/sbin
-    $path
+    "${inherited_path[@]}"
 )
+unset inherited_path
 
 # Normalize trailing slashes before the uniqueness attribute de-duplicates PATH.
 typeset -a normalized_path

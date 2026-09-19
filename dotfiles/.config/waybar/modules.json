@@ -329,8 +329,7 @@
     "tooltip-format-ethernet": " {ifname}\nIP: {ipaddr}\n up: {bandwidthUpBits} down: {bandwidthDownBits}",
     "tooltip-format-disconnected": "Disconnected",
     "max-length": 50,
-    "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/networkmanager.sh",
-    "on-click-right": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/scripts/nm-applet.sh toggle",
+    "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/networkmanager.sh"
   },
   // Battery
   "battery": {

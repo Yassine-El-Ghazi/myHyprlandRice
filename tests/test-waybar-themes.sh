@@ -246,4 +246,13 @@ sleep 0.1
 [[ $(wc -l < "$WAYBAR_TEST_LOG") -eq 2 ]] || \
     fail 'a running Waybar retained the launcher lock and blocked reload'
 
-printf 'Waybar theme resolution, fallback, and selection passed.\n'
+rg -q '^Hidden=true$' "$REPO_ROOT/dotfiles/.config/autostart/nm-applet.desktop" || {
+    printf 'NetworkManager applet autostart is not disabled.\n' >&2
+    exit 1
+}
+if rg -q 'nm-applet\.sh toggle' "$REPO_ROOT/dotfiles/.config/waybar/modules.json"; then
+    printf 'Waybar can still create a duplicate NetworkManager tray control.\n' >&2
+    exit 1
+fi
+
+printf 'Waybar theme resolution, fallback, selection, and network deduplication passed.\n'

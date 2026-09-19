@@ -15,9 +15,9 @@
 # -----------------------------------------------------
 # Load modular configuration
 # -----------------------------------------------------
-# Keep per-user commands available even if the modular directory is absent.
+# Keep trusted system command directories ahead of user-writable directories.
 # 00-init normalizes and de-duplicates the final path when it is present.
-export PATH="$HOME/.config/myhypr/bin:$HOME/.local/bin:$PATH"
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:$HOME/.config/myhypr/bin:$HOME/.local/bin:$PATH"
 
 for config_file in "$HOME"/.config/zshrc/*(N); do
     # Stow may link each module individually. Test the resolved target instead

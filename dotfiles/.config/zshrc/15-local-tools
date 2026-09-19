@@ -8,6 +8,9 @@ if [[ -r /usr/share/nvm/init-nvm.sh ]]; then
 elif [[ -r "$HOME/.nvm/nvm.sh" ]]; then
     source "$HOME/.nvm/nvm.sh"
 fi
+# NVM prepends the selected Node directory. Keep it available while restoring
+# trusted command directories ahead of every user-writable tool directory.
+path=(/usr/local/sbin /usr/local/bin /usr/bin /bin /usr/sbin "${path[@]}")
 
 # Conda stays out of shell startup until explicitly requested.
 conda-on() {
@@ -25,9 +28,9 @@ conda-on() {
 
 # These helpers only appear on machines where their dependencies exist.
 if (( $+commands[envycontrol] )); then
-    alias gpu-eco='sudo envycontrol -s integrated && sudo reboot'
-    alias gpu-balanced='sudo envycontrol -s hybrid --rtd3 && sudo reboot'
-    alias gpu-mode='sudo envycontrol --query'
+    alias gpu-eco='/usr/bin/sudo -- /usr/bin/envycontrol -s integrated && /usr/bin/sudo -- /usr/bin/reboot'
+    alias gpu-balanced='/usr/bin/sudo -- /usr/bin/envycontrol -s hybrid --rtd3 && /usr/bin/sudo -- /usr/bin/reboot'
+    alias gpu-mode='/usr/bin/sudo -- /usr/bin/envycontrol --query'
 fi
 
 if [[ -f "$HOME/tools/ctf-agent/files/ctf_agent.py" ]]; then

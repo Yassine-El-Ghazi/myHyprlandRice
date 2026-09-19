@@ -12,6 +12,7 @@ INSTALL_PACKAGES=1
 CONFIGURE_SYSTEM=1
 LINK_DOTFILES=1
 INSTALL_HOOKS=1
+ALLOW_AUR=0
 
 usage() {
     cat <<'EOF'
@@ -23,6 +24,7 @@ Options:
   --profile core|desktop|full  Package profile (default: desktop)
   --dry-run                    Print every mutation without applying it
   --yes                        Accept package and conflict-backup prompts
+  --allow-aur                  Explicitly allow reviewed AUR package builds
   --no-packages                Skip package installation
   --no-system                  Skip service and user-directory configuration
   --no-link                    Skip Stow linking
@@ -44,6 +46,10 @@ while (($#)); do
             ;;
         --yes)
             ASSUME_YES=1
+            shift
+            ;;
+        --allow-aur)
+            ALLOW_AUR=1
             shift
             ;;
         --no-packages)
@@ -80,12 +86,14 @@ esac
 common_args=()
 [[ $DRY_RUN -eq 1 ]] && common_args+=(--dry-run)
 [[ $ASSUME_YES -eq 1 ]] && common_args+=(--yes)
+package_args=("${common_args[@]}")
+[[ $ALLOW_AUR -eq 1 ]] && package_args+=(--allow-aur)
 
 info "Bootstrap profile: $PROFILE"
 [[ $DRY_RUN -eq 1 ]] && warn 'Dry-run mode: no changes will be made.'
 
 if [[ $INSTALL_PACKAGES -eq 1 ]]; then
-    "$REPO_ROOT/scripts/install-packages.sh" --profile "$PROFILE" "${common_args[@]}"
+    "$REPO_ROOT/scripts/install-packages.sh" --profile "$PROFILE" "${package_args[@]}"
 fi
 
 "$REPO_ROOT/scripts/migrate-namespace.sh" "${common_args[@]}"
@@ -110,8 +118,18 @@ if [[ $INSTALL_HOOKS -eq 1 ]]; then
     info 'Enabling repository-local Git hooks'
     if [[ $DRY_RUN -eq 1 ]]; then
         print_command git -C "$REPO_ROOT" config core.hooksPath .githooks
+        print_command git -C "$REPO_ROOT" config gpg.format ssh
+        print_command git -C "$REPO_ROOT" config gpg.ssh.allowedSignersFile \
+            "$REPO_ROOT/.config/git/allowed_signers"
+        print_command git -C "$REPO_ROOT" config merge.verifySignatures true
+        print_command git -C "$REPO_ROOT" config pull.ff only
     else
         git -C "$REPO_ROOT" config core.hooksPath .githooks
+        git -C "$REPO_ROOT" config gpg.format ssh
+        git -C "$REPO_ROOT" config gpg.ssh.allowedSignersFile \
+            "$REPO_ROOT/.config/git/allowed_signers"
+        git -C "$REPO_ROOT" config merge.verifySignatures true
+        git -C "$REPO_ROOT" config pull.ff only
     fi
 fi
 

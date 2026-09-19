@@ -157,8 +157,8 @@ FloatingWindow {
                     onClicked: { appLauncher.command = ["kitty", "--class", "dotfiles-floating", "-e", Quickshell.env("HOME") + "/.config/myhypr/bin/myhyprctl", "doctor"]; appLauncher.running = true }
                 }
                 MyHyprMenuItem {
-                    text: qsTr("Network Manager Applet");
-                    onClicked: { appLauncher.command = [Quickshell.env("HOME") + "/.config/myhypr/scripts/nm-applet.sh", "toggle"]; appLauncher.running = true }
+                    text: qsTr("Network Settings");
+                    onClicked: { appLauncher.command = [Quickshell.env("HOME") + "/.config/myhypr/settings/networkmanager.sh"]; appLauncher.running = true }
                 }
                 MyHyprMenuItem {
                     text: qsTr("Change Shell");

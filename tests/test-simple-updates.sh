@@ -33,9 +33,25 @@ printf '%s\n' '#!/usr/bin/env bash' \
     > "$TEST_ROOT/bin/pkill"
 chmod +x "$TEST_ROOT/bin/"{pacman,pkexec,paru,flatpak,pkill}
 
+UPDATE_ROOT="$TEST_ROOT/update-repo"
+UPDATE_SCRIPT="$UPDATE_ROOT/scripts/update-system.sh"
+mkdir -p -- "$UPDATE_ROOT/scripts" "$UPDATE_ROOT/dotfiles/.config/myhypr/scripts"
+cp -- "$REPO_ROOT/dotfiles/.config/myhypr/scripts/updates.sh" \
+    "$UPDATE_ROOT/dotfiles/.config/myhypr/scripts/updates.sh"
+sed \
+    -e "s|^PACMAN_BIN=.*|PACMAN_BIN=$TEST_ROOT/bin/pacman|" \
+    -e "s|^PKEXEC_BIN=.*|PKEXEC_BIN=$TEST_ROOT/bin/pkexec|" \
+    -e "s|^PARU_BIN=.*|PARU_BIN=$TEST_ROOT/bin/paru|" \
+    -e "s|^YAY_BIN=.*|YAY_BIN=$TEST_ROOT/bin/yay|" \
+    "$REPO_ROOT/scripts/update-system.sh" > "$UPDATE_SCRIPT"
+chmod +x "$UPDATE_SCRIPT"
+
 PATH="$TEST_ROOT/bin:/usr/bin:/bin" XDG_RUNTIME_DIR="$runtime_root" \
-    "$REPO_ROOT/scripts/update-system.sh"
-rg -Fxq 'helper <--sudo> <pkexec> <--sudoflags> <> <--nosudoloop> <-Syu>' "$UPDATE_TEST_LOG"
+    "$UPDATE_SCRIPT"
+rg -Fxq "pkexec <$TEST_ROOT/bin/pacman -Syu>" "$UPDATE_TEST_LOG"
+if rg -q '^helper ' "$UPDATE_TEST_LOG"; then
+    printf 'Routine update unexpectedly executed an AUR helper.\n' >&2; exit 1
+fi
 rg -Fxq 'flatpak <--user update>' "$UPDATE_TEST_LOG"
 rg -Fxq 'flatpak <--system update>' "$UPDATE_TEST_LOG"
 rg -Fxq 'signal <-RTMIN+1 waybar>' "$UPDATE_TEST_LOG"
@@ -48,7 +64,7 @@ jq -e '.text == "0" and .class == "green"' \
 
 : > "$UPDATE_TEST_LOG"
 if PATH="$TEST_ROOT/bin:/usr/bin:/bin" XDG_RUNTIME_DIR="$runtime_root" \
-    UPDATE_TEST_FAIL=42 "$REPO_ROOT/scripts/update-system.sh"; then
+    UPDATE_TEST_FAIL=42 "$UPDATE_SCRIPT"; then
     printf 'Package-manager failure was hidden.\n' >&2; exit 1
 else
     [[ $? -eq 42 ]]
@@ -61,13 +77,14 @@ if rg -q flatpak "$UPDATE_TEST_LOG"; then
     printf 'Flatpak ran after the Arch upgrade failed.\n' >&2; exit 1
 fi
 
-mv "$TEST_ROOT/bin/paru" "$TEST_ROOT/bin/yay"
+: > "$UPDATE_TEST_LOG"
 PATH="$TEST_ROOT/bin:/usr/bin:/bin" XDG_RUNTIME_DIR="$runtime_root" \
-    MYHYPR_TEST_AUR_HELPER=yay "$REPO_ROOT/scripts/update-system.sh"
-rm -- "$TEST_ROOT/bin/yay"
-PATH="$TEST_ROOT/bin:/usr/bin:/bin" XDG_RUNTIME_DIR="$runtime_root" \
-    MYHYPR_TEST_AUR_HELPER=none "$REPO_ROOT/scripts/update-system.sh"
-rg -Fxq 'pkexec <pacman -Syu>' "$UPDATE_TEST_LOG"
+    "$UPDATE_SCRIPT" --allow-aur
+rg -Fxq 'helper <--sudo>' "$UPDATE_TEST_LOG" >/dev/null 2>&1 && {
+    printf 'AUR helper command lost its absolute pkexec path.\n' >&2; exit 1;
+}
+rg -Fq "helper <--sudo> <$TEST_ROOT/bin/pkexec> <--sudoflags> <> <--nosudoloop> <-Sua>" \
+    "$UPDATE_TEST_LOG"
 
 fixture_root="$TEST_ROOT/repo"
 mkdir -p "$fixture_root/dotfiles/.config/myhypr/scripts" \

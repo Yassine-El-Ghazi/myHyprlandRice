@@ -6,6 +6,6 @@ ConditionPathExists=!%h/.config/myhypr/settings/waybar-disabled
 
 [Service]
 Type=simple
-ExecStart=%h/.config/waybar/launch.sh --service
+ExecStart=/usr/bin/bash %h/.config/waybar/launch.sh --service
 Restart=on-failure
 RestartSec=1s

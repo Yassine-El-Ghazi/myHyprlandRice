@@ -9,9 +9,9 @@
 export EDITOR="${EDITOR:-nvim}"
 export VISUAL="${VISUAL:-$EDITOR}"
 
-path_prepend() {
+path_append() {
     [[ -d "$1" ]] || return 0
-    PATH="$1:$PATH"
+    PATH="$PATH:$1"
 }
 
 path_dedupe() {
@@ -36,19 +36,28 @@ path_dedupe() {
     PATH="${clean_entries[*]}"
 }
 
-# Reverse order because each entry is prepended.
-path_prepend /usr/lib/ccache/bin
-path_prepend "$HOME/go/bin"
-path_prepend "$HOME/.cargo/bin"
-path_prepend "$HOME/.local/bin"
-path_prepend "$HOME/.config/myhypr/bin"
+# Resolve administrative and system commands from root-owned directories before
+# considering user-writable tool directories or inherited PATH entries.
+inherited_path=${PATH:-}
+PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin
+path_append "$HOME/.config/myhypr/bin"
+path_append "$HOME/.local/bin"
+path_append "$HOME/.cargo/bin"
+path_append "$HOME/go/bin"
+path_append /usr/lib/ccache/bin
+
+IFS=: read -r -a inherited_entries <<< "$inherited_path"
+for inherited_entry in "${inherited_entries[@]}"; do
+    path_append "$inherited_entry"
+done
+unset inherited_path inherited_entries inherited_entry
 
 if command -v go >/dev/null 2>&1; then
     go_path="$(go env GOPATH 2>/dev/null)"
-    [[ -n "$go_path" ]] && path_prepend "$go_path/bin"
+    [[ -n "$go_path" ]] && path_append "$go_path/bin"
     unset go_path
 fi
 
 export PATH
 path_dedupe
-unset -f path_prepend path_dedupe
+unset -f path_append path_dedupe

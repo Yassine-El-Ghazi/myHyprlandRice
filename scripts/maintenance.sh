@@ -903,27 +903,10 @@ packages_stage() {
 }
 
 system_packages_stage() {
-    local helper
-
-    helper=$(jq -er '.aur.helper | select(type == "string")' \
-        "$TX_DIR/system-plan.json") || return 1
-    case $helper in
-        paru)
-            command -v paru >/dev/null 2>&1 || return 69
-            maintenance_log_run "$TX_DIR" packages.log \
-                paru --sudoloop --useask -Syu
-            ;;
-        yay)
-            command -v yay >/dev/null 2>&1 || return 69
-            maintenance_log_run "$TX_DIR" packages.log \
-                yay --sudoloop --answerclean None --answerdiff None -Syu
-            ;;
-        none)
-            command -v pacman >/dev/null 2>&1 || return 69
-            maintenance_log_run "$TX_DIR" packages.log sudo pacman -Syu
-            ;;
-        *) return 1 ;;
-    esac
+    command -v pacman >/dev/null 2>&1 || return 69
+    # Transactional maintenance updates only signed repository packages.
+    # AUR recipes remain a separate, explicit, interactive operation.
+    maintenance_log_run "$TX_DIR" packages.log sudo pacman -Syu
 }
 
 migration_stage() {

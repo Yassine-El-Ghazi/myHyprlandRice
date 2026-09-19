@@ -8,6 +8,7 @@ source "$SCRIPT_DIR/lib.sh"
 PROFILE=desktop
 DRY_RUN=0
 ASSUME_YES=0
+ALLOW_AUR=0
 
 usage() {
     cat <<'EOF'
@@ -17,6 +18,7 @@ Options:
   --profile core|desktop|full  Package profile (default: desktop)
   --dry-run                    Show package decisions without installing
   --yes                        Pass non-interactive confirmation flags
+  --allow-aur                  Explicitly allow review/build of missing AUR packages
   -h, --help                   Show this help
 
 Manifest entries may contain alternatives separated by `|`. An already
@@ -38,6 +40,10 @@ while (($#)); do
             ;;
         --yes)
             ASSUME_YES=1
+            shift
+            ;;
+        --allow-aur)
+            ALLOW_AUR=1
             shift
             ;;
         -h|--help)
@@ -80,6 +86,11 @@ for manifest in "${manifest_files[@]}"; do
         line=${line%%#*}
         line=${line//[[:space:]]/}
         [[ -n $line ]] || continue
+        # Manifests contain package names, never helper options or paths.
+        # Validate the complete specification before any authorization/build.
+        package_name_pattern='[a-zA-Z0-9@_+][a-zA-Z0-9@._+-]*'
+        [[ $line =~ ^${package_name_pattern}(\|${package_name_pattern})*$ ]] || \
+            die "Invalid package specification in $manifest"
         if [[ -z ${seen_specs[$line]+x} ]]; then
             specs+=("$line")
             seen_specs[$line]=1
@@ -117,6 +128,12 @@ for spec in "${specs[@]}"; do
     fi
 done
 
+if ((${#aur_packages[@]})) && [[ $ALLOW_AUR -ne 1 ]]; then
+    warn 'The following packages require untrusted AUR build recipes:'
+    printf '  %s\n' "${aur_packages[@]}" >&2
+    die 'Re-run with --allow-aur only after reviewing those PKGBUILDs.'
+fi
+
 if ((${#repo_packages[@]} || ${#aur_packages[@]})); then
     ensure_sudo_session
 fi
@@ -125,49 +142,10 @@ if ((${#repo_packages[@]})); then
     info "Installing ${#repo_packages[@]} repository package(s)"
     pacman_args=(sudo pacman -S --needed)
     [[ $ASSUME_YES -eq 1 ]] && pacman_args+=(--noconfirm)
-    run "${pacman_args[@]}" "${repo_packages[@]}"
+    run "${pacman_args[@]}" -- "${repo_packages[@]}"
 else
     success 'All repository packages are already installed.'
 fi
-
-cleanup_aur_build() {
-    local build_root=$1
-
-    case $build_root in
-        "${TMPDIR:-/tmp}"/myhyprlandrice-aur.*) rm -rf -- "$build_root" ;;
-        *) die "Refusing to remove unexpected AUR build directory: $build_root" ;;
-    esac
-}
-
-bootstrap_aur_helper() {
-    local build_root
-    local -a makepkg_args=(-si --needed)
-
-    [[ $ASSUME_YES -eq 1 ]] && makepkg_args+=(--noconfirm)
-    if [[ $DRY_RUN -eq 1 ]]; then
-        info 'Would bootstrap paru-bin from the Arch User Repository.'
-        aur_helper=paru
-        return
-    fi
-
-    require_command git
-    require_command makepkg
-    build_root=$(mktemp -d "${TMPDIR:-/tmp}/myhyprlandrice-aur.XXXXXXXX")
-    if ! git clone --depth 1 https://aur.archlinux.org/paru-bin.git \
-        "$build_root/paru-bin"; then
-        cleanup_aur_build "$build_root"
-        die 'Unable to clone paru-bin from the Arch User Repository.'
-    fi
-    if ! (
-        cd -- "$build_root/paru-bin"
-        makepkg "${makepkg_args[@]}"
-    ); then
-        cleanup_aur_build "$build_root"
-        die 'Unable to build paru-bin.'
-    fi
-    cleanup_aur_build "$build_root"
-    aur_helper=paru
-}
 
 if ((${#aur_packages[@]})); then
     aur_helper=''
@@ -179,17 +157,14 @@ if ((${#aur_packages[@]})); then
     done
 
     if [[ -z $aur_helper ]]; then
-        info 'An AUR helper is required for remaining packages.'
-        confirm 'Build paru-bin from the AUR?'
-        bootstrap_aur_helper
+        die 'Install and review an AUR helper manually before using --allow-aur.'
     fi
 
     info "Installing ${#aur_packages[@]} AUR package(s) with $aur_helper"
     # AUR packages must be built as the regular user. The helper's sudo loop
     # keeps the single credential acquired above valid for package installs.
     aur_args=("$aur_helper" --sudoloop --useask -S --needed)
-    [[ $ASSUME_YES -eq 1 ]] && aur_args+=(--noconfirm)
-    run "${aur_args[@]}" "${aur_packages[@]}"
+    run "${aur_args[@]}" -- "${aur_packages[@]}"
 else
     success 'No AUR packages are missing.'
 fi
