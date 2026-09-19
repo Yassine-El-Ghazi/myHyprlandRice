@@ -130,6 +130,6 @@ end
 require("conf.gamemode_state").apply_persisted()
 
 hl.on("hyprland.start", function()
-    hl.exec_cmd("~/.config/myhypr/scripts/start-session-services.sh")
-    hl.exec_cmd("quickshell -p ~/.config/quickshell/shell.qml")
+    hl.exec_cmd("/usr/bin/bash ~/.config/myhypr/scripts/start-session-services.sh")
+    hl.exec_cmd("/usr/bin/quickshell -p ~/.config/quickshell/shell.qml")
 end)

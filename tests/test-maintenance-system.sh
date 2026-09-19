@@ -301,8 +301,8 @@ run_apply_case() {
         fail "$helper apply omitted committed success"
 }
 
-run_apply_case paru 'paru --sudoloop --useask -Syu'
-run_apply_case yay 'yay --sudoloop --answerclean None --answerdiff None -Syu'
+run_apply_case paru 'pacman -Syu'
+run_apply_case yay 'pacman -Syu'
 run_apply_case pacman 'pacman -Syu'
 
 prepare_run package-fail paru flathub ''

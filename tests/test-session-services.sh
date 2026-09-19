@@ -82,7 +82,7 @@ waybar_unit="$REPO_ROOT/dotfiles/.config/systemd/user/myhypr-waybar.service"
 rg -q '^PartOf=myhypr-session\.target$' "$waybar_unit"
 rg -q '^ConditionPathExists=!%h/\.config/myhypr/settings/waybar-disabled$' \
     "$waybar_unit"
-rg -q '^ExecStart=%h/\.config/waybar/launch\.sh --service$' "$waybar_unit"
+rg -q '^ExecStart=/usr/bin/bash %h/\.config/waybar/launch\.sh --service$' "$waybar_unit"
 rg -q '^Restart=on-failure$' "$waybar_unit"
 rg -q 'myhypr-waybar\.service is active' "$REPO_ROOT/scripts/doctor.sh"
 rg -q '\[\[ -f \$waybar_disabled \]\]' "$REPO_ROOT/scripts/doctor.sh"

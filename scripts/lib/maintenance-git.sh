@@ -125,6 +125,28 @@ _maintenance_git_tree_inventory() {
         "$commit" > "$output"
 }
 
+_maintenance_git_verify_candidate_signature() {
+    local repo_root=$1 current=$2 candidate=$3 tx_dir=$4
+    local allowed_signers="$tx_dir/allowed-signers"
+
+    # Anchor update authorization in the currently installed commit. Reading
+    # this file from the candidate would let an untrusted update add its own key.
+    if ! _maintenance_git_command -C "$repo_root" show \
+        "$current:.config/git/allowed_signers" > "$allowed_signers"; then
+        warn 'The trusted commit does not contain a Git signing allow-list.'
+        return 65
+    fi
+    chmod 0600 -- "$allowed_signers" || return 1
+
+    if ! _maintenance_git_command -C "$repo_root" \
+        -c gpg.format=ssh \
+        -c gpg.ssh.allowedSignersFile="$allowed_signers" \
+        verify-commit "$candidate" >/dev/null 2>&1; then
+        warn 'Incoming candidate is not signed by an authorized maintenance key.'
+        return 65
+    fi
+}
+
 _maintenance_git_sensitive_filename() {
     local path=${1,,}
 
@@ -539,6 +561,8 @@ maintenance_git_prepare() {
     _maintenance_commit_value_valid "$candidate" && [[ -n $candidate ]] || return 1
     [[ $(_maintenance_git_command -C "$repo_root" cat-file -t "$candidate" \
         2>/dev/null) == commit ]] || return 1
+    _maintenance_git_verify_candidate_signature \
+        "$repo_root" "$current" "$candidate" "$tx_dir" || return $?
     recorded_current=$(jq -er '.current_commit | select(type == "string")' \
         "$tx_dir/journal.json" 2>/dev/null) || return 1
     [[ $recorded_current == "$current" ]] || {

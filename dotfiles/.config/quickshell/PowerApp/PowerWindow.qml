@@ -74,11 +74,6 @@ PanelWindow {
 
     Theme { id: theme }
 
-    Process {
-        id: powerProcess
-        running: false
-    }
-
     // ==========================================
     // MAIN PANEL BACKGROUND (The Pill Shape)
     // ==========================================
@@ -107,7 +102,7 @@ PanelWindow {
             component PowerButton: Rectangle {
                 id: btn
                 property string iconTxt: ""
-                property var commandArgs: []
+                property string action: ""
                 
                 implicitWidth: 50
                 implicitHeight: 50
@@ -130,18 +125,17 @@ PanelWindow {
                     anchors.fill: parent
                     hoverEnabled: true
                     onClicked: {
-                        powerProcess.command = btn.commandArgs
-                        powerProcess.running = true
-                        root.isOpen = false // Trigger the slide-out animation!
+                        root.isOpen = false
+                        Quickshell.execDetached(["/usr/bin/bash", root.powerScript, btn.action])
                     }
                 }
             }
 
-            PowerButton { iconTxt: ""; commandArgs: [root.powerScript, "lock"] }
-            PowerButton { iconTxt: ""; commandArgs: [root.powerScript, "suspend"] }
-            PowerButton { iconTxt: ""; commandArgs: [root.powerScript, "exit"] }
-            PowerButton { iconTxt: ""; commandArgs: [root.powerScript, "reboot"] }
-            PowerButton { iconTxt: ""; commandArgs: [root.powerScript, "shutdown"] }
+            PowerButton { iconTxt: ""; action: "lock" }
+            PowerButton { iconTxt: ""; action: "suspend" }
+            PowerButton { iconTxt: ""; action: "exit" }
+            PowerButton { iconTxt: ""; action: "reboot" }
+            PowerButton { iconTxt: ""; action: "shutdown" }
         }
     }
 }

@@ -20,7 +20,7 @@ hl = {
 
 dofile(autostart)
 
-local managed_dock = "~/.config/nwg-dock-hyprland/launch.sh"
+local managed_dock = "/usr/bin/bash ~/.config/nwg-dock-hyprland/launch.sh"
 for _, command in ipairs(commands) do
     if command == managed_dock then
         print("Hyprland starts the dock through its managed launcher.")

@@ -8,6 +8,7 @@ TEST_HOME="$TEST_ROOT/home with space"
 FAKE_BIN="$TEST_ROOT/bin"
 TEST_LOG="$TEST_ROOT/actions.log"
 POWER_SCRIPT="$REPO_ROOT/dotfiles/.config/hypr/scripts/power.sh"
+POWER_WINDOW="$REPO_ROOT/dotfiles/.config/quickshell/PowerApp/PowerWindow.qml"
 
 cleanup() {
     case $TEST_ROOT in
@@ -81,5 +82,13 @@ else
 fi
 rg -Fq 'lock_cmd = ~/.config/hypr/scripts/power.sh lock' \
     "$REPO_ROOT/dotfiles/.config/hypr/hypridle.conf" || fail 'idle lock does not use shared helper'
+
+rg -Fq 'Quickshell.execDetached(["/usr/bin/bash", root.powerScript, btn.action])' \
+    "$POWER_WINDOW" || fail 'power drawer does not launch independent typed actions'
+rg -Fq 'import Quickshell.Io' "$POWER_WINDOW" || \
+    fail 'power drawer is missing the module that provides its IPC handler'
+if rg -q 'powerProcess|commandArgs' "$POWER_WINDOW"; then
+    fail 'power drawer still reuses the fragile shared Process runner'
+fi
 
 printf 'Power actions use reliable system requests and graceful logout.\n'
