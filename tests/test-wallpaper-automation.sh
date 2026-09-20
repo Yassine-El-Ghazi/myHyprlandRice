@@ -27,6 +27,7 @@ fail() { printf 'Wallpaper automation test failed: %s\n' "$*" >&2; exit 1; }
 mkdir -p -- "$FAKE_BIN" "$TEST_HOME/.config/myhypr/settings"
 printf '10\n' > "$TEST_HOME/.config/myhypr/settings/wallpaper-automation.sh"
 printf '%s\n' '#!/usr/bin/env bash' \
+    '[[ " $* " == *" --no-post-command "* ]] || exit 64' \
     'printf "%s\n" "$$" > "$WALLPAPER_CHILD_PID"' \
     'exec sleep 30' > "$FAKE_BIN/waypaper"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE_BIN/notify-send"

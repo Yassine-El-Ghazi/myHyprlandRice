@@ -16,8 +16,11 @@ printf '%s\n' '#!/usr/bin/env bash' \
     > "$TEST_ROOT/bin/hyprctl"
 printf '%s\n' '#!/usr/bin/env bash' \
     'printf "%s\\n" "$*" > "$CONTROL_TEST_LOG"' > "$TEST_ROOT/bin/wlogout"
-printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$TEST_ROOT/bin/pgrep"
-printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$TEST_ROOT/bin/pkill"
+printf '%s\n' '#!/usr/bin/env bash' \
+    'printf "%s\\n" "$*" >> "$CONTROL_TEST_LOG.pgrep"' \
+    '[[ ${CONTROL_TEST_IDLE_RUNNING:-0} == 1 ]]' > "$TEST_ROOT/bin/pgrep"
+printf '%s\n' '#!/usr/bin/env bash' \
+    'printf "%s\\n" "$*" >> "$CONTROL_TEST_LOG.pkill"' > "$TEST_ROOT/bin/pkill"
 printf '%s\n' '#!/usr/bin/env bash' \
     'printf "scoped %s\\n" "$*" > "$CONTROL_TEST_LOG"' \
     > "$TEST_ROOT/config/myhypr/bin/launch-app"
@@ -39,6 +42,15 @@ for _attempt in {1..20}; do
     sleep 0.05
 done
 [[ $(<"$CONTROL_TEST_LOG") == 'scoped hypridle' ]]
+CONTROL_TEST_IDLE_RUNNING=1 "$REPO_ROOT/dotfiles/.config/hypr/scripts/hypridle.sh" toggle >/dev/null
+for operation in pgrep pkill; do
+    while IFS= read -r arguments; do
+        [[ $arguments == "-u $UID -x hypridle" ]] || {
+            printf 'Idle control used an unscoped %s request: %s\n' "$operation" "$arguments" >&2
+            exit 1
+        }
+    done < "$CONTROL_TEST_LOG.$operation"
+done
 rg -Fq '"on-click-right": "~/.config/myhypr/bin/launch-app ~/.config/hypr/scripts/power.sh lock"' \
     "$REPO_ROOT/dotfiles/.config/waybar/modules.json"
 printf 'Logout scaling and independent idle-daemon launch passed.\n'

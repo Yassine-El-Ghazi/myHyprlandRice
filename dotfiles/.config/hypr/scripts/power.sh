@@ -57,7 +57,6 @@ case $action in
         systemctl poweroff
         ;;
     lock)
-        sleep 0.5
         # The compositor arbitrates locks for this Wayland session. A process
         # name (even for this user) is not evidence that this session is locked.
         exec hyprlock

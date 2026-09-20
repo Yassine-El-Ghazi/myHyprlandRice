@@ -237,6 +237,17 @@ containment, graphical-session environment isolation, service activation,
 desktop controls, Waybar/Walker theme fallbacks, and declarative wallpaper
 effects.
 
+Waypaper's shell-based post-command callback is disabled for safety, including
+in repository launchers that may encounter an older local configuration.
+Wallpaper selection and restoring Waypaper's saved selection still work, but
+automatic adaptive-color/effect refreshes are paused pending an argument-based
+integration. On existing installations, also clear `post_command` in
+`~/.config/waypaper/config.ini` before launching Waypaper directly. Close any
+already-open Waypaper instance first so it cannot save the old callback again.
+The explicit Hypridle lock-before-sleep setting takes effect when Hypridle next
+starts (for example, at the next login); editing its config alone does not restart
+the daemon.
+
 Because the live desktop links directly to the main checkout, make future
 changes in a separate Git worktree so an unfinished branch cannot alter the
 running session:

@@ -7,4 +7,5 @@ if ! command -v waypaper >/dev/null 2>&1; then
 fi
 
 wallpaper_dir="$HOME/.config/myhypr/wallpapers"
-exec waypaper --backend awww --folder "$wallpaper_dir" "$@"
+# Also protect installations retaining an older, locally seeded post_command.
+exec waypaper --backend awww --folder "$wallpaper_dir" "$@" --no-post-command

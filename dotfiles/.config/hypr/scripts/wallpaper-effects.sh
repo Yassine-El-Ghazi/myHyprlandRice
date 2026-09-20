@@ -19,7 +19,7 @@ if [[ ${1:-} == reload ]]; then
         printf 'No current wallpaper is cached.\n' >&2
         exit 1
     }
-    waypaper --backend awww --wallpaper "$(<"$cache_file")"
+    waypaper --backend awww --wallpaper "$(<"$cache_file")" --no-post-command
 else
     mapfile -t effects < <("$effect_helper" --list)
     effects+=(off)
@@ -34,5 +34,5 @@ else
     printf '%s\n' "$choice" > "$setting_file"
     notify-send 'Changing wallpaper effect' "$choice"
     [[ -r $cache_file ]] && \
-        waypaper --backend awww --wallpaper "$(<"$cache_file")"
+        waypaper --backend awww --wallpaper "$(<"$cache_file")" --no-post-command
 fi

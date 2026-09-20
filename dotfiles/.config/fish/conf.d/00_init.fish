@@ -10,23 +10,25 @@ set -g fish_greeting ""
 set -gx EDITOR nvim
 set -gx VISUAL $EDITOR
 
-# Normalize inherited PATH values without persisting host state to
-# fish_variables. Empty entries are intentionally discarded because they make
-# the current directory executable through PATH.
-set -l clean_path
-for path_entry in $PATH
+# System commands take precedence over local tools, including in nested shells.
+# Keep changes local to this process, not persistent fish_variables state.
+set -l inherited_path $PATH
+set -l clean_path /usr/local/sbin /usr/local/bin /usr/bin /bin /usr/sbin
+for path_entry in "$HOME/.config/myhypr/bin" "$HOME/.local/bin" \
+        "$HOME/.cargo/bin" "$HOME/go/bin" /usr/lib/ccache/bin $inherited_path
     if test "$path_entry" != /
         set path_entry (string replace -r '/+$' '' -- "$path_entry")
     end
-    test -n "$path_entry"; or continue
+    # Empty and relative entries make executable lookup depend on the cwd.
+    string match -q '/*' -- "$path_entry"; or continue
+    test -d "$path_entry"; or continue
     contains -- "$path_entry" $clean_path; or set -a clean_path "$path_entry"
 end
 set -gx PATH $clean_path
 
-fish_add_path --path --move $HOME/.config/myhypr/bin $HOME/.local/bin \
-    $HOME/.cargo/bin $HOME/go/bin /usr/lib/ccache/bin
-
-if command -q go
-    set -l go_path (go env GOPATH 2>/dev/null)
-    test -n "$go_path"; and fish_add_path --path "$go_path/bin"
+if test -x /usr/bin/go
+    for go_path in (string split : -- (/usr/bin/go env GOPATH 2>/dev/null))
+        string match -q '/*' -- "$go_path"; or continue
+        fish_add_path --path --append "$go_path/bin"
+    end
 end

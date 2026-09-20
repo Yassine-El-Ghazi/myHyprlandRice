@@ -41,16 +41,11 @@ else
     printf ':: %s does not exist; using the default wallpaper.\n' "$cachefile"
     wallpaper=$defaultwallpaper
 fi
-[[ -f $wallpaper ]] || {
-    printf 'Wallpaper restore failed; image does not exist: %s\n' "$wallpaper" >&2
-    exit 1
-}
 
 # -----------------------------------------------------
 # Set wallpaper
 # -----------------------------------------------------
 
-printf ':: Restoring wallpaper from %s\n' "$wallpaper"
 # Waypaper's awww backend starts the daemon asynchronously. Ensure its socket
 # is ready first so wallpaper restore is reliable during Hyprland startup.
 if ! awww query >/dev/null 2>&1; then
@@ -69,4 +64,14 @@ done
     exit 1
 }
 
-exec waypaper --backend awww --wallpaper "$wallpaper"
+# Waypaper persists selections itself. Its disabled callback no longer updates
+# our legacy cache, so prefer its saved configuration/state on subsequent logins.
+if [[ -s ${XDG_CONFIG_HOME:-$HOME/.config}/waypaper/config.ini ]]; then
+    exec waypaper --backend awww --restore --no-post-command
+fi
+[[ -f $wallpaper ]] || {
+    printf 'Wallpaper restore failed; image does not exist: %s\n' "$wallpaper" >&2
+    exit 1
+}
+printf ':: Restoring wallpaper from %s\n' "$wallpaper"
+exec waypaper --backend awww --wallpaper "$wallpaper" --no-post-command
