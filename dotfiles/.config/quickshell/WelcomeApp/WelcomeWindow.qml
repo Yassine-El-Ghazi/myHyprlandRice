@@ -112,7 +112,7 @@ FloatingWindow {
                 }
                 MyHyprMenuItem {
                     text: qsTr("Wallpaper");
-                    onClicked: { appLauncher.command = ["waypaper", "--backend", "awww"]; appLauncher.running = true }
+                    onClicked: { appLauncher.command = ["waypaper", "--backend", "awww", "--no-post-command"]; appLauncher.running = true }
                 }
                 MyHyprMenuItem {
                     text: qsTr("Theme");

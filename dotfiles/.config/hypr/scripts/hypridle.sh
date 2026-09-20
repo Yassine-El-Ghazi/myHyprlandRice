@@ -15,7 +15,7 @@ start_idle() {
 }
 
 print_status() {
-    if pgrep -x "$SERVICE" >/dev/null ; then
+    if pgrep -u "$UID" -x "$SERVICE" >/dev/null ; then
         printf '%s\n' '{"text": "RUNNING", "class": "active", "tooltip": "Screen locking active\nLeft: Deactivate\nRight: Lock Screen"}'
     else
         printf '%s\n' '{"text": "NOT RUNNING", "class": "notactive", "tooltip": "Screen locking deactivated\nLeft: Activate\nRight: Lock Screen"}'
@@ -29,8 +29,8 @@ case "${1:-}" in
         print_status
         ;;
     toggle)
-        if pgrep -x "$SERVICE" >/dev/null ; then
-            pkill -x "$SERVICE"
+        if pgrep -u "$UID" -x "$SERVICE" >/dev/null ; then
+            pkill -u "$UID" -x "$SERVICE"
         else
             start_idle
         fi
@@ -39,7 +39,7 @@ case "${1:-}" in
         print_status
         ;;
     restart)
-        pkill -x "$SERVICE" || true
+        pkill -u "$UID" -x "$SERVICE" || true
         sleep 1
         start_idle
         ;;

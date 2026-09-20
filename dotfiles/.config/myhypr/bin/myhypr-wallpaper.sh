@@ -33,5 +33,5 @@ selected=$(printf '%s\n' "${images[@]}" | fzf \
     --preview-window right:50%:wrap) || exit 0
 [[ -n $selected ]] || exit 0
 
-waypaper --backend awww --wallpaper "$selected" >/dev/null 2>&1 &
+waypaper --backend awww --wallpaper "$selected" --no-post-command >/dev/null 2>&1 &
 disown

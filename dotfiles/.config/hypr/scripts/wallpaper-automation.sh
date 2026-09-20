@@ -66,7 +66,7 @@ run_automation() {
     trap stop_worker INT TERM
     printf '%s\n' "$$" > "$pid_file"
     while :; do
-        run_child waypaper --backend awww --random
+        run_child waypaper --backend awww --random --no-post-command
         run_child sleep "$interval"
     done
 }

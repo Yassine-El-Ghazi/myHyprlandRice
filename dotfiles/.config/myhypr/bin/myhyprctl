@@ -48,7 +48,7 @@ case ${1:-} in
         toggle_panel "$1"
         ;;
     wallpaper)
-        exec waypaper --backend awww
+        exec waypaper --backend awww --no-post-command
         ;;
     theme)
         exec "$CONFIG_ROOT/myhypr/themes/themes.sh"

@@ -77,7 +77,7 @@ if [[ $effect != off ]]; then
     fi
 
     : > "$recursion_marker"
-    if ! waypaper --backend awww --wallpaper "$used_wallpaper"; then
+    if ! waypaper --backend awww --wallpaper "$used_wallpaper" --no-post-command; then
         rm -f -- "$recursion_marker"
         exit 1
     fi
