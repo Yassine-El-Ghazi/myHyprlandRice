@@ -181,6 +181,7 @@ run_check 'Namespace migration behavior' "$REPO_ROOT/tests/test-migrate-namespac
 run_check 'Package bootstrap behavior' "$REPO_ROOT/tests/test-install-packages.sh"
 run_check 'Arch maintenance helper safety' "$REPO_ROOT/tests/test-arch-helpers.sh"
 run_check 'Stow and bootstrap behavior' "$REPO_ROOT/tests/test-link-dotfiles.sh"
+run_check 'Fork signing setup' python3 "$REPO_ROOT/tests/test-fork-setup.py"
 run_check 'System integration behavior' "$REPO_ROOT/tests/test-configure-system.sh"
 run_check 'Graphical session service isolation' "$REPO_ROOT/tests/test-session-services.sh"
 run_check 'Managed desktop autostart behavior' "$REPO_ROOT/tests/test-autostart.sh"

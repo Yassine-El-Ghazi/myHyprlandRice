@@ -43,43 +43,13 @@ self-test. Missing/broken scanners, unreadable inputs, and failed Git inventorie
 fail the audit rather than silently reducing coverage. Temporary scan data is
 private and removed on exit; diagnostics do not print input contents.
 
-## Issue and agent delegation: future opt-in
+## Responding to a failed check
 
-The custom agent is .github/agents/dotfiles-security.agent.md. Once this file is
-on the default branch, an authorized user with Copilot cloud agent access can
-assign an issue to Copilot and select dotfiles-security. Include the failed run
-URL, check name, and sanitized evidence, then review the tested PR. Never copy
-suspected secret values into a public issue.
-
-Automatic issue creation and assignment are not enabled. GitHub's current API
-requires a user token (PAT or GitHub App user-to-server token) for Copilot
-assignment, plus eligible Copilot access and repository/organization policy.
-The ordinary GITHUB_TOKEN is not a substitute. No new credential is required
-for the deterministic scanning implemented here.
-
-If automatic triage becomes necessary:
-
-1. Add a reporting job in Validate, dependent on both scan jobs, only for
-   schedule or manual dispatch on the default branch. Grant issues: write only
-   to that job. Do not check out or execute repository code in it, consume PR
-   artifacts, or run it for pull requests. Use fixed trusted code and pass
-   context values as data, never interpolate them into shell source.
-2. Serialize reporting with a repository-specific concurrency group. Paginate
-   issues and create/update one bot-owned issue identified by a stable marker;
-   update its body rather than adding weekly comments. Include failed job names
-   and the run URL, not raw logs. Reopen the same issue on recurrence. Record
-   recovery without automatically merging or declaring a fix reviewed.
-3. Confirm plan eligibility, repository access, organization policy, and current
-   API permissions. Prefer manual assignment; if approved later, use a dedicated
-   user-authorized GitHub App integration rather than a broad long-lived PAT.
-   Keep its credential outside untrusted validation jobs.
-4. Assign Copilot using the documented issue-assignee API, supplying
-   agent_assignment.custom_agent as dotfiles-security and the intended base
-   branch. Handle errors and repeated runs without duplicate agent sessions.
-   Require human review and existing validation on resulting PRs.
+Review the failed job in Actions, make a reviewed fix, and rerun validation and
+the history audit before pushing. When reporting a failure, include the run URL,
+check name, and sanitized evidence. Never copy suspected secret values into a
+public issue.
 
 References:
 
 - [Zizmor integration and annotation behavior](https://docs.zizmor.sh/integrations/)
-- [Custom agent configuration](https://docs.github.com/en/copilot/reference/custom-agents-configuration)
-- [Copilot API authentication and assignment](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/cloud-agent/use-cloud-agent-via-the-api)

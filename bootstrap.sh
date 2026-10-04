@@ -13,6 +13,8 @@ CONFIGURE_SYSTEM=1
 LINK_DOTFILES=1
 INSTALL_HOOKS=1
 ALLOW_AUR=0
+FORK_KEY=''
+FORK_PRINCIPAL=''
 
 usage() {
     cat <<'EOF'
@@ -25,6 +27,8 @@ Options:
   --dry-run                    Print every mutation without applying it
   --yes                        Accept package and conflict-backup prompts
   --allow-aur                  Explicitly allow reviewed AUR package builds
+  --fork-key FILE              Register your public SSH signing key for a fork
+  --fork-principal EMAIL       Fork signer identity (default: Git user.email)
   --no-packages                Skip package installation
   --no-system                  Skip service and user-directory configuration
   --no-link                    Skip Stow linking
@@ -51,6 +55,16 @@ while (($#)); do
         --allow-aur)
             ALLOW_AUR=1
             shift
+            ;;
+        --fork-key)
+            (($# >= 2)) || die '--fork-key requires a public key file'
+            FORK_KEY=$2
+            shift 2
+            ;;
+        --fork-principal)
+            (($# >= 2)) || die '--fork-principal requires an identity'
+            FORK_PRINCIPAL=$2
+            shift 2
             ;;
         --no-packages)
             INSTALL_PACKAGES=0
@@ -82,6 +96,7 @@ case $PROFILE in
     core|desktop|full) ;;
     *) die "Unknown profile '$PROFILE'; expected core, desktop, or full" ;;
 esac
+[[ -z $FORK_PRINCIPAL || -n $FORK_KEY ]] || die '--fork-principal requires --fork-key.'
 
 common_args=()
 [[ $DRY_RUN -eq 1 ]] && common_args+=(--dry-run)
@@ -91,6 +106,13 @@ package_args=("${common_args[@]}")
 
 info "Bootstrap profile: $PROFILE"
 [[ $DRY_RUN -eq 1 ]] && warn 'Dry-run mode: no changes will be made.'
+
+if [[ -n $FORK_KEY ]]; then
+    fork_args=(--public-key "$FORK_KEY")
+    [[ -z $FORK_PRINCIPAL ]] || fork_args+=(--principal "$FORK_PRINCIPAL")
+    [[ $DRY_RUN -eq 0 ]] || fork_args+=(--dry-run)
+    "$REPO_ROOT/scripts/setup-fork.sh" "${fork_args[@]}"
+fi
 
 if [[ $INSTALL_PACKAGES -eq 1 ]]; then
     "$REPO_ROOT/scripts/install-packages.sh" --profile "$PROFILE" "${package_args[@]}"

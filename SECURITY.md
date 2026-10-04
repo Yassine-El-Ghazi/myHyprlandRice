@@ -12,6 +12,15 @@ Tracked settings are treated as code; mutable values are treated as data. MyHypr
 
 Package installation uses signed Arch repositories and explicit AUR package declarations. Review AUR build files when prompted. The bootstrap does not download and execute opaque install scripts.
 
+Upstream dotfiles updates require an authorized SSH signature. Fork maintainers
+can explicitly register their own public key with `scripts/setup-fork.sh` or
+bootstrap's `--fork-key` option; ordinary installations need no personal signing
+key. Registration retains existing trusted keys, enables signing only in that
+checkout, and must be committed before automatic fork updates use it. Candidate
+updates cannot authorize themselves: the updater reads trusted keys from the
+currently installed commit. Key rotation therefore requires authorization by
+an existing trusted signer first. See the fork setup instructions in README.md.
+
 ## Maintenance transaction boundaries
 
 Maintenance operations use a per-user runtime lock and atomically written,

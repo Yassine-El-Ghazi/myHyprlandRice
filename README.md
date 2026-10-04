@@ -100,10 +100,83 @@ Useful switches:
 --profile core|desktop|full
 --dry-run
 --yes
+--fork-key FILE
+--fork-principal EMAIL
 --no-packages
 --no-system
 --no-link
 --no-hooks
+```
+
+### Adapt this repository as a fork
+
+Installing the desktop and editing local settings need no signing key. A fork
+maintainer can register their own public SSH key while retaining verification
+of signed upstream updates. Use your fork URL when cloning, configure your Git
+name/email, and choose a key you control. An ordinary SSH key works; a hardware
+security key is optional.
+
+If you need a signing key, create one with OpenSSH, choosing an unused filename
+and a passphrase, then pass its `.pub` file to setup:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/myhypr_signing -C "you@example.com"
+```
+
+The examples below use an existing `id_ed25519.pub`; substitute
+`myhypr_signing.pub` if you created the key above.
+
+```bash
+git clone https://github.com/YOUR_ACCOUNT/myHyprlandRice.git
+cd myHyprlandRice
+git config --local user.name "Your Name"
+git config --local user.email "you@example.com"
+
+# Preview registration along with the normal installation.
+./bootstrap.sh --fork-key ~/.ssh/id_ed25519.pub --dry-run
+./bootstrap.sh --fork-key ~/.ssh/id_ed25519.pub
+
+# Review and record the new public-key trust entry in your fork.
+git diff -- .config/git/allowed_signers
+git add .config/git/allowed_signers
+git commit -m "Register fork maintainer signing key"
+git push origin main
+```
+
+For an already installed checkout, register a key without reinstalling:
+
+```bash
+./scripts/setup-fork.sh --public-key ~/.ssh/id_ed25519.pub --dry-run
+./scripts/setup-fork.sh --public-key ~/.ssh/id_ed25519.pub
+```
+
+Both commands default the signer identity to Git `user.email`; use
+`--fork-principal EMAIL` in bootstrap or `--principal EMAIL` in the standalone
+helper when an explicit identity is needed. Signing settings apply only to this
+checkout. The tracked allow-list contains the public key and signer identity;
+private keys and key passphrases stay on your machine. Repeated setup is safe
+and does not duplicate the same entry.
+
+Encrypted or hardware-backed keys may need unlocking/loading in your SSH agent
+before committing. The helper retains existing upstream trusted keys and adds
+your key for the Git signature namespace. It does not change remotes or replace
+the trust anchor automatically. Commit the registration before using
+`myhyprctl update`: incoming updates are checked against the allow-list in the
+currently installed commit. For a new maintainer key, authorize it in a commit
+signed by an already trusted key before publishing updates signed by the new one.
+During key rotation, override the newly configured key for that authorization
+commit with `git -c user.signingkey="$HOME/.ssh/OLD_KEY.pub" commit`; subsequent
+commits can use the new configured key.
+
+To bring upstream changes into your fork, add an upstream remote once, then
+fetch and merge it. The retained upstream key verifies the incoming revision;
+your configured key signs any merge commit:
+
+```bash
+git remote add upstream https://github.com/Yassine-El-Ghazi/myHyprlandRice.git
+git fetch upstream
+git merge upstream/main
+git push origin main
 ```
 
 ## Package profiles
