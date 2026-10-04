@@ -267,6 +267,8 @@ if ((${#backup_paths[@]})); then
     [[ $BACKUP_CONFLICTS -eq 1 ]] || \
         die 'Re-run with --backup-conflicts to preserve and replace them.'
     confirm "Back up these paths under $backup_dir?"
+    backup_dir=$(new_private_archive "$backup_base" "$(timestamp)") || \
+        die 'Could not prepare a private conflict backup.'
 
     for relative in "${backup_paths[@]}"; do
         source_path="$TARGET/$relative"

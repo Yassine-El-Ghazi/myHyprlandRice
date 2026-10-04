@@ -46,6 +46,7 @@ sed \
     "$REPO_ROOT/scripts/update-system.sh" > "$UPDATE_SCRIPT"
 chmod +x "$UPDATE_SCRIPT"
 
+printf '%s\n' '{"text":"0","class":"green"}' > "$runtime_root/myhypr-update-status.json"
 PATH="$TEST_ROOT/bin:/usr/bin:/bin" XDG_RUNTIME_DIR="$runtime_root" \
     "$UPDATE_SCRIPT"
 rg -Fxq "pkexec <$TEST_ROOT/bin/pacman -Syu>" "$UPDATE_TEST_LOG"
@@ -54,11 +55,9 @@ if rg -q '^helper ' "$UPDATE_TEST_LOG"; then
 fi
 rg -Fxq 'flatpak <--user update>' "$UPDATE_TEST_LOG"
 rg -Fxq 'flatpak <--system update>' "$UPDATE_TEST_LOG"
-rg -Fxq 'signal <-RTMIN+1 waybar>' "$UPDATE_TEST_LOG"
-jq -e '.text == "0" and .class == "green"' \
-    "$runtime_root/myhypr-update-status.json" >/dev/null || {
-    printf 'Successful update produced an invalid Waybar status: ' >&2
-    cat -- "$runtime_root/myhypr-update-status.json" >&2
+rg -Fxq "signal <-u $UID -x -RTMIN+1 waybar>" "$UPDATE_TEST_LOG"
+[[ ! -e $runtime_root/myhypr-update-status.json ]] || {
+    printf 'Successful update must request a fresh check, not force a zero.\n' >&2
     exit 1
 }
 
@@ -72,7 +71,7 @@ fi
 [[ ! -e $runtime_root/myhypr-update-status.json ]] || {
     printf 'Failed update retained a successful status marker.\n' >&2; exit 1;
 }
-rg -Fxq 'signal <-RTMIN+1 waybar>' "$UPDATE_TEST_LOG"
+rg -Fxq "signal <-u $UID -x -RTMIN+1 waybar>" "$UPDATE_TEST_LOG"
 if rg -q flatpak "$UPDATE_TEST_LOG"; then
     printf 'Flatpak ran after the Arch upgrade failed.\n' >&2; exit 1
 fi

@@ -83,6 +83,13 @@ assert(received:find("quote\\'s", 1, true))
 LUA
 
 modules="$REPO_ROOT/dotfiles/.config/waybar/modules.json"
+for config in "$modules" "$REPO_ROOT/dotfiles/.config/waybar/themes/myhypr-minimal/config"; do
+    update_module=$(sed -n '/"custom\/updates": {/,/^[[:space:]]*},/p' "$config")
+    [[ $update_module == *'"interval": 300'* && \
+        $update_module == *'"on-click-right": "true"'* && \
+        $update_module == *'"exec-on-event": true'* ]] || \
+        fail 'updates lack periodic and immediate manual refresh'
+done
 rg -Fq "\"on-scroll-up\": \"hyprctl dispatch \\\"hl.dsp.focus({ workspace = 'r-1' })\\\"\"" "$modules" || \
     fail 'workspace scroll-up does not use typed focus'
 rg -Fq "\"on-scroll-down\": \"hyprctl dispatch \\\"hl.dsp.focus({ workspace = 'r+1' })\\\"\"" "$modules" || \

@@ -107,3 +107,54 @@ ensure_sudo_session() {
 timestamp() {
     date -u +'%Y%m%dT%H%M%SZ'
 }
+
+# Create an owner-only archive boundary without chmodding unrelated ancestors.
+# Reject links and replaceable ancestors before moving confidential user files.
+prepare_private_directory() (
+    local requested=$1 directory='' component owner mode numeric_mode root_owner
+    local -a components
+    umask 077
+    # The filesystem root's UID may be mapped inside an unprivileged sandbox.
+    root_owner=$(stat -c %u -- /) || return 1
+    [[ $requested == /* && $requested != / &&
+        $requested != *$'\n'* && /$requested/ != *'/../'* &&
+        /$requested/ != *'/./'* ]] || {
+        warn 'Private archive directories must be absolute paths without traversal.'
+        return 1
+    }
+    IFS=/ read -r -a components <<< "$requested"
+    for component in "${components[@]}"; do
+        [[ -n $component ]] || continue
+        directory+="/$component"
+        [[ ! -L $directory ]] || {
+            warn "Private archive path contains a symlink: $directory"
+            return 1
+        }
+        if [[ ! -e $directory ]]; then
+            mkdir -m 0700 -- "$directory" || return 1
+        fi
+        [[ -d $directory ]] || return 1
+        owner=$(stat -c %u -- "$directory") || return 1
+        mode=$(stat -c %a -- "$directory") || return 1
+        [[ $mode =~ ^[0-7]{3,4}$ && ( $owner == "$EUID" || $owner == "$root_owner" ) ]] || return 1
+        numeric_mode=$((8#$mode))
+        # Root-owned sticky temporary directories protect our owned children.
+        if (( (numeric_mode & 0022) != 0 )) &&
+            ! { [[ $owner == "$root_owner" ]] && (( (numeric_mode & 01000) != 0 )); }; then
+            warn "Private archive path has a writable ancestor: $directory"
+            return 1
+        fi
+    done
+    [[ $owner == "$EUID" ]] || return 1
+    chmod 0700 -- "$directory" || return 1
+)
+
+new_private_archive() {
+    local parent=$1 label=$2
+    if [[ ${DRY_RUN:-0} -eq 1 ]]; then
+        printf '%s/%s.XXXXXXXX\n' "$parent" "$label"
+        return
+    fi
+    prepare_private_directory "$parent" || return 1
+    mktemp -d -- "$parent/$label.XXXXXXXX"
+}

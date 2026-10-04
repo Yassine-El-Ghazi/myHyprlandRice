@@ -56,5 +56,6 @@ if [[ $update_status -ne 0 ]]; then
     exit "$update_status"
 fi
 
-printf '\n:: All updates completed successfully.\n'
+printf '\n:: Repository and Flatpak updates completed successfully.\n'
+printf ':: AUR updates are separate: review recipes, then run scripts/update-system.sh --allow-aur from the dotfiles repository.\n'
 pause_before_exit

@@ -39,7 +39,7 @@ printf '%s\n' \
     'printf " <%s>" "$@" >> "$SCREENSHOT_TEST_LOG"' \
     'printf "\n" >> "$SCREENSHOT_TEST_LOG"' \
     'destination=${!#}' \
-    ': > "$destination"' > "$FAKE_BIN/grim"
+    'printf "synthetic capture\n" > "$destination"' > "$FAKE_BIN/grim"
 printf '%s\n' '#!/usr/bin/env bash' 'printf "0,0 10x10\n"' > "$FAKE_BIN/slurp"
 printf '%s\n' '#!/usr/bin/env bash' 'while :; do sleep 1; done' > "$FAKE_BIN/hyprpicker"
 printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$FAKE_BIN/notify-send"
@@ -63,6 +63,7 @@ env "${test_env[@]}" "$helper" --instant || fail 'instant full capture failed'
 rg -Fq "grim <$TEST_HOME/Screenshots/shot.png>" "$SCREENSHOT_TEST_LOG" || \
     fail 'instant full capture used unexpected arguments'
 
+rm -f -- "$TEST_HOME/Screenshots/shot.png"
 env "${test_env[@]}" "$helper" --instant-area || fail 'instant area capture failed'
 rg -Fq "grim <-g> <0,0 10x10> <$TEST_HOME/Screenshots/shot.png>" \
     "$SCREENSHOT_TEST_LOG" || fail 'instant area capture used unexpected arguments'

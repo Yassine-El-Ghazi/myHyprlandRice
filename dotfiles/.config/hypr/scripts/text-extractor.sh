@@ -2,6 +2,7 @@
 # Script by https://github.com/anshifmonz
 
 set -Eeuo pipefail
+umask 077
 
 PICKER_PID=''
 ocr_output=''
@@ -10,11 +11,17 @@ DEPS=(grim slurp magick tesseract wl-copy timeout hyprpicker rofi)
 
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 safe_kill() { [[ -n "${1:-}" ]] && kill "$1" 2>/dev/null || true; }
-cleanup() {
+stop_picker() {
     safe_kill "$PICKER_PID"
+    PICKER_PID=''
+}
+cleanup() {
+    stop_picker
     [[ -z $ocr_output ]] || rm -f -- "$ocr_output"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 ocr_output=$(mktemp "${TMPDIR:-/tmp}/myhypr-ocr.XXXXXXXX")
 
@@ -69,7 +76,7 @@ sleep 0.1 || true
 REGION=$(timeout "$SLURP_TIMEOUT" slurp -b '#00000080' -c '#888888ff' -w 1) || \
     die 'No region selected (timeout or cancelled)'
 [[ -n $REGION ]] || die 'No region selected'
-cleanup
+stop_picker
 
 grim -g "$REGION" - \
     | magick - -colorspace Gray -normalize -contrast-stretch 2% \

@@ -90,6 +90,10 @@ GUI. Install OpenCode separately if you want that launcher on another machine.
 8. Seeds normal mutable files from `defaults/` without overwriting changes.
 9. Enables the repository-local pre-commit audit and runs the doctor.
 
+Conflict backups and migration archives use unique owner-only directories.
+The helpers reject symlinked archive paths and unsafe ancestor permissions
+before moving files, while preserving original file modes for restoration.
+
 Useful switches:
 
 ```text
@@ -138,7 +142,7 @@ myhyprctl reload        # Reload Hyprland and print config errors
 myhyprctl doctor
 myhyprctl update-plan   # Validate and preview a dotfiles update
 myhyprctl update        # Apply a transactional dotfiles update
-myhyprctl update-system # Run the normal Arch/AUR and Flatpak updates
+myhyprctl update-system # Run official repository and Flatpak updates
 myhyprctl update-status # Inspect the latest maintenance transaction
 myhyprctl recover ID    # Recover a failed or interrupted transaction
 myhyprctl docs
@@ -220,6 +224,12 @@ make audit
 `capture-runtime.sh` refuses symlinks, copies only files already declared in
 `defaults/`, and runs the privacy/security audit after a real capture.
 
+OCR temporary text and newly saved screenshots are owner-only (`0600`).
+Screenshot filename collisions create a new filename rather than overwriting
+an existing file or following a link. Existing shared picture directories keep
+their permissions; unsafe writable or symlinked output directories are rejected.
+These defaults do not change permissions on screenshots saved previously.
+
 ## Validate and maintain
 
 ```bash
@@ -266,9 +276,22 @@ tracked files.
 ### System updates
 
 The Waybar Update button, `updates` shell alias, and `myhyprctl update-system`
-run the normal Arch/AUR upgrade, followed by Flatpak updates for configured
+run the official repository upgrade, followed by Flatpak updates for configured
 user and system remotes. Package-manager prompts remain interactive, and
-administrator authentication uses `pkexec`. AUR builds run as your user.
+administrator authentication uses `pkexec`. AUR builds execute third-party code:
+after reviewing the recipes, opt in with `./scripts/update-system.sh --allow-aur`
+from this repository. Builds run as your user, not root.
+
+Waybar checks repository, AUR, and user/system Flatpak updates every five minutes.
+Right-click the update count to refresh immediately; the tooltip shows each
+source and when the check completed. A completed update triggers another full
+check, so skipped AUR updates stay visible. `?` means status is unknown or cached;
+`N+` means the displayed count is incomplete, not a verified current total.
+Only a successful fresh check of all applicable sources can show a green zero.
+Counts reflect the configured mirrors/remotes at check time, not releases that
+appear afterward. They exclude new AUR VCS commits without a package-version
+change and optional firmware updates. In the minimal theme, software settings
+remain available on middle-click.
 
 These everyday updates do not run snapshot preflight checks, create dotfiles
 transactions, or block on home snapshot coverage. Existing Btrfs/snapshot

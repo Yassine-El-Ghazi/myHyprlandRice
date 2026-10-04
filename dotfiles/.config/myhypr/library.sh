@@ -40,3 +40,40 @@ myhypr_render_filename() {
     }
     printf '%s' "$rendered"
 }
+
+# Reserve a fresh private capture file. Existing files/links are never opened
+# or truncated; repeated filenames get a unique suffix instead.
+myhypr_reserve_screenshot() (
+    local directory=$1 filename=$2 destination mode template suffix=''
+    umask 077
+    [[ -n $filename && $filename != */* && $filename != . && $filename != .. ]] || return 1
+    [[ ! -L $directory ]] || {
+        printf 'Screenshot directory may not be a symlink.\n' >&2
+        return 1
+    }
+    mkdir -p -- "$directory" || return 1
+    [[ -d $directory && $(stat -c %u -- "$directory") == "$EUID" ]] || return 1
+    mode=$(stat -c %a -- "$directory") || return 1
+    if [[ ! $mode =~ ^[0-7]{3,4}$ ]] || (( (8#$mode & 0022) != 0 )); then
+        printf 'Screenshot directory must not be writable by other users.\n' >&2
+        return 1
+    fi
+    destination="$directory/$filename"
+    if [[ -e $destination || -L $destination ]]; then
+        template="$directory/$filename.XXXXXXXX"
+        if [[ $filename == ?*.* ]]; then
+            suffix=".${filename##*.}"
+            template="$directory/${filename%.*}.XXXXXXXX"
+        fi
+        destination=$(mktemp --suffix="$suffix" -- "$template") || return 1
+    elif ! (set -o noclobber; : > "$destination") 2>/dev/null; then
+        printf 'Could not reserve screenshot output.\n' >&2
+        return 1
+    fi
+    if [[ $(stat -c '%u:%a' -- "$destination") != "$EUID:600" ]]; then
+        rm -f -- "$destination"
+        printf 'Could not establish private screenshot permissions.\n' >&2
+        return 1
+    fi
+    printf '%s\n' "$destination"
+)

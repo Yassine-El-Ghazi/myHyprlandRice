@@ -102,8 +102,10 @@
     "escape": true,
     "return-type": "json",
     "exec": "~/.config/myhypr/scripts/updates.sh",
-    "interval": 1800,
+    "interval": 300,
     "signal": 1,
+    "exec-on-event": true,
+    "on-click-right": "true",
     "hide-empty-text": true,
     "on-click": "~/.config/myhypr/bin/launch-app ~/.config/myhypr/settings/installupdates.sh"
   },

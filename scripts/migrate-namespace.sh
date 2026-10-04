@@ -122,6 +122,16 @@ fi
     warn "Legacy Waybar quicklink commands will be updated in $quicklinks"
 confirm 'Continue with the standalone namespace migration?'
 
+if [[ $TARGET == "$HOME" ]]; then
+    state_root=${XDG_STATE_HOME:-$TARGET/.local/state}
+else
+    state_root="$TARGET/.local/state"
+fi
+migrations_root="$state_root/myhyprlandrice/migrations"
+archive_root=$(new_private_archive "$migrations_root" "$(timestamp)") || \
+    die 'Could not prepare a private namespace migration archive.'
+archive_root+='/legacy-ml4w'
+
 run mkdir -p -- "$new_settings"
 
 copy_setting() {
@@ -166,9 +176,8 @@ elif [[ -f $quicklinks && ! -L $quicklinks ]]; then
     quicklinks_current=$(<"$quicklinks")
     quicklinks_updated=$(rewrite_quicklink_content "$quicklinks_current")
     if [[ $quicklinks_updated != "$quicklinks_current" ]]; then
-        quicklinks_backup_root="$TARGET/.local/state/myhyprlandrice/migrations"
-        mkdir -p -- "$quicklinks_backup_root"
-        quicklinks_backup=$(mktemp -d "$quicklinks_backup_root/quicklinks.XXXXXXXX")
+        quicklinks_backup=$(new_private_archive "$migrations_root" quicklinks) || \
+            die 'Could not prepare a private quicklinks backup.'
         cp -p -- "$quicklinks" "$quicklinks_backup/waybar-quicklinks.json"
         quicklinks_temporary=$(mktemp "$new_settings/.waybar-quicklinks.XXXXXXXX")
         printf '%s\n' "$quicklinks_updated" > "$quicklinks_temporary"
@@ -224,13 +233,6 @@ if [[ -e $legacy_welcome_marker && ! -e $new_settings/welcome-on-startup ]]; the
         printf 'False\n' > "$new_settings/welcome-on-startup"
     fi
 fi
-
-if [[ $TARGET == "$HOME" ]]; then
-    state_root=${XDG_STATE_HOME:-$TARGET/.local/state}
-else
-    state_root="$TARGET/.local/state"
-fi
-archive_root="$state_root/myhyprlandrice/migrations/$(timestamp)/legacy-ml4w"
 
 new_cache="$TARGET/.cache/myhypr"
 if [[ -d $legacy_cache && ! -e $new_cache ]]; then

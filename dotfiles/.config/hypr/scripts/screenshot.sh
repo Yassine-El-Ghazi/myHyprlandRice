@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 077
 #                                 __        __ 
 #   ___ ___________ ___ ___  ___ / /  ___  / /_
 #  (_-</ __/ __/ -_) -_) _ \(_-</ _ \/ _ \/ __/
@@ -23,8 +24,26 @@ SAVE_DIR=$(<"$CONFIG_ROOT/myhypr/settings/screenshot-folder")
 SAVE_FILENAME=$(<"$CONFIG_ROOT/myhypr/settings/screenshot-filename")
 screenshot_folder=$(myhypr_expand_path "$SAVE_DIR")
 NAME=$(myhypr_render_filename "$SAVE_FILENAME")
-output_path="$screenshot_folder/$NAME"
-mkdir -p -- "$screenshot_folder"
+output_path=''
+pending_output=''
+pid_picker=''
+cleanup() {
+    [[ -z $pid_picker ]] || kill "$pid_picker" 2>/dev/null || true
+    [[ -z $pending_output ]] || rm -f -- "$pending_output"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+reserve_output() {
+    output_path=$(myhypr_reserve_screenshot "$screenshot_folder" "$NAME") || return 1
+    pending_output=$output_path
+}
+
+finish_capture() {
+    [[ -s $output_path ]] || rm -f -- "$output_path"
+    pending_output=''
+}
 
 # Screenshot Editor
 GRIMBLAST_EDITOR=$(<"$CONFIG_ROOT/myhypr/settings/screenshot-editor")
@@ -38,17 +57,20 @@ export GRIMBLAST_EDITOR
 
 # Quick instant mode: full screen
 take_instant_full() {
-    grim "$output_path" && notify-send -t 1000 "Screenshot saved to $output_path"
+    reserve_output
+    grim "$output_path"
+    [[ -s $output_path ]] || return 1
+    finish_capture
+    notify-send -t 1000 "Screenshot saved to $output_path"
 }
 
 # Quick instant mode: area selection
 take_instant_area() {
-    local pid_picker region
+    local region
 
     # freeze screen for region selection
     hyprpicker -r -z &
     pid_picker=$!
-    trap 'kill "$pid_picker" 2>/dev/null' EXIT
     sleep 0.1
 
     # user selects region; kill picker on cancel
@@ -56,11 +78,15 @@ take_instant_area() {
     [[ -z "$region" ]] && exit 0
 
     # unfreeze screen
-    kill "$pid_picker" 2>/dev/null
-    trap - EXIT
+    kill "$pid_picker" 2>/dev/null || true
+    pid_picker=''
 
     # capture and notify
-    grim -g "$region" "$output_path" && notify-send -t 1000 "Screenshot saved to $output_path"
+    reserve_output
+    grim -g "$region" "$output_path"
+    [[ -s $output_path ]] || return 1
+    finish_capture
+    notify-send -t 1000 "Screenshot saved to $output_path"
 }
 
 # Handle instant flags
@@ -214,14 +240,18 @@ timer() {
 # take shots
 takescreenshot() {
     sleep 1
+    reserve_output
     grimblast --notify "$option_chosen" "$option_type_screenshot" "$output_path"
+    finish_capture
 }
 
 takescreenshot_timer() {
     sleep 1
     timer
     sleep 1
+    reserve_output
     grimblast --notify "$option_chosen" "$option_type_screenshot" "$output_path"
+    finish_capture
 }
 
 # Execute Command

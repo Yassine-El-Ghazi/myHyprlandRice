@@ -386,7 +386,7 @@ SYSTEM_WRAPPER_LOG="$WRAPPER_LOG" SYSTEM_WRAPPER_STATUS=0 HOME="$WRAPPER_HOME" \
     > "$WRAPPER_ROOT/success.log" 2>&1
 [[ $(<"$WRAPPER_LOG") == '<>' ]] || \
     fail 'graphical updater did not delegate exactly once'
-rg -q 'All updates completed successfully' "$WRAPPER_ROOT/success.log" || \
+rg -Fq 'Repository and Flatpak updates completed successfully.' "$WRAPPER_ROOT/success.log" || \
     fail 'graphical updater omitted successful presentation'
 set +e
 SYSTEM_WRAPPER_LOG="$WRAPPER_LOG" SYSTEM_WRAPPER_STATUS=42 HOME="$WRAPPER_HOME" \
@@ -396,7 +396,7 @@ SYSTEM_WRAPPER_LOG="$WRAPPER_LOG" SYSTEM_WRAPPER_STATUS=42 HOME="$WRAPPER_HOME" 
 wrapper_status=$?
 set -e
 [[ $wrapper_status -eq 42 ]] || fail 'graphical updater hid the transaction status'
-! rg -q 'All updates completed successfully' "$WRAPPER_ROOT/failure.log" || \
+! rg -Fq 'Repository and Flatpak updates completed successfully.' "$WRAPPER_ROOT/failure.log" || \
     fail 'graphical updater printed false success'
 rg -Fq 'package-manager output' "$WRAPPER_ROOT/failure.log" || \
     fail 'graphical updater omitted failure guidance'

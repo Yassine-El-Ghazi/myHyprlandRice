@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 077
 
 CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
 # shellcheck source=/dev/null
@@ -14,8 +15,12 @@ filename_template='screenshot_%Y%m%d_%H%M%S.jpg'
 
 save_directory=$(myhypr_expand_path "$save_directory")
 filename=$(myhypr_render_filename "$filename_template")
-output_path="$save_directory/$filename"
-mkdir -p -- "$save_directory"
+output_path=''
+pending_output=''
+cleanup() { [[ -z $pending_output ]] || rm -f -- "$pending_output"; }
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 take_screenshot() {
     local mode=$1
@@ -33,16 +38,22 @@ take_screenshot() {
 
     case $mode in
         fullscreen)
+            output_path=$(myhypr_reserve_screenshot "$save_directory" "$filename")
+            pending_output=$output_path
             grim "$output_path"
             ;;
         area)
             geometry=$(slurp) || return 0
             [[ -n $geometry ]] || return 0
+            output_path=$(myhypr_reserve_screenshot "$save_directory" "$filename")
+            pending_output=$output_path
             grim -g "$geometry" "$output_path"
             ;;
         window)
             geometry=$(hyprctl -j activewindow | \
                 jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')
+            output_path=$(myhypr_reserve_screenshot "$save_directory" "$filename")
+            pending_output=$output_path
             grim -g "$geometry" "$output_path"
             ;;
         *)
@@ -51,10 +62,11 @@ take_screenshot() {
             ;;
     esac
 
-    [[ -f $output_path ]] || {
+    [[ -s $output_path ]] || {
         printf 'Screenshot capture failed.\n' >&2
         return 1
     }
+    pending_output=''
     wl-copy < "$output_path"
     printf 'Saved %s and copied it to the clipboard.\n' "$output_path"
 }

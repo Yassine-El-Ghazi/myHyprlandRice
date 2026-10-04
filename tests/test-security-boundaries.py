@@ -93,6 +93,11 @@ class SecurityBoundaryTests(unittest.TestCase):
             home = Path(directory)
             local_bin = home / ".local/bin"
             local_bin.mkdir(parents=True)
+            # The init module queries Go's GOPATH. Disable telemetry only in
+            # this fixture so its background writer cannot race home cleanup.
+            telemetry = home / ".config/go/telemetry"
+            telemetry.mkdir(parents=True)
+            (telemetry / "mode").write_text("off\n")
             env = {
                 "HOME": str(home),
                 "XDG_CONFIG_HOME": str(home / ".config"),

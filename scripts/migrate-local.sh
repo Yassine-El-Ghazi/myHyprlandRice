@@ -135,6 +135,8 @@ warn 'The following stale files shadow packaged tools or clutter the checkout:'
 printf '  %s\n' "${stale_labels[@]}" >&2
 archive_root="${XDG_STATE_HOME:-$HOME/.local/state}/myhyprlandrice/migrations/$(timestamp)"
 confirm "Archive them under $archive_root?"
+archive_root=$(new_private_archive "${archive_root%/*}" "$(timestamp)") || \
+    die 'Could not prepare a private local migration archive.'
 
 if [[ -n $migrated_keybinding_profile ]]; then
     if [[ $DRY_RUN -eq 1 ]]; then
