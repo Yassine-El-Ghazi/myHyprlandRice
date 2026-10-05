@@ -17,7 +17,18 @@
 # -----------------------------------------------------
 # Keep trusted system command directories ahead of user-writable directories.
 # 00-init normalizes module paths; the loader restores precedence at the end.
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:$HOME/.config/myhypr/bin:$HOME/.local/bin:$PATH"
+_myhypr_normalize_path() {
+    local entry
+    local -a clean_path=(/usr/local/sbin /usr/local/bin /usr/bin /bin /usr/sbin)
+    for entry in "${path[@]}"; do
+        while [[ $entry != / && $entry == */ ]]; do entry=${entry%/}; done
+        [[ $entry == /* ]] && clean_path+=("$entry")
+    done
+    typeset -gU path PATH
+    path=("${clean_path[@]}")
+}
+path+=("$HOME/.config/myhypr/bin" "$HOME/.local/bin")
+_myhypr_normalize_path
 
 for config_file in "$HOME"/.config/zshrc/*(N); do
     # Stow may link each module individually. Test the resolved target instead
@@ -54,4 +65,5 @@ unset sdk_bin
 typeset -U path PATH
 # Custom modules and tool integrations may prepend paths. Restore the policy
 # after every loader addition, retaining the tools after trusted commands.
-path=(/usr/local/sbin /usr/local/bin /usr/bin /bin /usr/sbin "${path[@]}")
+_myhypr_normalize_path
+unfunction _myhypr_normalize_path

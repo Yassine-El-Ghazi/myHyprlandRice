@@ -5,11 +5,14 @@ set -Eeuo pipefail
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/myhypr-walker-test.XXXXXXXX")
 FAKE_BIN="$TEST_ROOT/bin"
-TEST_HOME="$TEST_ROOT/user-root"
+TEST_HOME=$(mktemp -d "$REPO_ROOT/.walker-home.XXXXXXXX")
 export WALKER_TEST_STATE="$TEST_ROOT/elephant-ready"
 export WALKER_TEST_LOG="$TEST_ROOT/commands.log"
 
 cleanup() {
+    case $TEST_HOME in
+        "$REPO_ROOT"/.walker-home.*) rm -rf -- "$TEST_HOME" ;;
+    esac
     case $TEST_ROOT in
         "${TMPDIR:-/tmp}"/myhypr-walker-test.*) rm -rf -- "$TEST_ROOT" ;;
     esac
@@ -18,11 +21,14 @@ trap cleanup EXIT
 
 mkdir -p -- \
     "$FAKE_BIN" \
+    "$TEST_HOME/.config/myhypr/bin" \
     "$TEST_HOME/.config/myhypr/settings" \
     "$TEST_HOME/.config/walker/themes/myhypr" \
     "$TEST_HOME/.config/walker/themes/glass"
 printf 'style\n' > "$TEST_HOME/.config/walker/themes/myhypr/style.css"
 printf 'style\n' > "$TEST_HOME/.config/walker/themes/glass/style.css"
+cp -- "$REPO_ROOT/dotfiles/.config/myhypr/bin/elephant-storage.py" \
+    "$TEST_HOME/.config/myhypr/bin/elephant-storage.py"
 
 printf '%s\n' \
     '#!/usr/bin/env bash' \

@@ -6,6 +6,8 @@ After=graphical-session-pre.target
 
 [Service]
 Type=simple
+UMask=0077
+ExecStartPre=/usr/bin/python3 %h/.config/myhypr/bin/elephant-storage.py --prepare
 ExecStart=/usr/bin/elephant
 Restart=on-failure
 RestartSec=1s

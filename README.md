@@ -61,13 +61,14 @@ your display manager. For an unattended machine you control:
 The bootstrap is idempotent. Running it again preserves existing runtime
 preferences and only installs or links what is missing.
 
-On Neovim's first start, the plugin manager's moving `stable` branch downloads
-plugins recorded in `lazy-lock.json` and the configured Tree-sitter parsers.
-The plugin revisions are locked; the plugin manager branch and parser/tool
-downloads are not immutable. The bootstrap installs the required Node.js and
-Tree-sitter runtimes, but account authentication remains private; run
-`:Copilot auth` inside Neovim if you want to use Copilot on a new machine. No
-token or editor login is stored in this repository.
+Neovim uses the base [LazyVim](https://www.lazyvim.org/) configuration with no
+optional extras or Copilot/Chat plugins. First startup installs its core plugins
+and Tree-sitter parsers. LazyVim and lazy.nvim follow stable releases; update
+checks notify you, and `:Lazy update` installs updates together and refreshes
+`lazy-lock.json`. Run `:LazyHealth` after installation. The LuaLS executable
+project-code guard remains enabled. Bootstrap supplies the required compiler,
+curl, and Tree-sitter CLI; parser/tool downloads remain external
+dependencies. See [the editor setup](dotfiles/.config/nvim/README.md).
 
 The tracked OpenCode desktop entry exposes an existing GUI installation at
 `/opt/OpenCode/OpenCode`; bootstrap does not install that externally packaged
@@ -77,7 +78,8 @@ GUI. Install OpenCode separately if you want that launcher on another machine.
 
 1. Resolves the selected package profile from `packages/arch/`.
 2. Installs repository packages, then uses `paru` or `yay` for AUR packages.
-   If neither exists, it can build `paru-bin` in a disposable directory.
+   AUR installation requires an already installed helper and explicit opt-in;
+   bootstrap stops with installation guidance if neither helper exists.
    Privileged work shares one terminal authentication; AUR builds never run
    as root.
 3. Enables NetworkManager and Bluetooth, then installs tracked Elephant and

@@ -1044,14 +1044,9 @@ recover_active_transaction() {
     fi
 
     if [[ -d $TX_DIR/checkpoint && ! -L $TX_DIR/checkpoint ]]; then
-        if [[ ! -e $TX_DIR/owned-after.tsv && ! -L $TX_DIR/owned-after.tsv ]]; then
-            recovery_capture_owned_state "$TX_DIR" "$REPO_ROOT" "$HOME" || \
-                recovery_failed=1
-        fi
-        if [[ $recovery_failed -eq 0 ]]; then
-            recovery_checkpoint_restore "$TX_DIR" "$REPO_ROOT" "$HOME" || \
-                recovery_failed=1
-        fi
+        # Recovery must not establish ownership by observing mutable live files.
+        recovery_checkpoint_restore "$TX_DIR" "$REPO_ROOT" "$HOME" || \
+            recovery_failed=1
     else
         maintenance_journal_update "$TX_DIR" '
             .recovery.configuration = "not-needed" |

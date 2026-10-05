@@ -35,14 +35,14 @@ unset inherited_path
 # Normalize trailing slashes before the uniqueness attribute de-duplicates PATH.
 typeset -a normalized_path
 for path_entry in "${path[@]}"; do
-    [[ "$path_entry" != / ]] && path_entry="${path_entry%/}"
-    [[ -n "$path_entry" ]] && normalized_path+=("$path_entry")
+    while [[ $path_entry != / && $path_entry == */ ]]; do path_entry=${path_entry%/}; done
+    [[ $path_entry == /* ]] && normalized_path+=("$path_entry")
 done
 path=("${normalized_path[@]}")
 unset normalized_path path_entry
 
 if (( $+commands[go] )); then
     go_path="$(go env GOPATH 2>/dev/null)"
-    [[ -n "$go_path" ]] && path+=("$go_path/bin")
+    [[ $go_path == /* ]] && path+=("$go_path/bin")
     unset go_path
 fi

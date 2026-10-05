@@ -455,6 +455,9 @@ rg -q '^State: applying$' "$CASE_OUTPUT" || fail 'status did not discover interr
 [[ ! -e $CASE_STATE/myhyprlandrice/known-good.json ]] || \
     fail 'status promoted a noncommitted transaction'
 run_maintenance 0 recover "$INTERRUPTED_ID"
+if rg -q '^owned-state$' "$ORCHESTRATOR_LOG"; then
+    fail 'interrupted recovery synthesized ownership from live state'
+fi
 jq -e '.state == "recovered"' "$INTERRUPTED_TX/journal.json" >/dev/null || \
     fail 'interrupted transaction was not recoverable'
 recovery_count=$(rg -c '^configuration-restore$' "$ORCHESTRATOR_LOG")

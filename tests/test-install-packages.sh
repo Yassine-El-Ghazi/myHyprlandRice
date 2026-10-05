@@ -18,7 +18,6 @@ trap cleanup EXIT
 desktop_manifest="$REPO_ROOT/packages/arch/desktop.txt"
 core_manifest="$REPO_ROOT/packages/arch/core.txt"
 validation_workflow="$REPO_ROOT/.github/workflows/validate.yml"
-nvim_config="$REPO_ROOT/dotfiles/.config/nvim/init.lua"
 doctor="$REPO_ROOT/scripts/doctor.sh"
 hypr_environment="$REPO_ROOT/dotfiles/.config/hypr/conf/myhypr.lua"
 hypr_environment_compat="$REPO_ROOT/dotfiles/.config/hypr/conf/myhypr.conf"
@@ -41,7 +40,7 @@ for maintenance_package in bubblewrap util-linux; do
         exit 1
     }
 done
-for editor_dependency in nodejs tree-sitter-cli; do
+for editor_dependency in base-devel curl tree-sitter-cli; do
     rg -Fxq "$editor_dependency" "$core_manifest" || {
         printf 'Core profile is missing Neovim runtime dependency: %s\n' \
             "$editor_dependency" >&2
@@ -91,11 +90,7 @@ for nvidia_config in "$nvidia_environment" "$nvidia_environment_compat"; do
         exit 1
     fi
 done
-rg -Fq "pattern = { 'sh'," "$nvim_config" || {
-    printf 'Neovim Tree-sitter does not attach to normal shell filetypes.\n' >&2
-    exit 1
-}
-rg -q 'node tree-sitter' "$doctor" || {
+rg -q 'tree-sitter' "$doctor" || {
     printf 'Doctor does not validate Neovim runtime dependencies.\n' >&2
     exit 1
 }

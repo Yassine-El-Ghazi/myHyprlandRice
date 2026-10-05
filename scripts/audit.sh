@@ -128,15 +128,21 @@ run_quick_validation() {
     )
 }
 
-for file in "${files[@]}"; do
-    lower_file=${file,,}
-    case $lower_file in
-        *.env.example|*.example) ;;
+sensitive_filename() {
+    case ${1,,} in
+        *.env.example|*.example) return 1 ;;
         */.env|*/.env.*|.env|.env.*|*/id_rsa|*/id_ed25519|*.pem|*.key|*.p12|*.pfx|*.kdbx|*/credentials|*/credentials.*|*/secrets/*|*/.config/fish/config.local.fish|*/.config/bashrc/custom/*|*/.config/zshrc/custom/*)
-            warn "Sensitive filename must not be tracked: $file"
-            failures=$((failures + 1))
-            ;;
+            return 0 ;;
     esac
+    return 1
+}
+
+for file in "${files[@]}"; do
+    if sensitive_filename "$file"; then
+        printf -v display_path '%q' "$file"
+        warn "Sensitive filename must not be tracked: $display_path"
+        failures=$((failures + 1))
+    fi
 done
 
 high_confidence_pattern='(BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})'
@@ -209,6 +215,26 @@ if [[ $RUN_HISTORY -eq 1 ]]; then
     history_findings=0
     git rev-list --objects --all > "$audit_workspace/history" || \
         die 'Unable to inventory Git history.'
+    # rev-list --objects reports just one pathname for each shared blob.
+    # Inventory every reachable commit tree separately for filename coverage.
+    git rev-list --all > "$audit_workspace/commits" || \
+        die 'Unable to inventory Git history commits.'
+    declare -A historical_paths=()
+    while IFS= read -r commit; do
+        [[ $commit =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] || \
+            die 'Invalid Git history commit inventory.'
+        git ls-tree -rz --name-only --full-tree "$commit" > "$audit_workspace/tree-paths" || \
+            die 'Unable to inventory Git history filenames.'
+        while IFS= read -r -d '' path; do
+            [[ -z ${historical_paths[$path]+x} ]] || continue
+            historical_paths["$path"]=1
+            if sensitive_filename "$path"; then
+                printf -v display_path '%q' "$path"
+                warn "Sensitive filename exists in Git history: $display_path"
+                history_findings=$((history_findings + 1))
+            fi
+        done < "$audit_workspace/tree-paths"
+    done < "$audit_workspace/commits"
     while read -r object path; do
         [[ -n ${path:-} ]] || continue
         [[ -z ${scanned_blobs[$object]+x} ]] || continue
@@ -216,15 +242,6 @@ if [[ $RUN_HISTORY -eq 1 ]]; then
             die 'Unable to inspect Git history object.'
         [[ $object_type == blob ]] || continue
         scanned_blobs[$object]=1
-
-        lower_path=${path,,}
-        case $lower_path in
-            *.env.example|*.example) ;;
-            */.env|*/.env.*|.env|.env.*|*/id_rsa|*/id_ed25519|*.pem|*.key|*.p12|*.pfx|*.kdbx|*/credentials|*/credentials.*|*/secrets/*|*/.config/fish/config.local.fish|*/.config/bashrc/custom/*|*/.config/zshrc/custom/*)
-                warn "Sensitive filename exists in Git history: $path"
-                history_findings=$((history_findings + 1))
-                ;;
-        esac
 
         git cat-file blob "$object" > "$scan_file" 2>/dev/null || \
             die 'Unable to read Git history blob.'

@@ -70,6 +70,7 @@ candidate_commit=$(git -C "$candidate_source" rev-parse HEAD)
 git -C "$FAKE_REPO" worktree remove "$candidate_source"
 
 printf 'original\n' > "$TEST_HOME/.config/myhypr/settings/example"
+chmod 0644 -- "$TEST_HOME/.config/myhypr/settings/example"
 printf 'keep\n' > "$TEST_HOME/.config/myhypr/private"
 printf 'private selector\n' > "$TEST_HOME/.config/hypr/local.lua"
 printf '#!/usr/bin/env bash\nprintf "original tool\\n"\n' \
@@ -223,6 +224,26 @@ jq -e --arg digest "$(sha256sum "$checkpoint/manifest.tsv" | cut -d' ' -f1)" \
 jq -e -R -s 'contains("RECOVERY_SERVICE_STATE") | not' \
     "$checkpoint/user-services.tsv" >/dev/null || \
     fail 'service evidence captured arbitrary environment data'
+
+# An interruption before owned-after.tsv must never claim independent changes.
+recovery_checkpoint_restore "$tx_dir" "$FAKE_REPO" "$TEST_HOME" || \
+    fail 'unchanged state without ownership evidence was not recognized'
+printf 'independent edit\n' > "$TEST_HOME/.config/myhypr/settings/example"
+printf 'independent new file\n' > "$TEST_HOME/.config/myhypr/settings/new"
+touch "$SERVICE_STATE/elephant.service.active"
+if recovery_checkpoint_restore "$tx_dir" "$FAKE_REPO" "$TEST_HOME"; then
+    fail 'missing ownership evidence allowed restoration of independent changes'
+fi
+[[ $(<"$TEST_HOME/.config/myhypr/settings/example") == 'independent edit' && \
+    $(<"$TEST_HOME/.config/myhypr/settings/new") == 'independent new file' && \
+    -e $SERVICE_STATE/elephant.service.active && ! -e $SERVICE_LOG ]] || \
+    fail 'unknown ownership changed a file or service'
+rg -Fxq $'.config/myhypr/settings/example\townership-unknown' \
+    "$tx_dir/needs-attention.txt" || fail 'unknown ownership was not reported'
+[[ ! -e $tx_dir/owned-after.tsv ]] || fail 'recovery synthesized ownership evidence'
+printf 'original\n' > "$TEST_HOME/.config/myhypr/settings/example"
+rm -- "$TEST_HOME/.config/myhypr/settings/new" "$SERVICE_STATE/elephant.service.active" \
+    "$tx_dir/needs-attention.txt"
 for unit in myhypr-session.target elephant.service walker.service; do
     rg -q "^${unit//./\\.}\\t(active|inactive)\\tpending$" \
         "$checkpoint/user-services.tsv" || fail "bounded service state missing for $unit"
@@ -322,6 +343,56 @@ recovery_checkpoint_restore "$tx_dir" "$FAKE_REPO" "$TEST_HOME" || \
     fail 'a second restore was not an idempotent success'
 [[ $(<"$SERVICE_LOG") == 'stop elephant.service' ]] || \
     fail 'an idempotent restore repeated a service mutation'
+
+# Re-create the recorded applied bytes, then tighten permissions independently.
+applied_detail=$(awk -F '\t' '$2 == ".config/myhypr/settings/example" { print $3 }' \
+    "$tx_dir/owned-after.tsv")
+printf 'generated\n' > "$TEST_HOME/.config/myhypr/settings/example"
+chmod 0600 -- "$TEST_HOME/.config/myhypr/settings/example"
+if recovery_checkpoint_restore "$tx_dir" "$FAKE_REPO" "$TEST_HOME"; then
+    fail 'an independent permission change was overwritten'
+fi
+[[ $(stat -c %a "$TEST_HOME/.config/myhypr/settings/example") == 600 && \
+    $(<"$TEST_HOME/.config/myhypr/settings/example") == generated ]] || \
+    fail 'independent private permissions or bytes were not preserved'
+chmod "${applied_detail##*:}" -- "$TEST_HOME/.config/myhypr/settings/example"
+rm -- "$tx_dir/needs-attention.txt"
+recovery_checkpoint_restore "$tx_dir" "$FAKE_REPO" "$TEST_HOME" || \
+    fail 'recorded content and mode no longer permit safe restoration'
+
+# Older digest-only checkpoints can recognize original state, but cannot
+# establish unchanged post-apply permissions for a divergent regular file.
+cp -- "$checkpoint/manifest.tsv" "$TEST_ROOT/manifest.with-modes"
+cp -- "$tx_dir/owned-after.tsv" "$TEST_ROOT/owned.with-modes"
+cp -- "$checkpoint/checkpoint.json" "$TEST_ROOT/metadata.with-modes"
+for evidence in "$checkpoint/manifest.tsv" "$tx_dir/owned-after.tsv"; do
+    awk -F '\t' -v OFS='\t' '
+        $1 == "file" { sub(/:[0-7]+$/, "", $3) }
+        { print }
+    ' "$evidence" > "$evidence.next"
+    chmod 0600 -- "$evidence.next"
+    mv -- "$evidence.next" "$evidence"
+done
+jq --arg manifest "$(sha256sum "$checkpoint/manifest.tsv" | cut -d' ' -f1)" \
+    --arg owned "$(sha256sum "$tx_dir/owned-after.tsv" | cut -d' ' -f1)" \
+    '.manifest_sha256 = $manifest | .owned_after_sha256 = $owned' \
+    "$checkpoint/checkpoint.json" > "$checkpoint/.metadata.legacy"
+chmod 0600 -- "$checkpoint/.metadata.legacy"
+mv -- "$checkpoint/.metadata.legacy" "$checkpoint/checkpoint.json"
+recovery_checkpoint_restore "$tx_dir" "$FAKE_REPO" "$TEST_HOME" || \
+    fail 'unchanged legacy checkpoint state was not recognized'
+printf 'generated\n' > "$TEST_HOME/.config/myhypr/settings/example"
+if recovery_checkpoint_restore "$tx_dir" "$FAKE_REPO" "$TEST_HOME"; then
+    fail 'legacy evidence without post-apply permissions claimed a divergent file'
+fi
+[[ $(<"$TEST_HOME/.config/myhypr/settings/example") == generated ]] || \
+    fail 'legacy evidence overwrote a divergent file'
+mv -- "$TEST_ROOT/manifest.with-modes" "$checkpoint/manifest.tsv"
+mv -- "$TEST_ROOT/owned.with-modes" "$tx_dir/owned-after.tsv"
+mv -- "$TEST_ROOT/metadata.with-modes" "$checkpoint/checkpoint.json"
+rm -- "$tx_dir/needs-attention.txt"
+recovery_checkpoint_restore "$tx_dir" "$FAKE_REPO" "$TEST_HOME" || \
+    fail 'restored current evidence did not permit safe restoration'
 
 printf 'user changed after apply\n' > "$TEST_HOME/.config/myhypr/settings/example"
 set +e

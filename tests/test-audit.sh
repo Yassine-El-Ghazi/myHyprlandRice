@@ -69,7 +69,7 @@ if [[ $case_name == all || $case_name == scanner-errors ]]; then
     rg -Fq 'Required command not found: gitleaks' "$TEST_ROOT/missing.log" || \
         fail 'missing Gitleaks diagnostic was missing'
 
-    for fault in gitleaks rg generic-filter read staged-read inventory history-inventory history-type history-read; do
+    for fault in gitleaks rg generic-filter read staged-read inventory history-inventory history-commits history-tree history-type history-read; do
         repo_fault="$TEST_ROOT/fault-$fault"
         setup_repo "$repo_fault"
         printf 'changed\n' > "$repo_fault/fixture.txt"
@@ -96,13 +96,15 @@ if [[ $case_name == all || $case_name == scanner-errors ]]; then
             *)
                 printf '%s\n' '#!/usr/bin/env bash' \
                     'case "$AUDIT_TEST_FAULT:$1:${2:-}" in' \
-                    '  staged-read:show:*|inventory:ls-files:*|history-inventory:rev-list:*|history-type:cat-file:-t|history-read:cat-file:blob) exit 2 ;;' \
+                    '  staged-read:show:*|inventory:ls-files:*|history-inventory:rev-list:*|history-commits:rev-list:--all|history-tree:ls-tree:*|history-type:cat-file:-t|history-read:cat-file:blob) exit 2 ;;' \
                     'esac' \
                     'exec "$AUDIT_TEST_REAL_GIT" "$@"' > "$repo_fault/bin/git"
                 case $fault in
                     staged-read) fault_args=(--staged); expected_error='Unable to read audit input' ;;
                     inventory) expected_error='Unable to inventory worktree files' ;;
                     history-inventory) fault_args=(--history); expected_error='Unable to inventory Git history' ;;
+                    history-commits) fault_args=(--history); expected_error='Unable to inventory Git history commits' ;;
+                    history-tree) fault_args=(--history); expected_error='Unable to inventory Git history filenames' ;;
                     history-type) fault_args=(--history); expected_error='Unable to inspect Git history object' ;;
                     history-read) fault_args=(--history); expected_error='Unable to read Git history blob' ;;
                 esac
@@ -205,6 +207,23 @@ if [[ $case_name == all || $case_name == history ]]; then
     if rg -Fq "$unsafe_value" "$TEST_ROOT/history.log"; then
         fail 'history audit disclosed matched unsafe content'
     fi
+
+    # The same harmless blob must be checked under every historical name.
+    repo_alias="$TEST_ROOT/history-alias"
+    setup_repo "$repo_alias"
+    cp -- "$repo_alias/fixture.txt" "$repo_alias/.env"
+    git -C "$repo_alias" add -f .env
+    git -C "$repo_alias" -c user.name='Audit Fixture' \
+        -c user.email='audit@example.invalid' commit -qm 'add historical filename'
+    git -C "$repo_alias" rm -q .env
+    git -C "$repo_alias" -c user.name='Audit Fixture' \
+        -c user.email='audit@example.invalid' commit -qm 'remove historical filename'
+    if PATH="$repo_alias/bin:/usr/bin:/bin" \
+        "$repo_alias/scripts/audit.sh" --history > "$TEST_ROOT/alias.log" 2>&1; then
+        fail 'a sensitive historical filename sharing a harmless blob was missed'
+    fi
+    rg -Fq 'Sensitive filename exists in Git history: .env' "$TEST_ROOT/alias.log" || \
+        fail 'the reused-blob filename finding was missing'
 fi
 
 if [[ $case_name == all || $case_name == hook-environment ]]; then

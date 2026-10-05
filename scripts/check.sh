@@ -97,6 +97,7 @@ if command -v python >/dev/null 2>&1; then
 
     mapfile -d '' python_files < <(find scripts tests -type f -name '*.py' -print0)
     python_files+=(dotfiles/.config/myhypr/bin/settingsctl)
+    python_files+=(dotfiles/.config/myhypr/bin/elephant-storage.py)
     run_check 'Python syntax' python -c '
 import pathlib
 import sys
@@ -174,7 +175,14 @@ run_check 'Sidepad typed geometry behavior' "$REPO_ROOT/tests/test-sidepad-runti
 run_check 'Hyprland typed runtime API guard' "$REPO_ROOT/tests/test-hyprland-runtime-api.sh"
 run_check 'Graceful power and logout behavior' "$REPO_ROOT/tests/test-power-actions.sh"
 run_check 'Keybinding inventory and command resolution' lua "$REPO_ROOT/tests/test-keybindings.lua"
-run_check 'Neovim LSP API compatibility' lua "$REPO_ROOT/tests/test-nvim-lsp.lua" "$REPO_ROOT"
+if command -v nvim >/dev/null 2>&1; then
+    run_check 'LazyVim bootstrap and update policy' nvim --headless -u NONE -i NONE \
+        -l "$REPO_ROOT/tests/test-nvim-lazyvim.lua" "$REPO_ROOT"
+    run_check 'LuaLS trusted startup policy' nvim --headless -u NONE -i NONE \
+        -l "$REPO_ROOT/tests/test-nvim-luals.lua" "$REPO_ROOT"
+else
+    skip 'nvim is unavailable for LazyVim and LuaLS verification'
+fi
 run_check 'Lua-native keybinding profile selector' "$REPO_ROOT/tests/test-keybinding-selector.sh"
 run_check 'Legacy local keybinding migration' "$REPO_ROOT/tests/test-migrate-local.sh"
 run_check 'Namespace migration behavior' "$REPO_ROOT/tests/test-migrate-namespace.sh"

@@ -1,0 +1,7 @@
+{
+  "runtime.plugin": [],
+  "runtime.pluginArgs": [],
+  "workspace.userThirdParty": [],
+  "workspace.checkThirdParty": "Disable",
+  "docScriptPath": ""
+}

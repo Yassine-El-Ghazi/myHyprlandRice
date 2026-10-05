@@ -175,7 +175,7 @@ _recovery_candidate_root() {
 }
 
 _recovery_capture_state() {
-    local target_home=$1 relative=$2 target blocking
+    local target_home=$1 relative=$2 target blocking digest mode
 
     recovery_validate_relative "$relative" || return 1
     if blocking=$(_recovery_blocking_parent "$target_home" "$relative"); then
@@ -191,7 +191,10 @@ _recovery_capture_state() {
             $_RECOVERY_CAPTURE_DETAIL != *$'\n'* ]] || return 1
     elif [[ -f $target ]]; then
         _RECOVERY_CAPTURE_TYPE='file'
-        _RECOVERY_CAPTURE_DETAIL=$(sha256sum "$target" | cut -d' ' -f1) || return 1
+        digest=$(sha256sum "$target" | cut -d' ' -f1) || return 1
+        mode=$(stat -c %a -- "$target") || return 1
+        [[ $mode =~ ^[0-7]{3,4}$ ]] || return 1
+        _RECOVERY_CAPTURE_DETAIL="$digest:$mode"
     elif [[ -d $target ]]; then
         _RECOVERY_CAPTURE_TYPE=directory-owned
         _RECOVERY_CAPTURE_DETAIL=-
@@ -234,7 +237,7 @@ _recovery_backup_matches() {
             ;;&
         file)
             _maintenance_validate_owned_file "$backup" || return 1
-            [[ $(sha256sum "$backup" | cut -d' ' -f1) == "$detail" ]]
+            [[ $(sha256sum "$backup" | cut -d' ' -f1) == "${detail%%:*}" ]]
             ;;
         symlink)
             [[ -L $backup ]] || return 1
@@ -430,7 +433,7 @@ _recovery_manifest_validate() {
         [[ -z $previous || $relative > $previous ]] || return 1
         previous=$relative
         case $type in
-            file) [[ $detail =~ ^[0-9a-f]{64}$ ]] || return 1 ;;
+            file) [[ $detail =~ ^[0-9a-f]{64}(:[0-7]{3,4})?$ ]] || return 1 ;;
             symlink)
                 [[ -n $detail && $detail != *$'\t'* && $detail != *$'\n'* ]] || return 1
                 ;;
@@ -468,13 +471,15 @@ _recovery_modes_validate() {
 
     while IFS=$'\t' read -r type relative detail extra; do
         [[ -z ${extra:-} ]] || return 1
-        [[ $type == file ]] && expected["$relative"]=1
+        [[ $type == file ]] && expected["$relative"]=$detail
     done < "$manifest"
     while IFS=$'\t' read -r relative mode extra; do
         [[ -z ${extra:-} ]] || return 1
         recovery_validate_relative "$relative" || return 1
         [[ $mode =~ ^[0-7]{3}$ ]] || return 1
         [[ -n ${expected[$relative]+x} && -z ${observed[$relative]+x} ]] || return 1
+        # Legacy manifests contain only a digest; new ones bind mode as well.
+        [[ ${expected[$relative]} != *:* || ${expected[$relative]##*:} == "$mode" ]] || return 1
         [[ -z $previous || $relative > $previous ]] || return 1
         previous=$relative
         observed["$relative"]=$mode
@@ -659,6 +664,7 @@ recovery_checkpoint_restore() {
     local after_type after_detail issue_count=0 unit before after current action
     local owned_digest services_digest
     local modes mode
+    local ownership_unknown=0
     local -A original_types=() after_types=() after_details=() original_modes=()
 
     _recovery_checkpoint_validate "$tx_dir" "$repo_root" "$target_home" || return 1
@@ -669,31 +675,39 @@ recovery_checkpoint_restore() {
     modes="$_RECOVERY_CHECKPOINT/file-modes.tsv"
     owned="$tx_dir/owned-after.tsv"
     attention="$tx_dir/needs-attention.txt"
-    _maintenance_validate_owned_file "$owned" || return 1
-    owned_digest=$(sha256sum "$owned" | cut -d' ' -f1) || return 1
-    services_digest=$(sha256sum "$services" | cut -d' ' -f1) || return 1
-    jq -e --arg owned_digest "$owned_digest" --arg services_digest "$services_digest" '
-        .owned_after_sha256 == $owned_digest and
-        .services_sha256 == $services_digest
-    ' "$_RECOVERY_CHECKPOINT/checkpoint.json" >/dev/null || return 1
+    if [[ ! -e $owned && ! -L $owned ]]; then
+        jq -e '.owned_after_sha256 == null and .services_sha256 == null' \
+            "$_RECOVERY_CHECKPOINT/checkpoint.json" >/dev/null || return 1
+        ownership_unknown=1
+    else
+        _maintenance_validate_owned_file "$owned" || return 1
+        owned_digest=$(sha256sum "$owned" | cut -d' ' -f1) || return 1
+        services_digest=$(sha256sum "$services" | cut -d' ' -f1) || return 1
+        jq -e --arg owned_digest "$owned_digest" --arg services_digest "$services_digest" '
+            .owned_after_sha256 == $owned_digest and
+            .services_sha256 == $services_digest
+        ' "$_RECOVERY_CHECKPOINT/checkpoint.json" >/dev/null || return 1
+    fi
 
-    while IFS=$'\t' read -r type relative detail extra; do
-        [[ -z ${extra:-} ]] || return 1
-        original_types["$relative"]=$type
-    done < "$manifest"
-    while IFS=$'\t' read -r type relative detail extra; do
-        [[ -z ${extra:-} && -n ${original_types[$relative]+x} ]] || return 1
-        [[ -z ${after_types[$relative]+x} ]] || return 1
-        case $type in
-            file) [[ $detail =~ ^[0-9a-f]{64}$ ]] || return 1 ;;
-            symlink) [[ -n $detail && $detail != *$'\t'* && $detail != *$'\n'* ]] || return 1 ;;
-            missing|directory-owned) [[ $detail == - ]] || return 1 ;;
-            *) return 1 ;;
-        esac
-        after_types["$relative"]=$type
-        after_details["$relative"]=$detail
-    done < "$owned"
-    [[ ${#original_types[@]} -eq ${#after_types[@]} ]] || return 1
+    if (( ownership_unknown == 0 )); then
+        while IFS=$'\t' read -r type relative detail extra; do
+            [[ -z ${extra:-} ]] || return 1
+            original_types["$relative"]=$type
+        done < "$manifest"
+        while IFS=$'\t' read -r type relative detail extra; do
+            [[ -z ${extra:-} && -n ${original_types[$relative]+x} ]] || return 1
+            [[ -z ${after_types[$relative]+x} ]] || return 1
+            case $type in
+                file) [[ $detail =~ ^[0-9a-f]{64}(:[0-7]{3,4})?$ ]] || return 1 ;;
+                symlink) [[ -n $detail && $detail != *$'\t'* && $detail != *$'\n'* ]] || return 1 ;;
+                missing|directory-owned) [[ $detail == - ]] || return 1 ;;
+                *) return 1 ;;
+            esac
+            after_types["$relative"]=$type
+            after_details["$relative"]=$detail
+        done < "$owned"
+        [[ ${#original_types[@]} -eq ${#after_types[@]} ]] || return 1
+    fi
     while IFS=$'\t' read -r relative mode extra; do
         [[ -z ${extra:-} ]] || return 1
         original_modes["$relative"]=$mode
@@ -716,11 +730,23 @@ recovery_checkpoint_restore() {
     fi
 
     while IFS=$'\t' read -r type relative detail extra; do
-        after_type=${after_types[$relative]}
-        after_detail=${after_details[$relative]}
+        # For old checkpoints, original mode is separately bound by metadata.
+        if [[ $type == file && $detail != *:* ]]; then
+            detail+=":${original_modes[$relative]}"
+        fi
         if _recovery_record_matches_current "$target_home" "$type" "$relative" "$detail"; then
             continue
         fi
+        if (( ownership_unknown != 0 )); then
+            _recovery_attention_add "$next_attention" "$relative" ownership-unknown || {
+                rm -f -- "$next_attention"
+                return 1
+            }
+            issue_count=$((issue_count + 1))
+            continue
+        fi
+        after_type=${after_types[$relative]}
+        after_detail=${after_details[$relative]}
         if ! _recovery_record_matches_current \
             "$target_home" "$after_type" "$relative" "$after_detail"; then
             _recovery_attention_add "$next_attention" "$relative" content-changed || {
@@ -774,10 +800,10 @@ recovery_checkpoint_restore() {
     done < "$manifest"
 
     while IFS=$'\t' read -r unit before after extra; do
-        [[ -z ${extra:-} && $after != pending ]] || {
+        if [[ -n ${extra:-} ]] || { [[ $after == pending ]] && (( ownership_unknown == 0 )); }; then
             rm -f -- "$next_attention"
             return 1
-        }
+        fi
         current=$(_recovery_service_state "$unit") || {
             _recovery_attention_add "$next_attention" "service/$unit" \
                 service-state-unavailable || {
@@ -788,6 +814,14 @@ recovery_checkpoint_restore() {
             continue
         }
         [[ $current == "$before" ]] && continue
+        if (( ownership_unknown != 0 )); then
+            _recovery_attention_add "$next_attention" "service/$unit" ownership-unknown || {
+                rm -f -- "$next_attention"
+                return 1
+            }
+            issue_count=$((issue_count + 1))
+            continue
+        fi
         if [[ $current != "$after" ]]; then
             _recovery_attention_add "$next_attention" "service/$unit" \
                 service-state-changed || {

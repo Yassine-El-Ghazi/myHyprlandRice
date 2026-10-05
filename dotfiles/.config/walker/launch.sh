@@ -2,7 +2,6 @@
 set -Eeuo pipefail
 
 config_root="${XDG_CONFIG_HOME:-$HOME/.config}"
-state_root="${XDG_STATE_HOME:-$HOME/.local/state}/myhypr"
 theme_file="$config_root/myhypr/settings/walker-theme"
 theme=myhypr
 
@@ -23,8 +22,7 @@ for command_name in walker elephant; do
 done
 
 if ! providers=$(elephant listproviders 2>/dev/null); then
-    mkdir -p -- "$state_root"
-    elephant >> "$state_root/elephant.log" 2>&1 &
+    /usr/bin/python3 "$config_root/myhypr/bin/elephant-storage.py" --fallback &
 
     for _attempt in {1..40}; do
         sleep 0.05
