@@ -13,7 +13,7 @@ if [[ -r $theme_file ]]; then
     fi
 fi
 
-for command_name in walker elephant; do
+for command_name in walker elephant timeout; do
     if ! command -v "$command_name" >/dev/null 2>&1; then
         printf 'Walker launcher requires the %s command. Run bootstrap again.\n' \
             "$command_name" >&2
@@ -21,20 +21,36 @@ for command_name in walker elephant; do
     fi
 done
 
-if ! providers=$(elephant listproviders 2>/dev/null); then
+if ! providers=$(elephant listproviders 2>/dev/null) || \
+    [[ $providers != *desktopapplications* ]]; then
+    printf '%s\n' \
+        'Elephant desktop providers are unavailable. Run bootstrap to install them.' >&2
+    exit 1
+fi
+
+# listproviders loads installed plugins locally, even when the daemon is down.
+# Ask the daemon for provider state to verify that Walker can actually connect.
+elephant_ready() {
+    timeout 0.25 elephant state desktopapplications >/dev/null 2>&1
+}
+
+if ! elephant_ready; then
     /usr/bin/python3 "$config_root/myhypr/bin/elephant-storage.py" --fallback &
 
     for _attempt in {1..40}; do
         sleep 0.05
-        providers=$(elephant listproviders 2>/dev/null || true)
-        [[ $providers == *desktopapplications* ]] && break
+        elephant_ready && break
     done
 fi
 
-if [[ $providers != *desktopapplications* ]]; then
+if ! elephant_ready; then
     printf '%s\n' \
-        'Elephant desktop providers are unavailable. Run bootstrap to install them.' >&2
+        'Elephant is not responding. Check elephant.service and the private storage helper.' >&2
     exit 1
+fi
+
+if [[ ${1:-} == --ensure-elephant ]]; then
+    exit 0
 fi
 
 exec walker -t "$theme" "$@"

@@ -41,7 +41,6 @@ grimblast-git
 hyprshot
 satty
 wl-clipboard
-cliphist
 tesseract
 tesseract-data-eng
 brightnessctl

@@ -17,7 +17,7 @@
 
 -- Using hypridle to start hyprlock
 
--- Load cliphist history
+-- Elephant owns clipboard collection through myhypr-session.target.
 
 -- Show the local welcome panel once
 
@@ -36,7 +36,6 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("/usr/bin/swaync")
     hl.exec_cmd("/usr/bin/bash ~/.config/hypr/scripts/gtk.sh")
     hl.exec_cmd("/usr/bin/hypridle")
-    hl.exec_cmd("/usr/bin/wl-paste --watch /usr/bin/cliphist store")
     hl.exec_cmd("/usr/bin/bash ~/.config/myhypr/scripts/myhypr-autostart.sh")
     hl.exec_cmd("/usr/bin/bash ~/.config/hypr/scripts/cleanup.sh")
     hl.exec_cmd("/usr/bin/bash ~/.config/waybar/launch.sh")

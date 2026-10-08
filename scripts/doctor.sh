@@ -148,7 +148,7 @@ core_commands=(
 desktop_commands=(
     Hyprland hyprctl hypridle hyprlock hyprpicker waybar 'qs|quickshell' rofi
     walker swaync-client nwg-dock-hyprland awww waypaper matugen grim slurp
-    hyprshot satty wl-copy cliphist tesseract brightnessctl playerctl nm-applet
+    hyprshot satty wl-copy tesseract brightnessctl playerctl nm-applet
     blueman-manager pavucontrol wpctl pactl notify-send nautilus yazi
     gnome-calculator gnome-text-editor gnome-software qalculate-gtk rofimoji pinta evolution
     hyprshade gtk-launch elephant gum checkupdates

@@ -98,6 +98,7 @@ if command -v python >/dev/null 2>&1; then
     mapfile -d '' python_files < <(find scripts tests -type f -name '*.py' -print0)
     python_files+=(dotfiles/.config/myhypr/bin/settingsctl)
     python_files+=(dotfiles/.config/myhypr/bin/elephant-storage.py)
+    python_files+=(dotfiles/.config/myhypr/bin/clipboard-rofi.py)
     run_check 'Python syntax' python -c '
 import pathlib
 import sys

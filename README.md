@@ -261,9 +261,17 @@ queries the running compositor, so described bindings from both `custom.lua`
 and `local.lua` appear automatically. Use `wev` when you need to discover an
 uncommon key name or keycode.
 
-Walker/Elephant and the optional Rofi/Cliphist path keep separate clipboard
-histories. Waybar's middle-click clear action clears the history belonging to
-the currently selected launcher; it does not erase the inactive backend.
+Elephant is the only clipboard-history collector. Clipboard controls use the
+selected launcher: the themed Rofi popup or Walker's clipboard view.
+Waybar's right-click opens deletion mode (select an entry in Rofi, `Ctrl+D` in
+Walker); middle-click clears Elephant
+and attempts to wipe a legacy Cliphist store when its CLI is installed. A failed
+clear or legacy data without its CLI returns an error instead of reporting
+success. Cliphist is no longer installed or autostarted by this configuration.
+
+After adopting this change, start a new graphical session to retire the old
+Cliphist watcher, then use the clear action if you want to remove existing
+history. Existing editor state and backups are not automatically deleted.
 
 ## State model
 
