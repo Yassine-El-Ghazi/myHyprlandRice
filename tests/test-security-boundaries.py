@@ -24,7 +24,10 @@ class SecurityBoundaryTests(unittest.TestCase):
         )
 
     def test_elephant_repairs_legacy_image_permissions(self):
-        with tempfile.TemporaryDirectory(prefix=".elephant-private-", dir=REPO) as directory:
+        # A checkout may have foreign-owned mounted ancestors in CI. The
+        # storage guard intentionally rejects those; fixture homes belong
+        # beneath the root-owned sticky temporary directory instead.
+        with tempfile.TemporaryDirectory(prefix="myhypr-elephant-private-", dir="/tmp") as directory:
             home = Path(directory)
             images = home / ".cache/elephant/clipboardimages"
             images.mkdir(parents=True, mode=0o755)
@@ -43,7 +46,7 @@ class SecurityBoundaryTests(unittest.TestCase):
                          ".local/state/myhypr/elephant.log.1", ".local/state/myhypr/elephant.lock"):
             for kind in ("symlink", "hardlink", "fifo"):
                 with self.subTest(location=location, kind=kind), tempfile.TemporaryDirectory(
-                    prefix=".elephant-unsafe-", dir=REPO
+                    prefix="myhypr-elephant-unsafe-", dir="/tmp"
                 ) as directory:
                     home = Path(directory)
                     external = home / "external"
@@ -64,7 +67,7 @@ class SecurityBoundaryTests(unittest.TestCase):
 
     def test_elephant_rejects_linked_or_shared_ancestors(self):
         for kind in ("symlink", "shared"):
-            with self.subTest(kind=kind), tempfile.TemporaryDirectory(prefix=".elephant-ancestor-", dir=REPO) as directory:
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory(prefix="myhypr-elephant-ancestor-", dir="/tmp") as directory:
                 home = Path(directory)
                 cache = home / ".cache"
                 if kind == "symlink":
@@ -77,7 +80,7 @@ class SecurityBoundaryTests(unittest.TestCase):
                 self.assertNotEqual(self.elephant_fixture(home).returncode, 0)
 
     def test_elephant_fallback_uses_private_umask_and_bounded_logs(self):
-        with tempfile.TemporaryDirectory(prefix=".elephant-fallback-", dir=REPO) as directory:
+        with tempfile.TemporaryDirectory(prefix="myhypr-elephant-fallback-", dir="/tmp") as directory:
             home = Path(directory)
             tools = home / "bin"
             tools.mkdir()
@@ -108,7 +111,7 @@ class SecurityBoundaryTests(unittest.TestCase):
                          "/usr/bin/python3 %h/.config/myhypr/bin/elephant-storage.py --prepare")
 
     def test_elephant_fallback_serializes_collectors_and_rotation(self):
-        with tempfile.TemporaryDirectory(prefix=".elephant-lock-", dir=REPO) as directory:
+        with tempfile.TemporaryDirectory(prefix="myhypr-elephant-lock-", dir="/tmp") as directory:
             home = Path(directory)
             state = home / ".local/state/myhypr"
             state.mkdir(parents=True)
@@ -157,6 +160,39 @@ class SecurityBoundaryTests(unittest.TestCase):
                     "HOME": str(home), "PATH": "relative:.:/usr/bin///::/bin",
                     "LOADER": str(script),
                 }, capture_output=True, text=True, check=True)
+                paths = result.stdout.strip().split(":")
+                self.assertTrue(all(os.path.isabs(path) for path in paths))
+                self.assertEqual(len(paths), len(set(paths)))
+                self.assertEqual(paths[:3], ["/usr/local/sbin", "/usr/local/bin", "/usr/bin"])
+
+    def test_early_shell_startup_normalizes_before_and_after_cargo(self):
+        for shell in ("bash", "sh", "zsh"):
+            with self.subTest(shell=shell), tempfile.TemporaryDirectory(prefix="myhypr-early-path-") as directory:
+                home = Path(directory)
+                (home / ".cargo").mkdir()
+                (home / "relative").mkdir()
+                marker = home / "relative/myhypr-relative-fixture"
+                marker.write_text("lookup fixture, never executed\n")
+                marker.chmod(0o700)
+                (home / ".cargo/env").write_text(
+                    'if command -v myhypr-relative-fixture >/dev/null; then\n'
+                    '    printf unsafe > "$HOME/unsafe-lookup"\n'
+                    'fi\n'
+                    'export PATH="relative:.:/usr/bin///::$PATH"\n'
+                )
+                if shell == "bash":
+                    args = [shutil.which(shell), "--noprofile", "--norc", "-c",
+                            'source "$PROFILE"; printf "%s\\n" "$PATH"']
+                elif shell == "sh":
+                    args = [shutil.which(shell), "-c", '. "$PROFILE"; printf "%s\\n" "$PATH"']
+                else:
+                    shutil.copyfile(REPO / "dotfiles/.zshenv", home / ".zshenv")
+                    args = [shutil.which(shell), "-c", 'printf "%s\\n" "$PATH"']
+                result = subprocess.run(args, cwd=home, env={
+                    "HOME": str(home), "PATH": "relative:.:/usr/bin///::/bin",
+                    "PROFILE": str(REPO / "dotfiles/.profile"),
+                }, capture_output=True, text=True, check=True)
+                self.assertFalse((home / "unsafe-lookup").exists())
                 paths = result.stdout.strip().split(":")
                 self.assertTrue(all(os.path.isabs(path) for path in paths))
                 self.assertEqual(len(paths), len(set(paths)))

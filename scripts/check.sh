@@ -55,7 +55,7 @@ mapfile -d '' bash_files < <(
     rg -l -0 --hidden --glob '!.git/**' '^#!.*/(env[[:space:]]+)?bash$' \
         dotfiles scripts tests .githooks bootstrap.sh stow.sh
 )
-bash_files+=(dotfiles/.bashrc)
+bash_files+=(dotfiles/.bashrc dotfiles/.profile)
 while IFS= read -r -d '' file; do
     bash_files+=("$file")
 done < <(find dotfiles/.config/bashrc -maxdepth 1 -type f -print0)
@@ -63,7 +63,7 @@ run_check 'Bash syntax' "$SCRIPT_DIR/check-syntax-files.sh" bash "${bash_files[@
 
 if command -v zsh >/dev/null 2>&1; then
     mapfile -d '' zsh_files < <(find dotfiles/.config/zshrc -maxdepth 1 -type f -print0)
-    zsh_files+=(dotfiles/.zshrc)
+    zsh_files+=(dotfiles/.zshrc dotfiles/.zshenv)
     run_check 'Zsh syntax' "$SCRIPT_DIR/check-syntax-files.sh" zsh "${zsh_files[@]}"
 else
     skip 'zsh is unavailable'
@@ -181,6 +181,8 @@ if command -v nvim >/dev/null 2>&1; then
         -l "$REPO_ROOT/tests/test-nvim-lazyvim.lua" "$REPO_ROOT"
     run_check 'LuaLS trusted startup policy' nvim --headless -u NONE -i NONE \
         -l "$REPO_ROOT/tests/test-nvim-luals.lua" "$REPO_ROOT"
+    run_check 'Private Neovim editing and state' nvim --headless -u NONE -i NONE \
+        -l "$REPO_ROOT/tests/test-nvim-privacy.lua" "$REPO_ROOT"
 else
     skip 'nvim is unavailable for LazyVim and LuaLS verification'
 fi

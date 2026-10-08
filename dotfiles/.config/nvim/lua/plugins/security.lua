@@ -1,4 +1,4 @@
--- Override an existing core plugin; no additional plugin is installed.
+-- Override core plugins; no additional plugin is installed.
 return {
   {
     'neovim/nvim-lspconfig',
@@ -8,4 +8,5 @@ return {
       },
     },
   },
+  { 'folke/persistence.nvim', enabled = false },
 }

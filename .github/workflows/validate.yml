@@ -41,9 +41,11 @@ jobs:
 
     steps:
       - name: Install validation dependencies
-        run: >-
-          pacman -Syu --noconfirm --needed
-          bash bubblewrap desktop-file-utils fish git gitleaks hyprland jq lua neovim openssh python
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -Syu --noconfirm --needed \
+          bash bubblewrap desktop-file-utils fish git gitleaks hyprland jq lua neovim openssh python \
           qt6-declarative ripgrep rsync shellcheck stow util-linux zsh
 
       - name: Check out repository

@@ -21,3 +21,15 @@ exrc files, and modelines are disabled. `luals-safe.json` and `config/luals.lua`
 preserve the audit's server-side restriction on executable project plugins,
 third-party addons, and documentation scripts. A missing or invalid policy
 prevents LuaLS startup.
+
+Ordinary registers stay local to Neovim. Use `"+y` or `"+p` for explicit desktop
+clipboard operations; copied text can still be collected by desktop history.
+Undo works while a buffer is open. Persistent undo, swap files, ShaDa, and
+automatic session saving are disabled for every buffer, so editing a private
+file does not depend on recognizing its filename. This reduces crash recovery
+and removes automatic session restoration. The session-persistence plugin is
+disabled; no privacy addon is installed.
+
+These options prevent new editor-state copies. They do not delete existing
+undo, swap, ShaDa, session files, or backups. Restart Neovim after installing
+the updated configuration. Use `:Lazy clean` to remove disabled cached plugins.

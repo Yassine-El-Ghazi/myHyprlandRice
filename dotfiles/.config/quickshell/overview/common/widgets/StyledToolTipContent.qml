@@ -40,6 +40,8 @@ Item {
             id: tooltipTextObject
             anchors.centerIn: parent
             text: root.text
+            // Window metadata is data; never interpret it as rich text.
+            textFormat: Text.PlainText
             font.pixelSize: Appearance?.font.pixelSize.smaller ?? 14
             font.hintingPreference: Font.PreferNoHinting
             color: Appearance?.colors.colOnTooltip ?? "#FFFFFF"
