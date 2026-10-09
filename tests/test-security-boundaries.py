@@ -128,15 +128,29 @@ class SecurityBoundaryTests(unittest.TestCase):
             with self.subTest(shell=shell), tempfile.TemporaryDirectory(prefix="myhypr-shell-init-") as directory:
                 home = Path(directory)
                 (home / "relative").mkdir()
+                # GOTELEMETRY is read-only: configure this disposable home
+                # before Go's GOPATH lookup can start a background writer.
+                telemetry = home / ".config/go/telemetry"
+                telemetry.mkdir(parents=True)
+                (telemetry / "mode").write_text("off\n")
                 script = REPO / f"dotfiles/.config/{shell}rc/00-init"
+                env = {
+                    "HOME": str(home), "PATH": "relative:.:/usr/bin///::/bin",
+                    "XDG_CONFIG_HOME": str(home / ".config"), "INIT": str(script),
+                }
+                go = shutil.which("go")
+                if go:
+                    mode = subprocess.run([go, "env", "GOTELEMETRY"], cwd=home,
+                                          env=env, capture_output=True, text=True, check=True)
+                    self.assertEqual(mode.stdout.strip(), "off")
                 args = [shutil.which(shell), "--norc", "-c"] if shell == "bash" else [shutil.which(shell), "-f", "-c"]
-                result = subprocess.run([*args, 'source "$INIT"; printf "%s\\n" "$PATH"'], cwd=home, env={
-                    "HOME": str(home), "PATH": "relative:.:/usr/bin///::/bin", "GOTELEMETRY": "off",
-                    "INIT": str(script),
-                }, capture_output=True, text=True, check=True)
+                result = subprocess.run([*args, 'source "$INIT"; printf "%s\\n" "$PATH"'],
+                                        cwd=home, env=env, capture_output=True, text=True, check=True)
                 paths = result.stdout.strip().split(":")
                 self.assertTrue(all(os.path.isabs(path) for path in paths))
                 self.assertEqual(len(paths), len(set(paths)))
+                self.assertFalse((telemetry / "local").exists())
+                self.assertFalse((telemetry / "upload").exists())
 
     def test_shell_loaders_remove_relative_search_before_and_after_modules(self):
         for shell in ("bash", "zsh"):

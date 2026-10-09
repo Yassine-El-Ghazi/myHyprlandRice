@@ -137,7 +137,24 @@ sensitive_filename() {
     return 1
 }
 
+private_report_filename() {
+    local basename=${1##*/}
+    case ${basename,,} in
+        security-audit*|security-reaudit*) return 0 ;;
+    esac
+    case ${1,,} in
+        .private-security-audits/*|*/.private-security-audits/*) return 0 ;;
+    esac
+    return 1
+}
+
+# Publication policy applies to current files, not previously published history.
 for file in "${files[@]}"; do
+    if private_report_filename "$file"; then
+        printf -v display_path '%q' "$file"
+        warn "Private security report must not be tracked: $display_path"
+        failures=$((failures + 1))
+    fi
     if sensitive_filename "$file"; then
         printf -v display_path '%q' "$file"
         warn "Sensitive filename must not be tracked: $display_path"

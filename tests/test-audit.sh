@@ -50,7 +50,7 @@ setup_repo() {
 
 case_name=${1:-all}
 case $case_name in
-    all|staged-invalid|staged-valid|private-overrides|history|large-files|hook-environment|setup-mktemp|\
+    all|staged-invalid|staged-valid|private-overrides|private-reports|history|large-files|hook-environment|setup-mktemp|\
         setup-checkout|setup-cd|setup-init|setup-add|scanner-errors) ;;
     *) fail "unknown case: $case_name" ;;
 esac
@@ -160,6 +160,48 @@ if [[ $case_name == all || $case_name == private-overrides ]]; then
         "$private_log" || fail 'Bash private override warning was missing'
     rg -Fq 'Sensitive filename must not be tracked: dotfiles/.config/zshrc/custom/00-init' \
         "$private_log" || fail 'Zsh private override warning was missing'
+fi
+
+if [[ $case_name == all || $case_name == private-reports ]]; then
+    repo_reports="$TEST_ROOT/private-reports"
+    setup_repo "$repo_reports"
+    cp -- "$REPO_ROOT/.gitignore" "$repo_reports/.gitignore"
+    mkdir -p -- "$repo_reports/docs" "$repo_reports/.private-security-audits"
+    report_paths=('SECURITY-AUDIT.md' 'SECURITY-REAUDIT.md'
+        'docs/security-audit-2030-01-01.txt' 'docs/SeCuRiTy-ReAuDiT.json'
+        '.private-security-audits/findings.txt')
+    for report_path in "${report_paths[@]}"; do
+        printf 'Private fixture report\n' > "$repo_reports/$report_path"
+        git -C "$repo_reports" check-ignore -q -- "$report_path" || \
+            fail "private report was not ignored: $report_path"
+    done
+    git -C "$repo_reports" add .gitignore
+    git -C "$repo_reports" add -f -- "${report_paths[@]}"
+    for mode in --staged ''; do
+        report_args=()
+        [[ -z $mode ]] || report_args+=("$mode")
+        if PATH="$repo_reports/bin:/usr/bin:/bin" \
+            "$repo_reports/scripts/audit.sh" "${report_args[@]}" \
+            >"$TEST_ROOT/private-reports.log" 2>&1; then
+            fail 'forced tracked private reports were accepted'
+        fi
+        for report_path in "${report_paths[@]}"; do
+            rg -Fq "Private security report must not be tracked: $report_path" \
+                "$TEST_ROOT/private-reports.log" || fail 'private report warning was missing'
+        done
+    done
+    # Deleting already-published reports must pass without rewriting old history.
+    git -C "$repo_reports" -c core.hooksPath=/dev/null -c user.name='Audit Fixture' \
+        -c user.email='audit@example.invalid' commit -qm 'historical reports'
+    git -C "$repo_reports" rm -q -- "${report_paths[@]}"
+    PATH="$repo_reports/bin:/usr/bin:/bin" "$repo_reports/scripts/audit.sh" \
+        --staged --history >"$TEST_ROOT/private-reports-history.log" 2>&1 || \
+        fail 'historical reports prevented their staged removal'
+    for public_path in SECURITY.md scripts/audit.sh; do
+        if git -C "$repo_reports" check-ignore -q --no-index -- "$public_path"; then
+            fail "public security documentation or scanner was ignored: $public_path"
+        fi
+    done
 fi
 
 if [[ $case_name == all || $case_name == staged-valid ]]; then

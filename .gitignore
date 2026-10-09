@@ -29,6 +29,11 @@
 # Internal agent planning artifacts
 /docs/superpowers/
 
+# Detailed security reports stay local, including dated reports and other formats.
+.private-security-audits/
+[Ss][Ee][Cc][Uu][Rr][Ii][Tt][Yy]-[Aa][Uu][Dd][Ii][Tt]*
+[Ss][Ee][Cc][Uu][Rr][Ii][Tt][Yy]-[Rr][Ee][Aa][Uu][Dd][Ii][Tt]*
+
 # -----------------------------------------------------
 # Shell / Fish / MyHypr variables
 # -----------------------------------------------------
