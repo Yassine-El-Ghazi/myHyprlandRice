@@ -44,6 +44,12 @@ printf '%s\n' '#!/usr/bin/env bash' \
     'exit "${CLIPHIST_TEST_FAIL:-0}"' > "$FAKE_BIN/cliphist"
 printf '%s\n' '#!/usr/bin/env bash' \
     'printf "%s\n" "$*" >> "$CLIPBOARD_NOTIFY_LOG"' > "$FAKE_BIN/notify-send"
+cat > "$TEST_HOME/.config/myhypr/bin/clipboard-control.py" <<'PY'
+import os, sys
+with open(os.environ['CLIPBOARD_TEST_LOG'], 'a') as stream:
+    stream.write('privacy <' + ' '.join(sys.argv[1:]) + '>\n')
+sys.exit(int(os.environ.get('PRIVACY_TEST_FAIL', '0')))
+PY
 chmod +x -- "$FAKE_BIN/elephant" "$FAKE_BIN/cliphist" "$FAKE_BIN/notify-send" \
     "$FAKE_BIN/rofi" "$TEST_HOME/.config/walker/launch.sh"
 export HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin"
@@ -77,6 +83,21 @@ for launcher in rofi walker; do
     rg -Fxq 'elephant <activate clipboard;;remove_all;;>' "$CLIPBOARD_TEST_LOG"
     rg -Fxq 'cliphist <wipe>' "$CLIPBOARD_TEST_LOG"
 done
+
+# Privacy actions have a distinct API and still attempt the retired store when
+# the primary wipe fails. The real provider behavior is covered separately.
+for action in pause resume; do
+    : > "$CLIPBOARD_TEST_LOG"
+    "$script" "$action"
+    [[ $(<"$CLIPBOARD_TEST_LOG") == "privacy <$action>" ]] || fail 'privacy control was not routed'
+done
+: > "$CLIPBOARD_TEST_LOG"
+"$script" wipe
+rg -Fxq 'privacy <wipe>' "$CLIPBOARD_TEST_LOG"
+rg -Fxq 'cliphist <wipe>' "$CLIPBOARD_TEST_LOG"
+: > "$CLIPBOARD_TEST_LOG"
+if PRIVACY_TEST_FAIL=1 "$script" wipe 2>/dev/null; then fail 'privacy wipe failure reported success'; fi
+rg -Fxq 'cliphist <wipe>' "$CLIPBOARD_TEST_LOG"
 
 # Cancellation and invalid output must never copy or delete clipboard entries.
 printf '%s' rofi > "$TEST_HOME/.config/myhypr/settings/launcher"

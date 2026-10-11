@@ -3,6 +3,7 @@ local repo = assert(arg[1])
 local root = repo .. '/dotfiles/.config/nvim/'
 local original_stdpath, original_system, original_stat, original_delete = vim.fn.stdpath, vim.fn.system, vim.uv.fs_stat, vim.fn.delete
 local options, commands, deleted
+local bootstrap_commit = '85c7ff3711b730b4030d03144f6db6375044ae82'
 package.preload.lazy = function()
   return { setup = function(value) options = value end }
 end
@@ -15,8 +16,8 @@ local function run(exists, failure)
   vim.uv.fs_stat = function() return exists and {} or nil end
   vim.fn.system = function(command)
     commands[#commands + 1] = command
-    original_system { failure and '/bin/false' or '/bin/true' }
-    return 'synthetic Git result'
+    original_system { failure == #commands and '/bin/false' or '/bin/true' }
+    return command[#command] == 'HEAD' and (failure == 'mismatch' and 'different revision' or bootstrap_commit) or 'synthetic Git result'
   end
   vim.fn.delete = function(path, flag)
     assert(path == '/fixture/data/lazy/lazy.nvim' and flag == 'rf')
@@ -32,10 +33,13 @@ local ok, failure = pcall(function()
   assert(options.local_spec == false, 'project plugin specs enabled')
   assert(options.checker.enabled and options.checker.notify, 'update notifications disabled')
   assert(run(false, false))
-  assert(#commands == 1 and commands[1][1] == 'git' and commands[1][2] == 'clone')
-  assert(vim.tbl_contains(commands[1], '--branch=stable'), 'bootstrap does not follow stable releases')
-  assert(not run(false, true), 'failed clone accepted')
-  assert(deleted and not options, 'failed bootstrap left state or loaded plugins')
+  assert(#commands == 3 and commands[1][1] == 'git' and commands[1][2] == 'clone')
+  assert(vim.tbl_contains(commands[1], '--no-checkout'), 'clone executed a moving checkout')
+  assert(commands[2][4] == 'checkout' and commands[2][5] == '--detach' and commands[2][6] == bootstrap_commit)
+  for _, failure_step in ipairs { 1, 2, 3, 'mismatch' } do
+    assert(not run(false, failure_step), 'failed or mismatched bootstrap accepted')
+    assert(deleted and not options, 'failed bootstrap left state or loaded plugins')
+  end
 end)
 vim.fn.stdpath, vim.fn.system, vim.uv.fs_stat, vim.fn.delete = original_stdpath, original_system, original_stat, original_delete
 assert(ok, failure)
@@ -49,8 +53,9 @@ local file = assert(io.open(root .. 'lazy-lock.json'))
 local lock = vim.json.decode(file:read('*a'))
 file:close()
 assert(lock.LazyVim and lock['lazy.nvim'])
+assert(lock['lazy.nvim'].commit == bootstrap_commit, 'bootstrap pin and lockfile disagree')
 for name, value in pairs(lock) do
   assert(not name:lower():find('copilot', 1, true), 'old AI plugin remains locked')
   assert(value.commit:match('^[0-9a-f]+$') and #value.commit == 40, 'invalid lock entry')
 end
-print('LazyVim bootstrap fails safely, follows stable updates, and preserves project-code guards.')
+print('LazyVim verifies its bootstrap pin before loading and preserves project-code guards.')

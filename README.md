@@ -63,7 +63,8 @@ preferences and only installs or links what is missing.
 
 Neovim uses the base [LazyVim](https://www.lazyvim.org/) configuration with no
 optional extras or Copilot/Chat plugins. First startup installs its core plugins
-and Tree-sitter parsers. LazyVim and lazy.nvim follow stable releases; update
+and Tree-sitter parsers. The lazy.nvim bootstrap uses a fixed commit from the
+tracked lockfile; LazyVim follows stable releases. Update
 checks notify you, and `:Lazy update` installs updates together and refreshes
 `lazy-lock.json`. Run `:LazyHealth` after installation. The LuaLS executable
 project-code guard remains enabled. Bootstrap supplies the required compiler,
@@ -264,10 +265,37 @@ uncommon key name or keycode.
 Elephant is the only clipboard-history collector. Clipboard controls use the
 selected launcher: the themed Rofi popup or Walker's clipboard view.
 Waybar's right-click opens deletion mode (select an entry in Rofi, `Ctrl+D` in
-Walker); middle-click clears Elephant
-and attempts to wipe a legacy Cliphist store when its CLI is installed. A failed
-clear or legacy data without its CLI returns an error instead of reporting
-success. Cliphist is no longer installed or autostarted by this configuration.
+Walker). Middle-click wipes the current Elephant history, including pinned text
+and images, clears the active clipboard and primary selection, and attempts to
+wipe a legacy Cliphist store when its CLI is installed. Scroll up to pause
+collection and down to resume it. These controls are also available through
+`~/.config/myhypr/scripts/cliphist.sh pause`, `resume`, and `wipe`. The older `w`
+argument clears unpinned history only and leaves the active selections alone.
+A failed wipe or legacy data without its CLI returns an error. If a privacy
+operation fails after pausing collection, inspect Elephant before resuming it.
+Cliphist is no longer installed or autostarted by this configuration.
+
+The default history limit is 20 entries. An expiry worker removes entries older
+than five minutes, including pinned entries and their backing images, checking
+every 30 seconds while Elephant runs. New copies and selections update timestamps.
+The worker uses the provider API and runs with the collector in its service or
+fallback launcher. Exclude clipboard caches from backups if you do not want
+backups to retain them. A wipe covers the provider's current entries; it does not
+erase backups or orphaned image files from earlier configurations and does not
+provide forensic secure erasure.
+
+Waybar's lock control now toggles a one-hour presentation mode which pauses
+dimming, display-off, and automatic suspend requests. It keeps the five-minute
+lock timer and locking before sleep enabled. Skipped display/sleep timers run on
+the next idle cycle after presentation mode ends. Daemon status and explicit
+restarts are scoped to the current Hyprland session.
+
+Shells create new files with a private `077` umask, and protect their default
+history files with owner-only permissions. Leading-space commands are excluded
+from history. Use application prompts or a secret store for credentials; history
+exclusion does not hide arguments from other processes. Local overrides can
+change these defaults. Unsafe linked or shared history storage disables history
+for that shell instead of changing the linked file.
 
 After adopting this change, start a new graphical session to retire the old
 Cliphist watcher, then use the clear action if you want to remove existing

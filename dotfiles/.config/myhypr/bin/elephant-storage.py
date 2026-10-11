@@ -5,6 +5,8 @@ import fcntl
 import os
 from pathlib import Path
 import shutil
+import select
+import signal
 import stat
 import subprocess
 import sys
@@ -116,17 +118,43 @@ def fallback():
         command = shutil.which('elephant')
         if not command:
             raise ValueError('Elephant command is unavailable')
+        policy = Path(__file__).with_name('clipboard-control.py')
+        if not policy.is_file():
+            raise ValueError('clipboard retention helper is unavailable')
         with subprocess.Popen([command], stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as process:
-            while True:
-                chunk = os.read(process.stdout.fileno(), 65536)
-                if not chunk:
-                    break
-                if os.fstat(fd).st_size + len(chunk) > LIMIT:
-                    fd = rotate_log(directory, fd)
-                remaining = memoryview(chunk)
-                while remaining:
-                    remaining = remaining[os.write(fd, remaining):]
-            return process.wait()
+            worker = subprocess.Popen([sys.executable, str(policy), 'watch'])
+            def stop_children(_signum, _frame):
+                process.terminate()
+                worker.terminate()
+            previous_term = signal.signal(signal.SIGTERM, stop_children)
+            try:
+                while True:
+                    if worker.poll() is not None:
+                        process.terminate()
+                        raise ValueError('clipboard retention worker stopped')
+                    ready, _, _ = select.select([process.stdout], [], [], 1)
+                    if not ready:
+                        continue
+                    chunk = os.read(process.stdout.fileno(), 65536)
+                    if not chunk:
+                        break
+                    if os.fstat(fd).st_size + len(chunk) > LIMIT:
+                        fd = rotate_log(directory, fd)
+                    remaining = memoryview(chunk)
+                    while remaining:
+                        remaining = remaining[os.write(fd, remaining):]
+                return process.wait()
+            finally:
+                signal.signal(signal.SIGTERM, previous_term)
+                worker.terminate()
+                worker.wait(timeout=5)
+                if process.poll() is None:
+                    process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
     finally:
         if fd is not None:
             os.close(fd)

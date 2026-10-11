@@ -9,6 +9,8 @@ FAKE_BIN="$TEST_ROOT/bin"
 TEST_HOME=$(mktemp -d "/tmp/myhypr-walker-home.XXXXXXXX")
 export XDG_CACHE_HOME="$TEST_HOME/.cache"
 export XDG_STATE_HOME="$TEST_HOME/.local/state"
+export XDG_RUNTIME_DIR="$TEST_HOME/run"
+mkdir -m 0700 -- "$XDG_RUNTIME_DIR"
 export WALKER_TEST_STATE="$TEST_ROOT/elephant-ready"
 export WALKER_TEST_LOG="$TEST_ROOT/commands.log"
 
@@ -32,6 +34,8 @@ printf 'style\n' > "$TEST_HOME/.config/walker/themes/myhypr/style.css"
 printf 'style\n' > "$TEST_HOME/.config/walker/themes/glass/style.css"
 cp -- "$REPO_ROOT/dotfiles/.config/myhypr/bin/elephant-storage.py" \
     "$TEST_HOME/.config/myhypr/bin/elephant-storage.py"
+cp -- "$REPO_ROOT/dotfiles/.config/myhypr/bin/clipboard-control.py" \
+    "$TEST_HOME/.config/myhypr/bin/clipboard-control.py"
 
 printf '%s\n' \
     '#!/usr/bin/env bash' \

@@ -91,10 +91,10 @@
     "format": "",
     "on-click": "sleep 0.1 && ~/.config/myhypr/bin/launch-app ~/.config/myhypr/scripts/cliphist.sh",
     "on-click-right": "sleep 0.1 && ~/.config/myhypr/bin/launch-app ~/.config/myhypr/scripts/cliphist.sh d",
-    "on-click-middle": "sleep 0.1 && ~/.config/myhypr/bin/launch-app ~/.config/myhypr/scripts/cliphist.sh w",
-    "tooltip-format": "Left: Open clipboard manager\nRight: Delete an entry (Walker: Ctrl+D)\nMiddle: Clear clipboard histories",
-    "on-scroll-up": "true",
-    "on-scroll-down": "true"
+    "on-click-middle": "sleep 0.1 && ~/.config/myhypr/bin/launch-app ~/.config/myhypr/scripts/cliphist.sh wipe",
+    "tooltip-format": "Left: Open clipboard manager\nRight: Delete an entry (Walker: Ctrl+D)\nMiddle: Wipe history including pinned entries and active clipboards\nScroll up: Pause collection\nScroll down: Resume collection",
+    "on-scroll-up": "~/.config/myhypr/scripts/cliphist.sh pause",
+    "on-scroll-down": "~/.config/myhypr/scripts/cliphist.sh resume"
   },
   // Updates Count
   "custom/updates": {

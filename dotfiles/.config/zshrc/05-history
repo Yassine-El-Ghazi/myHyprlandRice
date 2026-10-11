@@ -1,0 +1,9 @@
+umask 077
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=10000
+SAVEHIST=10000
+setopt appendhistory hist_ignore_space hist_save_by_copy
+if ! /usr/bin/python3 "$HOME/.config/myhypr/bin/shell-history.py" "$HISTFILE"; then
+    HISTFILE=/dev/null
+    SAVEHIST=0
+fi

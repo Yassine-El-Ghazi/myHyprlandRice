@@ -17,9 +17,12 @@ REPO = Path(__file__).resolve().parents[1]
 
 class SecurityBoundaryTests(unittest.TestCase):
     def elephant_fixture(self, home, option="--prepare"):
+        runtime = home / "run"
+        runtime.mkdir(mode=0o700, exist_ok=True)
         return subprocess.run(
             ["/usr/bin/python3", str(REPO / "dotfiles/.config/myhypr/bin/elephant-storage.py"), option],
-            env={"HOME": str(home), "PATH": f"{home / 'bin'}:/usr/bin:/bin"},
+            env={"HOME": str(home), "PATH": f"{home / 'bin'}:/usr/bin:/bin",
+                 "XDG_RUNTIME_DIR": str(runtime)},
             capture_output=True, text=True, umask=0o022,
         )
 

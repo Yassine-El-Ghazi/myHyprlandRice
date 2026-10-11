@@ -99,6 +99,9 @@ if command -v python >/dev/null 2>&1; then
     python_files+=(dotfiles/.config/myhypr/bin/settingsctl)
     python_files+=(dotfiles/.config/myhypr/bin/elephant-storage.py)
     python_files+=(dotfiles/.config/myhypr/bin/clipboard-rofi.py)
+    python_files+=(dotfiles/.config/myhypr/bin/clipboard-control.py)
+    python_files+=(dotfiles/.config/myhypr/bin/idle-control.py)
+    python_files+=(dotfiles/.config/myhypr/bin/shell-history.py)
     run_check 'Python syntax' python -c '
 import pathlib
 import sys
@@ -136,6 +139,7 @@ run_check 'Git whitespace checks' git diff --check
 run_check 'Simple package updates' "$REPO_ROOT/tests/test-simple-updates.sh"
 run_check 'Flatpak compatibility repair' "$REPO_ROOT/tests/test-flatpak-repair.sh"
 run_check 'Idle controls and logout geometry' "$REPO_ROOT/tests/test-idle-and-logout.sh"
+run_check 'Locking, clipboard retention, and history privacy' python3 "$REPO_ROOT/tests/test-security-fixes.py"
 run_check 'Desktop security boundaries' python3 "$REPO_ROOT/tests/test-security-boundaries.py"
 run_check 'Private OCR, screenshots, and archives' python3 "$REPO_ROOT/tests/test-artifact-permissions.py"
 run_check 'Hyprshade filter compatibility' "$REPO_ROOT/tests/test-hyprshade.sh"

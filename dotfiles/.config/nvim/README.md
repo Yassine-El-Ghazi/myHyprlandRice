@@ -14,8 +14,12 @@ Space is the leader key; press it and wait for the built-in keybinding menu.
 Customizations belong in `lua/config/options.lua`, `keymaps.lua`, and
 `autocmds.lua`. Plugin overrides belong in `lua/plugins/`.
 
-The plugin manager and LazyVim follow stable releases. Update checks notify you;
-run `:Lazy update` to install updates together. The lockfile records the core
+The plugin manager's first installation checks out and verifies a fixed commit
+before loading any downloaded Lua. Update that bootstrap pin in `config/lazy.lua`
+alongside the `lazy.nvim` entry in `lazy-lock.json` when adopting a new version.
+Existing installations remain available for deliberate updates. LazyVim follows
+stable releases. Update checks notify you; run `:Lazy update` to install updates
+together or `:Lazy restore` to reproduce the lockfile. The lockfile records the core
 plugin revisions; commit its changes when adopting an update. Project `.lazy.lua` specs,
 exrc files, and modelines are disabled. `luals-safe.json` and `config/luals.lua`
 preserve the audit's server-side restriction on executable project plugins,

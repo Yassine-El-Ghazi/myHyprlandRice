@@ -4,7 +4,7 @@ set -Eeuo pipefail
 # Keep the historical entry-point name for existing bindings. Elephant is the
 # only collector; each launcher presents the same Elephant history.
 if (($# > 1)); then
-    printf 'Usage: %s [d|w]\n' "$0" >&2
+    printf 'Usage: %s [d|w|wipe|pause|resume]\n' "$0" >&2
     exit 2
 fi
 
@@ -33,9 +33,16 @@ show_clipboard() {
 case ${1:-} in
     '') show_clipboard copy ;;
     d) show_clipboard delete ;;
-    w)
+    pause|resume)
+        exec /usr/bin/python3 "${XDG_CONFIG_HOME:-$HOME/.config}/myhypr/bin/clipboard-control.py" "$1"
+        ;;
+    w|wipe)
         status=0
-        if ! elephant activate 'clipboard;;remove_all;;' >/dev/null 2>&1; then
+        if [[ $1 == wipe ]]; then
+            if ! /usr/bin/python3 "${XDG_CONFIG_HOME:-$HOME/.config}/myhypr/bin/clipboard-control.py" wipe; then
+                status=1
+            fi
+        elif ! elephant activate 'clipboard;;remove_all;;' >/dev/null 2>&1; then
             printf 'Could not clear Elephant clipboard history. Check the session service.\n' >&2
             status=1
         fi
@@ -61,5 +68,5 @@ case ${1:-} in
         fi
         exit "$status"
         ;;
-    *) printf 'Usage: %s [d|w]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s [d|w|wipe|pause|resume]\n' "$0" >&2; exit 2 ;;
 esac

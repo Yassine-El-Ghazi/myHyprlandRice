@@ -64,7 +64,7 @@ for unit in elephant.service walker.service; do
         exit 1
     fi
 done
-rg -q '^ExecStart=/usr/bin/elephant$' \
+rg -q '^ExecStart=/usr/bin/python3 %h/\.config/myhypr/bin/elephant-storage.py --fallback$' \
     "$REPO_ROOT/dotfiles/.config/systemd/user/elephant.service"
 rg -q '^ExecStart=/usr/bin/walker --gapplication-service$' \
     "$REPO_ROOT/dotfiles/.config/systemd/user/walker.service"

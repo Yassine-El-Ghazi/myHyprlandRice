@@ -1,0 +1,7 @@
+# shellcheck shell=bash
+umask 077
+HISTCONTROL=ignoreboth
+HISTFILE="$HOME/.bash_history"
+if ! /usr/bin/python3 "$HOME/.config/myhypr/bin/shell-history.py" "$HISTFILE"; then
+    HISTFILE=/dev/null
+fi

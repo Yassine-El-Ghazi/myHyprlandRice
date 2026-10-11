@@ -5,6 +5,7 @@ REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd -- "$REPO_ROOT"
 runtime_files=(
     dotfiles/.config/myhypr/bin/launch-app
+    dotfiles/.config/myhypr/bin/idle-control.py
     dotfiles/.config/myhypr/scripts/focus.sh
     dotfiles/.config/hypr/scripts/moveTo.sh
     dotfiles/.config/hypr/scripts/cursor-zoom.sh
@@ -47,8 +48,10 @@ doctor=scripts/doctor.sh
 
 rg -Fq "after_sleep_cmd = hyprctl dispatch \"hl.dsp.dpms({ action = 'on' })\"" "$hypridle" || \
     fail 'after-sleep DPMS-on action is not exact'
-rg -Fq "on-timeout = hyprctl dispatch \"hl.dsp.dpms({ action = 'off' })\"" "$hypridle" || \
-    fail 'idle-timeout DPMS-off action is not exact'
+rg -Fq 'on-timeout = ~/.config/hypr/scripts/hypridle.sh display-off' "$hypridle" || \
+    fail 'idle-timeout DPMS-off action bypasses presentation policy'
+rg -Fq "\"display-off\": [\"hyprctl\", \"dispatch\", \"hl.dsp.dpms({ action = 'off' })\"]" \
+    dotfiles/.config/myhypr/bin/idle-control.py || fail 'idle-control DPMS-off action is not exact'
 rg -Fq "on-resume = hyprctl dispatch \"hl.dsp.dpms({ action = 'on' })\" && brightnessctl -r" "$hypridle" || \
     fail 'brightness restore is not chained after successful DPMS-on'
 rg -Fq "\"on-scroll-up\": \"hyprctl dispatch \\\"hl.dsp.focus({ workspace = 'r-1' })\\\"\"" "$modules" || \

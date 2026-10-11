@@ -26,11 +26,6 @@ plugins=(
 # Set-up FZF key bindings (CTRL R for fuzzy history finder)
 # -----------------------------------------------------
 (( $+commands[fzf] )) && source <(fzf --zsh)
-# zsh history
-HISTFILE=~/.zsh_history
-HISTSIZE=10000
-SAVEHIST=10000
-setopt appendhistory
 # -----------------------------------------------------
 # Prompt
 # -----------------------------------------------------
