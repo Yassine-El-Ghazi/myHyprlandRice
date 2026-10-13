@@ -100,6 +100,7 @@ if command -v python >/dev/null 2>&1; then
     python_files+=(dotfiles/.config/myhypr/bin/elephant-storage.py)
     python_files+=(dotfiles/.config/myhypr/bin/clipboard-rofi.py)
     python_files+=(dotfiles/.config/myhypr/bin/clipboard-control.py)
+    python_files+=(dotfiles/.config/myhypr/bin/elephant-query.py)
     python_files+=(dotfiles/.config/myhypr/bin/idle-control.py)
     python_files+=(dotfiles/.config/myhypr/bin/shell-history.py)
     run_check 'Python syntax' python -c '

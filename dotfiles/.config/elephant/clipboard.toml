@@ -1,5 +1,5 @@
 # Retention is enforced by clipboard-control.py through the provider's remove
 # action, so expired images are deleted along with their history records.
-max_items = 20
+max_items = 1000
 auto_cleanup = 0
 ocr = false

@@ -14,7 +14,7 @@ def main():
     action = "remove" if sys.argv[1] == "delete" else "copy"
     config = Path(os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config"))
     response = subprocess.run(
-        ["elephant", "query", "--json", "clipboard;;500"],
+        [sys.executable, str(Path(__file__).with_name("elephant-query.py")), "10000"],
         capture_output=True, text=True, check=True, timeout=5,
     )
     items = []

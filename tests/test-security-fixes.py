@@ -9,6 +9,7 @@ import importlib.util
 import io
 import json
 import os
+import struct
 from pathlib import Path
 import signal
 import subprocess
@@ -32,6 +33,7 @@ def load(name):
 
 idle = load("idle-control")
 clipboard = load("clipboard-control")
+clipboard_query = load("elephant-query")
 history = load("shell-history")
 
 
@@ -160,7 +162,7 @@ class ClipboardTests(unittest.TestCase):
             return ""
         if arguments[1] == "state":
             return json.dumps({"states": [self.mode, "paused" if self.paused else "unpaused"]})
-        if arguments[1] == "query":
+        if arguments[1].endswith("elephant-query.py"):
             values = list(self.entries.values())
             if self.mode == "show_pinned_only":
                 values = [entry for entry in values if "pinned" in entry["state"]]
@@ -193,10 +195,11 @@ class ClipboardTests(unittest.TestCase):
 
     def test_expiry_removes_old_images_and_pins_but_keeps_recent_entries(self):
         self.entry("recent", age=10)
-        self.entry("old", age=400)
-        self.entry("old_image", age=400, pinned=True, image=True)
+        self.entry("within_day", age=3600)
+        self.entry("old", age=86401)
+        self.entry("old_image", age=86401, pinned=True, image=True)
         clipboard.maintain()
-        self.assertEqual(set(self.entries), {"recent"})
+        self.assertEqual(set(self.entries), {"recent", "within_day"})
         self.assertFalse(any(call[0] == "wl-copy" for call in self.calls))
         self.assertFalse(self.paused)
 
@@ -244,11 +247,47 @@ class ClipboardTests(unittest.TestCase):
 
     def test_retention_policy_uses_image_aware_expiry(self):
         policy = tomllib.loads((REPO / "dotfiles/.config/elephant/clipboard.toml").read_text())
-        self.assertEqual(policy["max_items"], 20)
+        self.assertEqual(policy["max_items"], 1000)
         self.assertEqual(policy["auto_cleanup"], 0)
-        self.assertEqual(clipboard.RETENTION_SECONDS, 300)
+        self.assertEqual(clipboard.RETENTION_SECONDS, 86400)
         service = (REPO / "dotfiles/.config/systemd/user/elephant.service").read_text()
         self.assertIn("ExecStart=/usr/bin/python3 %h/.config/myhypr/bin/elephant-storage.py --fallback", service)
+
+    def test_empty_history_keeps_collection_running(self):
+        clipboard.maintain()
+        self.assertFalse(self.paused)
+        self.assertEqual(self.mode, "show_pinned_only")
+
+
+class ClipboardQueryTests(unittest.TestCase):
+    def run_query(self, frames, limit=10000):
+        stream = io.BytesIO(frames)
+        with patch.dict(os.environ, {"XDG_RUNTIME_DIR": "/synthetic-runtime"}), patch.object(
+                clipboard_query.socket, "socket") as factory:
+            connection = factory.return_value.__enter__.return_value
+            # Force fragmented reads like a real stream socket.
+            connection.recv.side_effect = lambda length: stream.read(min(length, 3))
+            result = clipboard_query.query(limit)
+            sent = connection.sendall.call_args.args[0]
+            self.assertEqual(sent[:2], b"\x00\x01")
+            self.assertEqual(struct.unpack(">I", sent[2:6])[0], len(sent[6:]))
+            self.assertEqual(json.loads(sent[6:]), {"providers": ["clipboard"], "maxresults": limit})
+            return result
+
+    def test_empty_history_status_is_not_parsed_as_json(self):
+        self.assertEqual(self.run_query(b"\xfe\0\0\0\0\xff\0\0\0\0"), [])
+
+    def test_nonempty_history_and_fragmented_frames(self):
+        item = {"item": {"identifier": "synthetic", "provider": "clipboard", "text": "example"}}
+        payload = json.dumps(item).encode()
+        frame = struct.pack(">BI", 0, len(payload)) + payload
+        self.assertEqual(self.run_query(frame + b"\xff\0\0\0\0"), [item])
+
+    def test_invalid_or_incomplete_responses_fail(self):
+        for frame in (b"", b"\xfe\0\0", b"\xfe\0\0\0\1", b"\x02\0\0\0\0",
+                      b"\x00\0\0\0\1{", b"\x00\0\x20\0\0", b"\x00\0\0\0\2{}"):
+            with self.subTest(frame=frame), self.assertRaises(ValueError):
+                self.run_query(frame)
 
 
 class HistoryTests(unittest.TestCase):
