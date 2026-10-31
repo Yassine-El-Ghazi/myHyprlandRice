@@ -95,14 +95,8 @@ if command -v python >/dev/null 2>&1; then
     mapfile -d '' json_files < <(find dotfiles defaults -type f \( -name '*.json' -o -name '*.jsonc' \) -print0)
     run_check 'JSON/JSONC syntax' python "$SCRIPT_DIR/validate-jsonc.py" "${json_files[@]}"
 
-    mapfile -d '' python_files < <(find scripts tests -type f -name '*.py' -print0)
+    mapfile -d '' python_files < <(find scripts tests dotfiles -type f -name '*.py' -print0)
     python_files+=(dotfiles/.config/myhypr/bin/settingsctl)
-    python_files+=(dotfiles/.config/myhypr/bin/elephant-storage.py)
-    python_files+=(dotfiles/.config/myhypr/bin/clipboard-rofi.py)
-    python_files+=(dotfiles/.config/myhypr/bin/clipboard-control.py)
-    python_files+=(dotfiles/.config/myhypr/bin/elephant-query.py)
-    python_files+=(dotfiles/.config/myhypr/bin/idle-control.py)
-    python_files+=(dotfiles/.config/myhypr/bin/shell-history.py)
     run_check 'Python syntax' python -c '
 import pathlib
 import sys
@@ -171,6 +165,9 @@ run_check 'Maintenance status and recovery CLI behavior' \
     "$REPO_ROOT/tests/test-maintenance-cli.sh"
 run_check 'Stateful all-float runtime action' lua "$REPO_ROOT/tests/test-runtime-actions.lua"
 run_check 'Zsh module loader behavior' "$REPO_ROOT/tests/test-zsh-loader.sh"
+if command -v fish >/dev/null 2>&1; then
+    run_check 'Shell aliases and editor defaults' "$REPO_ROOT/tests/test-shell-easy-wins.sh"
+fi
 run_check 'Dynamic monitor behavior' "$REPO_ROOT/tests/test-toggle-refresh.sh"
 run_check 'Cursor zoom behavior' "$REPO_ROOT/tests/test-cursor-zoom.sh"
 run_check 'Animation toggle behavior' "$REPO_ROOT/tests/test-toggle-animations.sh"
