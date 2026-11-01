@@ -36,6 +36,8 @@ cp -- "$REPO_ROOT/dotfiles/.config/myhypr/bin/elephant-storage.py" \
     "$TEST_HOME/.config/myhypr/bin/elephant-storage.py"
 cp -- "$REPO_ROOT/dotfiles/.config/myhypr/bin/clipboard-control.py" \
     "$TEST_HOME/.config/myhypr/bin/clipboard-control.py"
+cp -- "$REPO_ROOT/dotfiles/.config/myhypr/bin/elephant-query.py" \
+    "$TEST_HOME/.config/myhypr/bin/elephant-query.py"
 
 printf '%s\n' \
     '#!/usr/bin/env bash' \

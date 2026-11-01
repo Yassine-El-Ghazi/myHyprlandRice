@@ -38,7 +38,7 @@ _myhypr_normalize_path
 shopt -s nullglob
 for config_file in "$HOME"/.config/bashrc/*; do
     [[ -f "$config_file" ]] || continue
-    override_file="$HOME/.config/bashrc/custom/$(basename "$config_file")"
+    override_file="$HOME/.config/bashrc/custom/${config_file##*/}"
     if [[ -f "$override_file" ]]; then
         source "$override_file"
     else

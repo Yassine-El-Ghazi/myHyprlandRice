@@ -7,8 +7,12 @@ set -g fish_greeting ""
 # -----------------------------------------------------
 # Exports
 # -----------------------------------------------------
-set -gx EDITOR nvim
-set -gx VISUAL $EDITOR
+if not set -q EDITOR; or test -z "$EDITOR"
+    set -gx EDITOR nvim
+end
+if not set -q VISUAL; or test -z "$VISUAL"
+    set -gx VISUAL nvim
+end
 
 # System commands take precedence over local tools, including in nested shells.
 # Keep changes local to this process, not persistent fish_variables state.

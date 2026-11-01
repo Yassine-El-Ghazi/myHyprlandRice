@@ -21,6 +21,12 @@ mkdir -p -- "$FAKE_BIN" "$TEST_HOME/.config/walker" "$TEST_HOME/.config/myhypr/s
     "$TEST_HOME/.config/myhypr/bin"
 cp -- "$REPO_ROOT/dotfiles/.config/myhypr/bin/clipboard-rofi.py" \
     "$TEST_HOME/.config/myhypr/bin/clipboard-rofi.py"
+# The framed query protocol is exercised in test-security-fixes.py. Keep this
+# launcher fixture focused on previews, selection, cancellation, and failures.
+cat > "$TEST_HOME/.config/myhypr/bin/elephant-query.py" <<'PY'
+import subprocess, sys
+sys.exit(subprocess.run(["elephant", "query", "--json", "clipboard;;" + sys.argv[1]]).returncode)
+PY
 cat > "$CLIPBOARD_QUERY_FIXTURE" <<'EOF'
 {"item":{"identifier":"first-id","provider":"clipboard","text":"first\nline"}}
 {"item":{"identifier":"second-id","provider":"clipboard","text":"$(touch /tmp/do-not-run)\u0000test"}}
@@ -63,7 +69,7 @@ for launcher in rofi walker; do
         [[ $(<"$CLIPBOARD_TEST_LOG") == 'walker <-m clipboard -N -H>' ]] || fail 'Walker copy view changed'
     else
         rg -Fxq 'walker <--ensure-elephant>' "$CLIPBOARD_TEST_LOG"
-        rg -Fxq 'elephant <query --json clipboard;;500>' "$CLIPBOARD_TEST_LOG"
+        rg -Fxq 'elephant <query --json clipboard;;10000>' "$CLIPBOARD_TEST_LOG"
         rg -Fxq 'elephant <activate clipboard;first-id;copy;;>' "$CLIPBOARD_TEST_LOG"
         rg -Fq 'rofi <-dmenu -replace -no-custom -no-markup-rows -format i -p Search -config' "$CLIPBOARD_TEST_LOG"
         [[ $(wc -l < "$CLIPBOARD_ROFI_INPUT") -eq 2 ]] || fail 'Rofi preview was not flattened or unsafe items remained'
@@ -117,6 +123,26 @@ if rg -q 'elephant <activate' "$CLIPBOARD_TEST_LOG"; then fail 'cancelled popup 
 : > "$CLIPBOARD_TEST_LOG"
 if ELEPHANT_TEST_FAIL=9 "$script" 2>/dev/null; then fail 'query failure reported success'; fi
 if rg -q '^rofi |elephant <activate' "$CLIPBOARD_TEST_LOG"; then fail 'query failure reached selection'; fi
+
+# The expanded history must be selectable beyond the old 500-row query limit.
+/usr/bin/python3 - "$CLIPBOARD_QUERY_FIXTURE" <<'PY'
+import json, sys
+with open(sys.argv[1], "w") as stream:
+    for index in range(1000):
+        stream.write(json.dumps({"item": {"identifier": f"entry-{index}",
+                                         "provider": "clipboard", "text": f"Synthetic {index}"}}) + "\n")
+PY
+: > "$CLIPBOARD_TEST_LOG"
+CLIPBOARD_ROFI_SELECTION=999 "$script"
+rg -Fxq 'elephant <activate clipboard;entry-999;copy;;>' "$CLIPBOARD_TEST_LOG"
+[[ $(wc -l < "$CLIPBOARD_ROFI_INPUT") -eq 1000 ]] || fail 'expanded history was truncated'
+
+# A fresh or fully expired history still opens the popup and accepts Escape.
+: > "$CLIPBOARD_QUERY_FIXTURE"
+: > "$CLIPBOARD_TEST_LOG"
+CLIPBOARD_ROFI_FAIL=1 "$script"
+rg -q '^rofi ' "$CLIPBOARD_TEST_LOG" || fail 'empty history did not open the popup'
+[[ ! -s $CLIPBOARD_ROFI_INPUT ]] || fail 'empty history created a phantom entry'
 
 for failing in elephant cliphist; do
     : > "$CLIPBOARD_TEST_LOG"

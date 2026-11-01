@@ -15,7 +15,7 @@ import sys
 import time
 
 
-RETENTION_SECONDS = 300
+RETENTION_SECONDS = 24 * 60 * 60
 MODES = {"show_combined", "show_images_only", "show_text_only", "show_pinned_only"}
 
 
@@ -73,8 +73,10 @@ def locked():
 
 def items():
     # Always inventory every category, including pinned images. Query limits
-    # are deliberately above the configured 20 entries and common legacy stores.
-    response = command("elephant", "query", "--json", "clipboard;;10000")
+    # are deliberately above the configured 1000 entries and common legacy stores.
+    # Elephant 2.22.1's CLI crashes on empty-result frames. Use our framed
+    # query reader so an empty store does not leave collection paused.
+    response = command(sys.executable, str(Path(__file__).with_name("elephant-query.py")), "10000")
     result = []
     for line in response.splitlines():
         entry = json.loads(line).get("item")

@@ -275,8 +275,8 @@ A failed wipe or legacy data without its CLI returns an error. If a privacy
 operation fails after pausing collection, inspect Elephant before resuming it.
 Cliphist is no longer installed or autostarted by this configuration.
 
-The default history limit is 20 entries. An expiry worker removes entries older
-than five minutes, including pinned entries and their backing images, checking
+The default history limit is 1,000 entries. An expiry worker removes entries older
+than 24 hours, including pinned entries and their backing images, checking
 every 30 seconds while Elephant runs. New copies and selections update timestamps.
 The worker uses the provider API and runs with the collector in its service or
 fallback launcher. Exclude clipboard caches from backups if you do not want
