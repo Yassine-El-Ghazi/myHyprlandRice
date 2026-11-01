@@ -260,13 +260,13 @@ class ClipboardTests(unittest.TestCase):
 
 
 class ClipboardQueryTests(unittest.TestCase):
-    def run_query(self, frames, limit=10000):
+    def run_query(self, frames, limit=10000, chunk_size=3):
         stream = io.BytesIO(frames)
         with patch.dict(os.environ, {"XDG_RUNTIME_DIR": "/synthetic-runtime"}), patch.object(
                 clipboard_query.socket, "socket") as factory:
             connection = factory.return_value.__enter__.return_value
             # Force fragmented reads like a real stream socket.
-            connection.recv.side_effect = lambda length: stream.read(min(length, 3))
+            connection.recv.side_effect = lambda length: stream.read(min(length, chunk_size))
             result = clipboard_query.query(limit)
             sent = connection.sendall.call_args.args[0]
             self.assertEqual(sent[:2], b"\x00\x01")
@@ -283,9 +283,32 @@ class ClipboardQueryTests(unittest.TestCase):
         frame = struct.pack(">BI", 0, len(payload)) + payload
         self.assertEqual(self.run_query(frame + b"\xff\0\0\0\0"), [item])
 
+    def test_large_clipboard_entry_within_frame_limit(self):
+        item = {"item": {"identifier": "synthetic", "provider": "clipboard", "text": "x" * 1250000}}
+        payload = json.dumps(item).encode()
+        frame = struct.pack(">BI", 0, len(payload)) + payload
+        self.assertEqual(self.run_query(frame + b"\xff\0\0\0\0", chunk_size=65536), [item])
+
+    def test_frame_at_limit_succeeds(self):
+        prefix, suffix = b'{"item":{"text":"', b'"}}'
+        payload = prefix + b'x' * (clipboard_query.MAX_FRAME_BYTES - len(prefix) - len(suffix)) + suffix
+        frame = struct.pack(">BI", 0, len(payload)) + payload
+        result = self.run_query(frame + b"\xff\0\0\0\0", chunk_size=65536)
+        self.assertEqual(len(result[0]["item"]["text"]), len(payload) - len(prefix) - len(suffix))
+
+    def test_total_response_and_item_limits_are_checked_before_payload(self):
+        item = b'{"item":{}}'
+        frame = struct.pack(">BI", 0, len(item)) + item
+        with patch.object(clipboard_query, "MAX_RESPONSE_BYTES", len(item)):
+            with self.assertRaisesRegex(ValueError, "clipboard response limit exceeded"):
+                self.run_query(frame + struct.pack(">BI", 0, len(item)))
+        with self.assertRaisesRegex(ValueError, "clipboard response limit exceeded"):
+            self.run_query(frame + struct.pack(">BI", 0, len(item)), limit=1)
+
     def test_invalid_or_incomplete_responses_fail(self):
         for frame in (b"", b"\xfe\0\0", b"\xfe\0\0\0\1", b"\x02\0\0\0\0",
-                      b"\x00\0\0\0\1{", b"\x00\0\x20\0\0", b"\x00\0\0\0\2{}"):
+                      b"\x00\0\0\0\1{", struct.pack(">BI", 0, clipboard_query.MAX_FRAME_BYTES + 1),
+                      b"\x00\0\0\0\2{}", struct.pack(">BI", 0, 20) + b'{"item":'):
             with self.subTest(frame=frame), self.assertRaises(ValueError):
                 self.run_query(frame)
 
