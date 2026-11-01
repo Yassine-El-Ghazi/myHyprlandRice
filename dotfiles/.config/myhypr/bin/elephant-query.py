@@ -9,6 +9,9 @@ import struct
 import sys
 import time
 
+MAX_FRAME_BYTES = 16 * 1024 * 1024
+MAX_RESPONSE_BYTES = 64 * 1024 * 1024
+
 
 def query(limit):
     runtime = Path(os.environ.get("XDG_RUNTIME_DIR", ""))
@@ -35,6 +38,7 @@ def query(limit):
             return bytes(result)
 
         responses = []
+        response_bytes = 0
         while True:
             kind, length = struct.unpack(">BI", receive(5))
             if kind in (254, 255):  # No results / query complete; no JSON payload.
@@ -43,14 +47,15 @@ def query(limit):
                 if kind == 255:
                     return responses
                 continue
-            if kind not in (0, 1) or not 0 < length <= 1024 * 1024:
+            if kind not in (0, 1) or not 0 < length <= MAX_FRAME_BYTES:
                 raise ValueError("invalid clipboard frame")
+            if len(responses) >= limit or response_bytes + length > MAX_RESPONSE_BYTES:
+                raise ValueError("clipboard response limit exceeded")
+            response_bytes += length
             response = json.loads(receive(length))
             if not isinstance(response, dict) or not isinstance(response.get("item"), dict):
                 raise ValueError("invalid clipboard item")
             responses.append(response)
-            if len(responses) > limit:
-                raise ValueError("clipboard response limit exceeded")
 
 
 if __name__ == "__main__":
@@ -60,6 +65,6 @@ if __name__ == "__main__":
         # Buffer until query completion so a failed query never looks complete.
         for response in query(int(sys.argv[1])):
             print(json.dumps(response))
-    except (OSError, ValueError, TypeError):
+    except (OSError, ValueError, TypeError, RecursionError):
         print("Could not query Elephant clipboard history.", file=sys.stderr)
         sys.exit(1)
