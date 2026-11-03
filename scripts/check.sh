@@ -221,6 +221,7 @@ run_check 'Waybar theme behavior' "$REPO_ROOT/tests/test-waybar-themes.sh"
 run_check 'Waybar desktop actions' "$REPO_ROOT/tests/test-waybar-actions.sh"
 run_check 'Walker service behavior' "$REPO_ROOT/tests/test-walker-launch.sh"
 run_check 'Wallpaper effect behavior' "$REPO_ROOT/tests/test-wallpaper-effect.sh"
+run_check 'Wallpaper selection pipeline' python3 "$REPO_ROOT/tests/test-wallpaper-pipeline.py"
 run_check 'Wallpaper setting reader behavior' "$REPO_ROOT/tests/test-wallpaper-settings.sh"
 
 if [[ $QUICK -eq 0 ]]; then

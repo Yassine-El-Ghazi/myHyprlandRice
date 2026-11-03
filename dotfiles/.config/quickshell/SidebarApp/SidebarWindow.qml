@@ -752,7 +752,7 @@ PanelWindow {
                             onClicked: {
                                 root.isOpen = false
                                 appLauncher.running = false
-                                appLauncher.command = ["waypaper", "--backend", "awww", "--no-post-command"]
+                                appLauncher.command = [Quickshell.env("HOME") + "/.config/hypr/scripts/waypaper.sh"]
                                 appLauncher.running = true
                             }
                         }

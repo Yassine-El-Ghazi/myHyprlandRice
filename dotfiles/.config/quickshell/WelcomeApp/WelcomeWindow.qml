@@ -112,7 +112,7 @@ FloatingWindow {
                 }
                 MyHyprMenuItem {
                     text: qsTr("Wallpaper");
-                    onClicked: { appLauncher.command = ["waypaper", "--backend", "awww", "--no-post-command"]; appLauncher.running = true }
+                    onClicked: { appLauncher.command = [Quickshell.env("HOME") + "/.config/hypr/scripts/waypaper.sh"]; appLauncher.running = true }
                 }
                 MyHyprMenuItem {
                     text: qsTr("Theme");

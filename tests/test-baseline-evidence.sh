@@ -83,6 +83,9 @@ printf '#445566\n' > "$TEST_HOME/.config/myhypr/colors/secondary"
 printf '#ddeeff\n' > "$TEST_HOME/.config/myhypr/colors/onsurface"
 printf 'awww\n' > "$TEST_HOME/.config/myhypr/settings/wallpaper-engine.sh"
 printf 'none\n' > "$TEST_HOME/.config/myhypr/settings/wallpaper-effect.sh"
+mkdir -p -- "$TEST_HOME/.cache/myhypr"
+printf '%s\n' '{"version":1,"original":"/fixture.png","applied":"/fixture.png","effect":"blackwhite"}' \
+    > "$TEST_HOME/.cache/myhypr/current_wallpaper"
 
 printf '%s\n' \
     '#!/usr/bin/env bash' \
@@ -156,7 +159,7 @@ jq -e --arg commit "$fixture_commit" '
     .visual.secondary == "#445566" and
     .visual.on_surface == "#ddeeff" and
     .visual.wallpaper_engine == "awww" and
-    .visual.wallpaper_effect == "none" and
+    .visual.wallpaper_effect == "blackwhite" and
     .visual.waybar == "enabled" and
     .visual.dock == "enabled" and
     (.selectors | length) == 9 and

@@ -32,7 +32,7 @@ printf '%s\n' \
     'destination=${!#}' \
     ': > "$destination"' \
     > "$FAKE_BIN/magick"
-for command_name in matugen notify-send pywalfox swaync-client waypaper; do
+for command_name in awww matugen notify-send pywalfox swaync-client waypaper; do
     printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE_BIN/$command_name"
 done
 chmod +x -- "$FAKE_BIN"/*

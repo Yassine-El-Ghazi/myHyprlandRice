@@ -155,6 +155,12 @@ wallpaper_engine=$(read_bounded_value \
 wallpaper_effect=$(read_bounded_value \
     "$CONFIG_ROOT/myhypr/settings/wallpaper-effect.sh" \
     '^[A-Za-z0-9._-]{1,64}$' unavailable)
+if [[ -e $HOME/.cache/myhypr/current_wallpaper ]]; then
+    wallpaper_effect=$(jq -er '
+        select(.version == 1) | .effect |
+        select(type == "string" and test("^[A-Za-z0-9._-]{1,64}$"))
+    ' "$HOME/.cache/myhypr/current_wallpaper" 2>/dev/null) || wallpaper_effect=unavailable
+fi
 [[ -e $CONFIG_ROOT/myhypr/settings/waybar-disabled ]] && waybar_state=disabled || \
     waybar_state=enabled
 [[ -e $CONFIG_ROOT/myhypr/settings/dock-disabled ]] && dock_state=disabled || \

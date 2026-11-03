@@ -358,13 +358,13 @@ containment, graphical-session environment isolation, service activation,
 desktop controls, Waybar/Walker theme fallbacks, and declarative wallpaper
 effects.
 
-Waypaper's shell-based post-command callback is disabled for safety, including
-in repository launchers that may encounter an older local configuration.
-Wallpaper selection and restoring Waypaper's saved selection still work, but
-automatic adaptive-color/effect refreshes are paused pending an argument-based
-integration. On existing installations, also clear `post_command` in
-`~/.config/waypaper/config.ini` before launching Waypaper directly. Close any
-already-open Waypaper instance first so it cannot save the old callback again.
+Wallpaper launchers now use a repository picker and one application pipeline,
+including effects, adaptive colors, and startup restore. The compatibility name
+`waypaper.sh` opens the repository picker; it does not execute Waypaper. State is
+owned by the repository, and one wallpaper is applied across all outputs.
+See [WALLPAPER.md](WALLPAPER.md) for state migration, retry commands, and the
+boundary around external Waypaper launches. Waypaper's shipped raw callback
+remains empty; repository wallpaper operations never read or execute it.
 The explicit Hypridle lock-before-sleep setting takes effect when Hypridle next
 starts (for example, at the next login); editing its config alone does not restart
 the daemon.

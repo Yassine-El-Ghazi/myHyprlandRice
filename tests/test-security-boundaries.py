@@ -215,62 +215,70 @@ class SecurityBoundaryTests(unittest.TestCase):
                 self.assertEqual(len(paths), len(set(paths)))
                 self.assertEqual(paths[:3], ["/usr/local/sbin", "/usr/local/bin", "/usr/bin"])
 
-    def test_wallpaper_launchers_disable_existing_callbacks(self):
+    def test_wallpaper_launchers_never_execute_waypaper_callbacks(self):
         with tempfile.TemporaryDirectory(prefix="myhypr-wallpaper-launch-") as directory:
             home = Path(directory)
             fake_bin = home / "bin"
             fake_bin.mkdir()
-            waypaper = fake_bin / "waypaper"
-            waypaper.write_text(
-                "#!/usr/bin/python3\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n"
-            )
-            waypaper.chmod(0o700)
+            marker = home / "waypaper-called"
+            (fake_bin / "waypaper").write_text("#!/bin/sh\ntouch \"$HOME/waypaper-called\"\nexit 99\n")
+            (fake_bin / "rofi").write_text("#!/bin/sh\nexit 1\n")
+            (fake_bin / "awww").write_text("#!/bin/sh\nexit 7\n")
+            for tool in fake_bin.iterdir():
+                tool.chmod(0o700)
+            scripts = home / ".config/hypr/scripts"
+            scripts.parent.mkdir(parents=True)
+            scripts.symlink_to(REPO / "dotfiles/.config/hypr/scripts")
+            wallpapers = home / ".config/myhypr/wallpapers"
+            wallpapers.mkdir(parents=True)
+            (wallpapers / "default.jpg").write_text("fixture")
+            settings = home / ".config/myhypr/settings"
+            settings.mkdir()
+            (settings / "wallpaper-effect.sh").write_text("off")
             env = {"HOME": str(home), "PATH": f"{fake_bin}:/usr/bin:/bin"}
             for relative, arguments in (
                 ("dotfiles/.config/hypr/scripts/waypaper.sh", []),
-                ("dotfiles/.config/hypr/scripts/waypaper.sh", ["--random"]),
                 ("dotfiles/.config/myhypr/bin/myhyprctl", ["wallpaper"]),
             ):
-                with self.subTest(launcher=relative, arguments=arguments):
+                with self.subTest(launcher=relative):
                     result = subprocess.run(
                         ["/bin/bash", str(REPO / relative), *arguments], env=env,
                         capture_output=True, text=True, check=True,
                     )
-                    passed = json.loads(result.stdout)
-                    self.assertIn("--no-post-command", passed)
-                    self.assertEqual(passed[:2], ["--backend", "awww"])
-                    if "--random" in arguments:
-                        self.assertIn("--random", passed)
+                    self.assertEqual(result.returncode, 0)
+                    self.assertFalse(marker.exists())
 
-    def test_wallpaper_restore_prefers_saved_selection_without_callback(self):
+    def test_wallpaper_restore_does_not_consult_waypaper_state(self):
         with tempfile.TemporaryDirectory(prefix="myhypr-wallpaper-restore-") as directory:
             home = Path(directory)
             fake_bin = home / "bin"
             fake_bin.mkdir()
-            (fake_bin / "awww").write_text("#!/bin/sh\nexit 0\n")
-            (fake_bin / "waypaper").write_text(
-                "#!/usr/bin/python3\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n"
+            (fake_bin / "waypaper").write_text("#!/bin/sh\nexit 99\n")
+            (fake_bin / "awww").write_text(
+                "#!/usr/bin/python3\nimport pathlib, sys\n"
+                "if sys.argv[1] == 'img':\n"
+                "    (pathlib.Path.home() / 'restore-attempt').write_bytes(pathlib.Path(sys.argv[2]).read_bytes())\n"
+                "    sys.exit(7)\n"
             )
             for tool in fake_bin.iterdir():
                 tool.chmod(0o700)
-            config = home / ".config/waypaper/config.ini"
-            config.parent.mkdir(parents=True)
-            config.write_text("[Settings]\nwallpaper = ~/chosen image.png\npost_command =\n")
+            scripts = home / ".config/hypr/scripts"
+            scripts.parent.mkdir(parents=True)
+            scripts.symlink_to(REPO / "dotfiles/.config/hypr/scripts")
             default = home / ".config/myhypr/wallpapers/default.jpg"
             default.parent.mkdir(parents=True)
+            default.write_text("verified-bootstrap-fixture")
+            config = home / ".config/waypaper/config.ini"
+            config.parent.mkdir()
+            config.write_text("[Settings]\nwallpaper = /unverified.png\npost_command = old callback\n")
             env = {"HOME": str(home), "PATH": f"{fake_bin}:/usr/bin:/bin"}
-            script = REPO / "dotfiles/.config/hypr/scripts/wallpaper-restore.sh"
+            script = scripts / "wallpaper-restore.sh"
             result = subprocess.run(["/bin/bash", str(script)], env=env,
-                                    capture_output=True, text=True, check=True)
-            self.assertEqual(json.loads(result.stdout.splitlines()[-1]),
-                             ["--backend", "awww", "--restore", "--no-post-command"])
-            config.unlink()
-            default.write_text("fixture")
-            result = subprocess.run(["/bin/bash", str(script)], env=env,
-                                    capture_output=True, text=True, check=True)
-            self.assertEqual(json.loads(result.stdout.splitlines()[-1]),
-                             ["--backend", "awww", "--wallpaper", str(default),
-                              "--no-post-command"])
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual((home / "restore-attempt").read_text(), "verified-bootstrap-fixture")
+            self.assertNotIn("verified-bootstrap-fixture", result.stdout + result.stderr)
+            self.assertFalse((home / ".cache/myhypr/current_wallpaper").exists())
 
     def test_wallpaper_defaults_do_not_enable_shell_callbacks(self):
         config = configparser.ConfigParser(interpolation=None)
