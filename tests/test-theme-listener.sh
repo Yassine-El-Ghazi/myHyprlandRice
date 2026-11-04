@@ -28,8 +28,8 @@ mkdir -p -- "$FAKE_BIN" "$TEST_HOME/.config/gtk-3.0" \
 printf 'gtk-application-prefer-dark-theme=1\n' \
     > "$TEST_HOME/.config/gtk-3.0/settings.ini"
 printf 'wallpaper\n' > "$TEST_HOME/wallpaper.png"
-printf '%s\n' "$TEST_HOME/wallpaper.png" \
-    > "$TEST_HOME/.cache/myhypr/current_wallpaper"
+python3 -c 'import json, sys; print(json.dumps({"version": 1, "original": sys.argv[1], "applied": sys.argv[1], "effect": "off"}))' \
+    "$TEST_HOME/wallpaper.png" > "$TEST_HOME/.cache/myhypr/current_wallpaper"
 
 printf '%s\n' \
     '#!/usr/bin/env bash' \
@@ -43,6 +43,11 @@ printf '%s\n' \
     'printf "%s\n" "$count" > "$THEME_LISTENER_COUNT"' \
     'printf "matugen %s\n" "$*" >> "$THEME_LISTENER_LOG"' \
     '[[ $count -ne 1 ]]' > "$FAKE_BIN/matugen"
+printf '%s\n' '#!/usr/bin/env bash' \
+    '[[ ${1:-} == --refresh ]] || exit 64' \
+    'exec matugen image fixture -m dark' \
+    > "$TEST_HOME/.config/hypr/scripts/wallpaper.sh"
+chmod +x -- "$TEST_HOME/.config/hypr/scripts/wallpaper.sh"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE_BIN/swaync-client"
 for script in \
     "$TEST_HOME/.config/nwg-dock-hyprland/launch.sh" \
@@ -50,6 +55,7 @@ for script in \
     printf '#!/usr/bin/env bash\nexit 0\n' > "$script"
 done
 printf '%s\n' '#!/usr/bin/env bash' \
+    'printf "%s\n" "$HOME" >&2' \
     'printf "gtk\n" >> "$THEME_GTK_LOG"' \
     > "$TEST_HOME/.config/hypr/scripts/gtk.sh"
 chmod +x -- "$FAKE_BIN/inotifywait" "$FAKE_BIN/matugen" \
@@ -70,8 +76,35 @@ HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
     fail 'GTK settings were not applied independently of Matugen success'
 rg -Fq 'Theme update failed; continuing to monitor GTK settings.' \
     "$TEST_ROOT/stderr.log" || fail 'transient failure was not reported'
+if rg -Fq -- "$TEST_HOME" "$TEST_ROOT/stdout.log" "$TEST_ROOT/stderr.log"; then
+    fail 'default listener diagnostics exposed the home directory'
+fi
 
 printf 'GTK theme listener survives transient update failures.\n'
+
+printf 'gtk-application-prefer-dark-theme=/home/%s/Pictures/private-name.png\n' \
+    'example-private-user' > "$TEST_HOME/.config/gtk-3.0/settings.ini"
+HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
+    "$REPO_ROOT/dotfiles/.config/myhypr/listeners/gtk-theme-switcher.sh" \
+    >"$TEST_ROOT/private-stdout.log" 2>"$TEST_ROOT/private-stderr.log"
+rg -Fq 'Unexpected GTK color preference' "$TEST_ROOT/private-stderr.log" || \
+    fail 'invalid GTK preference was not diagnosed'
+if rg -Fq -e "$TEST_HOME" -e 'example-private-user' -e 'private-name.png' \
+    "$TEST_ROOT/private-stdout.log" "$TEST_ROOT/private-stderr.log"; then
+    fail 'invalid preference diagnostics disclosed private input'
+fi
+printf '%s\n' '#!/usr/bin/env bash' \
+    'printf "%s\n" "$HOME" >&2' 'exit 5' > "$FAKE_BIN/inotifywait"
+if HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
+    "$REPO_ROOT/dotfiles/.config/myhypr/listeners/gtk-theme-switcher.sh" \
+    >"$TEST_ROOT/monitor-stdout.log" 2>"$TEST_ROOT/monitor-stderr.log"; then
+    fail 'monitoring failure was not propagated'
+fi
+rg -Fq 'GTK settings monitoring failed' "$TEST_ROOT/monitor-stderr.log" || \
+    fail 'monitoring failure was not diagnosed'
+if rg -Fq -- "$TEST_HOME" "$TEST_ROOT/monitor-stdout.log" "$TEST_ROOT/monitor-stderr.log"; then
+    fail 'monitoring failure exposed dependency output'
+fi
 
 toggle_root="$TEST_ROOT/toggle-home"
 toggle_config="$toggle_root/.config"

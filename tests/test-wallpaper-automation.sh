@@ -24,14 +24,15 @@ cleanup() {
 trap cleanup EXIT
 fail() { printf 'Wallpaper automation test failed: %s\n' "$*" >&2; exit 1; }
 
-mkdir -p -- "$FAKE_BIN" "$TEST_HOME/.config/myhypr/settings"
+mkdir -p -- "$FAKE_BIN" "$TEST_HOME/.config/myhypr/settings" "$TEST_HOME/.config/hypr/scripts"
 printf '10\n' > "$TEST_HOME/.config/myhypr/settings/wallpaper-automation.sh"
 printf '%s\n' '#!/usr/bin/env bash' \
-    '[[ " $* " == *" --no-post-command "* ]] || exit 64' \
+    '[[ ${1:-} == --random ]] || exit 64' \
     'printf "%s\n" "$$" > "$WALLPAPER_CHILD_PID"' \
-    'exec sleep 30' > "$FAKE_BIN/waypaper"
+    'exec sleep 30' > "$TEST_HOME/.config/hypr/scripts/wallpaper.sh"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE_BIN/notify-send"
 chmod +x -- "$FAKE_BIN"/*
+chmod +x -- "$TEST_HOME/.config/hypr/scripts/wallpaper.sh"
 
 automation="$REPO_ROOT/dotfiles/.config/hypr/scripts/wallpaper-automation.sh"
 HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" "$automation" --start >/dev/null

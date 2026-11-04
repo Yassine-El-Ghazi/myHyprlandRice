@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-if ! command -v waypaper >/dev/null 2>&1; then
-    printf 'waypaper: command not found\n' >&2
-    exit 127
+[[ ${1:-} != --configured-folder ]] || shift
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+if (($# == 0)); then
+    exec "$script_dir/wallpaper.sh" --pick
 fi
-
-wallpaper_dir="$HOME/.config/myhypr/wallpapers"
-# Also protect installations retaining an older, locally seeded post_command.
-exec waypaper --backend awww --folder "$wallpaper_dir" "$@" --no-post-command
+exec "$script_dir/wallpaper.sh" "$@"

@@ -16,57 +16,59 @@ if ! command -v inotifywait >/dev/null 2>&1; then
     exit 1
 fi
 
-printf 'Monitoring %s for changes...\n' "$SETTINGS_FILE"
+printf 'Monitoring GTK settings for changes.\n'
 
 # Function to apply the theme based on the current settings
 apply_theme() {
     # Check if the settings file exists
     if [[ ! -f $SETTINGS_FILE ]]; then
-        printf 'Error: GTK settings file not found: %s\n' "$SETTINGS_FILE" >&2
+        printf 'Error: GTK settings file not found.\n' >&2
         return 1
     fi
 
     # Extract the value of gtk-application-prefer-dark-theme
     # We use grep to find the line and awk to get the value after the '='
-    local theme_pref wallpaper
+    local theme_pref
     local result=0
-    local -a mode_args=(-m light)
-    theme_pref=$(awk -F= '$1 == "gtk-application-prefer-dark-theme" {print $2; exit}' "$SETTINGS_FILE")
+    theme_pref=$(awk -F= '$1 == "gtk-application-prefer-dark-theme" {print $2; exit}' "$SETTINGS_FILE" 2>/dev/null) || {
+        printf 'Unable to read GTK color preference.\n' >&2
+        return 1
+    }
 
     if [[ -z $theme_pref ]]; then
-        printf 'GTK color preference is not set in %s; skipping.\n' \
-            "$SETTINGS_FILE" >&2
+        printf 'GTK color preference is not set; skipping.\n' >&2
         return 0
     fi
 
     case $theme_pref in
-        1|true) mode_args=(-m dark) ;;
+        1|true) ;;
         0|false) ;;
         *)
-            printf 'Unexpected GTK color preference: %s\n' "$theme_pref" >&2
+            printf 'Unexpected GTK color preference; expected true/false or 1/0.\n' >&2
             return 1
             ;;
     esac
     # Keep the desktop toolkit preference synchronized even when adaptive
     # wallpaper color generation is temporarily unavailable.
-    "$HOME/.config/hypr/scripts/gtk.sh" || result=1
+    if ! "$HOME/.config/hypr/scripts/gtk.sh" >/dev/null 2>&1; then
+        printf 'GTK toolkit update failed.\n' >&2
+        result=1
+    fi
     [[ -r $HOME/.cache/myhypr/current_wallpaper ]] || return "$result"
-    wallpaper=$(<"$HOME/.cache/myhypr/current_wallpaper")
-    [[ -f $wallpaper ]] || return "$result"
-
-    matugen image "$wallpaper" "${mode_args[@]}" || return 1
-    "$HOME/.config/nwg-dock-hyprland/launch.sh" &
-    "$HOME/.config/waybar/launch.sh" &
-    swaync-client -rs || result=1
+    "$HOME/.config/hypr/scripts/wallpaper.sh" --refresh || result=1
     return "$result"
 }
 
 # Loop indefinitely, reading output from inotifywait
-inotifywait -m -q -e close_write,moved_to "$SETTINGS_DIR" | while read -r _directory _events filename; do
+if ! inotifywait -m -q -e close_write,moved_to "$SETTINGS_DIR" 2>/dev/null | while read -r _directory _events filename; do
     if [[ "$filename" == "$SETTINGS_BASENAME" ]]; then
-        printf 'Change detected in %s; reapplying theme.\n' "$SETTINGS_FILE"
+        printf 'GTK settings changed; reapplying theme.\n'
         if ! apply_theme; then
             printf 'Theme update failed; continuing to monitor GTK settings.\n' >&2
         fi
     fi
 done
+then
+    printf 'GTK settings monitoring failed.\n' >&2
+    exit 1
+fi
