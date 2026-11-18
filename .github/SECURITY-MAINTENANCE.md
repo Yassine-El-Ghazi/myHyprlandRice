@@ -27,7 +27,7 @@ Local verification from the repository root:
 
 ```sh
 ./scripts/check.sh --require-tools
-./scripts/audit.sh --history
+./scripts/audit.sh --history --scan-only
 uvx zizmor==1.30.1 --offline --persona pedantic .github/workflows
 ```
 

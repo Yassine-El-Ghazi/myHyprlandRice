@@ -47,8 +47,9 @@ set_component() {
     [[ $desired == enabled || $desired == disabled ]] || return 2
     marker=$(component_marker "$component") || return 2
     current=$(component_status "$component")
-    [[ $current != "$desired" ]] || return 0
-    mkdir -p -- "$SETTINGS_ROOT"
+    # An earlier dock disable can leave the marker with the process still running.
+    [[ $current != "$desired" || ( $component == dock && $desired == disabled ) ]] || return 0
+    mkdir -p -- "$SETTINGS_ROOT" || return
 
     if [[ $component == gamemode ]]; then
         "$CONFIG_ROOT/hypr/scripts/gamemode.sh"
@@ -56,12 +57,14 @@ set_component() {
     fi
 
     if [[ $desired == enabled ]]; then
-        rm -f -- "$marker"
+        rm -f -- "$marker" || return
     else
-        : > "$marker"
+        : > "$marker" || return
     fi
     if [[ $component == waybar ]]; then
         "$CONFIG_ROOT/waybar/launch.sh"
+    elif [[ $desired == disabled ]]; then
+        "$CONFIG_ROOT/nwg-dock-hyprland/launch.sh"
     else
         "$CONFIG_ROOT/nwg-dock-hyprland/launch.sh" >/dev/null 2>&1 &
         disown
@@ -84,14 +87,23 @@ audio_control() {
 }
 
 brightness_control() {
+    local current value
+
     case ${1:-} in
         get)
-            brightnessctl -m | awk -F, '{gsub("%", "", $4); print $4}'
+            if current=$(brightnessctl -c backlight -m info 2>/dev/null) &&
+                [[ $current =~ ^[^,]+,backlight,[0-9]+,([0-9]{1,3})%,[0-9]+$ ]] &&
+                ((10#${BASH_REMATCH[1]} <= 100)); then
+                printf '%d\n' "$((10#${BASH_REMATCH[1]}))"
+            else
+                printf 'Screen backlight unavailable.\n' >&2
+                return 1
+            fi
             ;;
         set)
-            local value=${2:-}
-            [[ $value =~ ^[0-9]+$ ]] && ((value >= 10 && value <= 100)) || return 2
-            exec brightnessctl set "${value}%"
+            value=${2:-}
+            [[ $value =~ ^0*([1-9][0-9]{1,2})$ ]] && ((BASH_REMATCH[1] <= 100)) || return 2
+            exec brightnessctl -c backlight set "${BASH_REMATCH[1]}%"
             ;;
         *) return 2 ;;
     esac
@@ -177,7 +189,11 @@ case ${1:-} in
         ;;
     brightness)
         shift
-        brightness_control "$@" || { usage >&2; exit 2; }
+        brightness_control "$@" || {
+            status=$?
+            [[ $status -ne 2 ]] || usage >&2
+            exit "$status"
+        }
         ;;
     wifi)
         shift

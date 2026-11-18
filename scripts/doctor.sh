@@ -147,7 +147,7 @@ core_commands=(
 )
 desktop_commands=(
     Hyprland hyprctl hypridle hyprlock hyprpicker waybar 'qs|quickshell' rofi
-    walker swaync-client nwg-dock-hyprland awww waypaper matugen grim slurp
+    walker swaync-client nwg-dock-hyprland awww matugen grim slurp
     hyprshot satty wl-copy tesseract brightnessctl playerctl nm-applet
     blueman-manager pavucontrol wpctl pactl notify-send nautilus yazi
     gnome-calculator gnome-text-editor gnome-software qalculate-gtk rofimoji pinta evolution
@@ -255,6 +255,7 @@ fi
 missing_runtime=()
 while IFS= read -r -d '' default_path; do
     relative=${default_path#"$REPO_ROOT/defaults/"}
+    [[ $relative != .config/waypaper/config.ini ]] || continue
     [[ -e $HOME/$relative ]] || missing_runtime+=("$relative")
 done < <(find "$REPO_ROOT/defaults" -type f -print0)
 if ((${#missing_runtime[@]})); then

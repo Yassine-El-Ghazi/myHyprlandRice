@@ -7,6 +7,7 @@ source "$SCRIPT_DIR/lib.sh"
 
 MODE=worktree
 RUN_HISTORY=0
+RUN_VALIDATION=1
 audit_snapshot=''
 audit_workspace=''
 cleanup() {
@@ -29,8 +30,12 @@ while (($#)); do
             RUN_HISTORY=1
             shift
             ;;
+        --scan-only)
+            RUN_VALIDATION=0
+            shift
+            ;;
         -h|--help)
-            printf 'Usage: scripts/audit.sh [--staged] [--history]\n'
+            printf 'Usage: scripts/audit.sh [--staged] [--history] [--scan-only]\n'
             exit 0
             ;;
         *) die "Unknown option: $1" ;;
@@ -292,7 +297,9 @@ else
     git diff --check || failures=$((failures + 1))
 fi
 
-run_quick_validation
+if [[ $RUN_VALIDATION -eq 1 ]]; then
+    run_quick_validation
+fi
 
 if [[ $failures -gt 0 ]]; then
     die "$failures audit finding(s) must be resolved before committing."

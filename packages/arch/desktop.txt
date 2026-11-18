@@ -28,7 +28,6 @@ wlogout
 
 # Wallpaper and generated color pipeline
 awww
-waypaper
 matugen
 imagemagick
 gum
@@ -70,6 +69,7 @@ libsecret
 # Toolkit and appearance integration
 gtk3
 gtk4
+python-gobject
 qt5-wayland
 qt6-wayland
 qt6ct

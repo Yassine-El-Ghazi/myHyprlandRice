@@ -7,14 +7,14 @@ CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}"
 source "$CONFIG_ROOT/myhypr/library.sh"
 
 save_directory="$HOME/Pictures"
-filename_template='screenshot_%Y%m%d_%H%M%S.jpg'
+filename_template='screenshot_%Y%m%d_%H%M%S.png'
 [[ -r $CONFIG_ROOT/myhypr/settings/screenshot-folder ]] && \
     save_directory=$(<"$CONFIG_ROOT/myhypr/settings/screenshot-folder")
 [[ -r $CONFIG_ROOT/myhypr/settings/screenshot-filename ]] && \
     filename_template=$(<"$CONFIG_ROOT/myhypr/settings/screenshot-filename")
 
 save_directory=$(myhypr_expand_path "$save_directory")
-filename=$(myhypr_render_filename "$filename_template")
+filename=$(myhypr_render_screenshot_filename "$filename_template")
 output_path=''
 pending_output=''
 cleanup() { [[ -z $pending_output ]] || rm -f -- "$pending_output"; }

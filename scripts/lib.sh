@@ -65,18 +65,14 @@ require_command() {
     command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"
 }
 
-resolve_executable() {
-    local command_name=$1
-    local candidate resolved
-    shift
+resolve_qt6_qmllint() {
+    local candidate resolved version
 
-    if resolved=$(command -v -- "$command_name" 2>/dev/null); then
-        printf '%s\n' "$resolved"
-        return 0
-    fi
     for candidate in "$@"; do
-        if [[ -x $candidate ]]; then
-            printf '%s\n' "$candidate"
+        if resolved=$(command -v -- "$candidate" 2>/dev/null) && \
+            version=$("$resolved" --version 2>/dev/null) && \
+            [[ $version =~ ^qmllint[[:space:]]+6\.[0-9]+ ]]; then
+            printf '%s\n' "$resolved"
             return 0
         fi
     done

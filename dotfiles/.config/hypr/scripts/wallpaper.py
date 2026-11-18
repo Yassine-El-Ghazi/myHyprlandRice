@@ -335,7 +335,7 @@ class Wallpaper:
                 self.refresh(data)
             print("Wallpaper applied successfully.")
 
-    def images(self):
+    def wallpaper_folder(self):
         folder = self.config / "myhypr/wallpapers"
         try:
             value = (self.settings / "wallpaper-folder").read_text(errors="surrogateescape").removesuffix("\n")
@@ -346,16 +346,20 @@ class Wallpaper:
                 folder = self.home / folder
         except FileNotFoundError:
             pass
+        return folder
+
+    def images(self, allow_empty=False, onerror=None):
+        folder = self.wallpaper_folder()
         extensions = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif", ".tiff"}
         images = []
-        for directory, subdirectories, names in os.walk(folder):
+        for directory, subdirectories, names in os.walk(folder, onerror=onerror):
             if len(Path(directory).relative_to(folder).parts) >= 5:
                 subdirectories.clear()
             for name in names:
                 path = Path(directory) / name
                 if path.is_file() and Path(name.rstrip()).suffix.lower() in extensions:
                     images.append(path)
-        if not images:
+        if not images and not allow_empty:
             raise WallpaperError("No supported wallpaper images found in the configured folder")
         return sorted(images)
 
@@ -384,6 +388,7 @@ def main():
     actions.add_argument("--restore", action="store_true")
     actions.add_argument("--refresh", action="store_true")
     actions.add_argument("--pick", action="store_true")
+    actions.add_argument("--visual-review", action="store_true", help="browse without applying a wallpaper")
     actions.add_argument("--pick-effect", action="store_true")
     actions.add_argument("--list", dest="list_images", action="store_true")
     parser.add_argument("--effect")
@@ -391,10 +396,12 @@ def main():
                         help="show raw command output and tracebacks; may disclose private paths")
     parser.add_argument("path", nargs="?")
     args = parser.parse_args()
-    if args.path and any((args.wallpaper, args.random, args.restore, args.refresh, args.pick, args.pick_effect, args.list_images)):
+    if args.path and any((args.wallpaper, args.random, args.restore, args.refresh, args.pick, args.visual_review, args.pick_effect, args.list_images)):
         parser.error("a direct path cannot be combined with another selection action")
     if args.refresh and args.effect:
         parser.error("--refresh cannot change the effect")
+    if args.visual_review and args.effect:
+        parser.error("--visual-review cannot change the effect")
     wallpaper = Wallpaper(verbose=args.verbose)
     try:
         if args.list_images:
@@ -407,9 +414,16 @@ def main():
             effect = wallpaper.pick(wallpaper.effects(), "Wallpaper effect")
             if effect is None:
                 return 0
-        elif args.pick:
-            original = wallpaper.pick(wallpaper.images(), "Wallpaper")
-            if original is None:
+        elif args.pick or args.visual_review:
+            try:
+                from wallpaper_visual import PickerError, pick_wallpaper
+            except ImportError as error:
+                raise WallpaperError("Visual wallpaper picker is unavailable; install its GTK dependencies") from error
+            try:
+                original = pick_wallpaper(wallpaper, visual_only=True) if args.visual_review else pick_wallpaper(wallpaper)
+            except PickerError as error:
+                raise WallpaperError(str(error)) from error
+            if args.visual_review or original is None:
                 return 0
         elif args.random:
             original = random.SystemRandom().choice(wallpaper.images())

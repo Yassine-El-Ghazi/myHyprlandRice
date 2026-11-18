@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import types
 import unittest
 from unittest import mock
 
@@ -34,6 +35,29 @@ class WallpaperPipelineTests(unittest.TestCase):
         for name in ("wallpaper.sh", "wallpaper.py", "waypaper.sh", "wallpaper-effects.sh",
                      "wallpaper-effect.sh", "wallpaper-restore.sh", "wallpaper-automation.sh"):
             (self.scripts / name).symlink_to(SCRIPTS / name)
+        support = self.root / "support"
+        support.mkdir()
+        (support / "sitecustomize.py").write_text('''
+import importlib.util, pathlib, sys
+spec = importlib.util.spec_from_file_location("wallpaper_visual", pathlib.Path(__file__).with_name("picker.py"))
+picker = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(picker)
+sys.modules["wallpaper_visual"] = picker
+''')
+        (support / "picker.py").write_text('''
+import os
+from pathlib import Path
+class PickerError(Exception):
+    pass
+def pick_wallpaper(wallpaper, visual_only=False):
+    choices = wallpaper.images(allow_empty=True)
+    Path(os.environ["TEST_ROOT"], "picker-input").write_text("selected")
+    if os.environ.get("PICK_FAIL"):
+        raise PickerError("Visual picker failed")
+    if os.environ.get("PICK_CANCEL"):
+        return None
+    return choices[int(os.environ.get("PICK_INDEX", "0"))] if choices else None
+''')
         self.config = self.home / ".config"
         self.settings = self.config / "myhypr/settings"
         self.settings.mkdir(parents=True)
@@ -52,6 +76,7 @@ class WallpaperPipelineTests(unittest.TestCase):
         self.active = self.root / "active"
         self.env = {**os.environ, "HOME": str(self.home), "XDG_CONFIG_HOME": str(self.config),
                     "PATH": f"{self.bin}:/usr/bin:/bin", "TEST_LOG": str(self.log),
+                    "PYTHONPATH": str(support),
                     "TEST_ACTIVE": str(self.active), "TEST_IMAGE": str(self.image),
                     "TEST_ROOT": str(self.root)}
         self.tool("awww", """
@@ -304,12 +329,16 @@ sys.exit(0)
         self.assert_private_diagnostics(result)
         (self.settings / "wallpaper-folder").write_text(str(Path("/home") / "example-private-user/Pictures"))
         result = self.command("--pick")
-        self.assertIn(b"No supported wallpaper images found", result.stderr)
+        self.assertEqual(result.returncode, 0)
         self.assert_private_diagnostics(result)
         (self.settings / "wallpaper-folder").unlink()
-        with mock.patch.object(engine.subprocess, "run", side_effect=FileNotFoundError(2, "picker unavailable")):
+        def fail_picker(_wallpaper):
+            raise engine_picker_error("Visual picker unavailable")
+        engine_picker_error = type("PickerError", (Exception,), {})
+        picker = types.SimpleNamespace(PickerError=engine_picker_error, pick_wallpaper=fail_picker)
+        with mock.patch.dict("sys.modules", {"wallpaper_visual": picker}):
             result = self.inprocess_command("--pick")
-        self.assertIn(b"Wallpaper picker failed", result.stderr)
+        self.assertIn(b"Visual picker unavailable", result.stderr)
         self.assert_private_diagnostics(result)
 
     def test_malformed_state_and_recovery_warning_do_not_echo_content(self):
@@ -707,6 +736,49 @@ sys.exit(0)
                                 capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(os.fsencode(self.state()["original"]), os.fsencode(image))
+
+    def test_visual_picker_preserves_original_path_bytes_and_applies_once(self):
+        names = [b"space name.png", b"quotes-'\".png", b"$(touch injected);.png", "雪.png".encode(),
+                 b"back\\slash.png", b"inside\nname.png", b"trailing.png\n", b"invalid-\xff.png"]
+        for name in names:
+            path = self.folder / os.fsdecode(name)
+            path.write_bytes(b"synthetic")
+            choices = sorted(self.folder.iterdir())
+            before = len(self.applications())
+            result = self.command("--pick", env={**self.env, "PICK_INDEX": str(choices.index(path))})
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(os.fsencode(self.state()["original"]), os.fsencode(path))
+            self.assertEqual(len(self.applications()), before + 1)
+
+    def test_visual_cancel_and_failure_do_not_apply(self):
+        for variable in ("PICK_CANCEL", "PICK_FAIL"):
+            result = self.command("--pick", env={**self.env, variable: "1"})
+            self.assertEqual(result.returncode, 0 if variable == "PICK_CANCEL" else 1)
+            self.assertFalse(self.applications())
+            self.assertFalse(self.cache.exists())
+            self.assertFalse(self.calls("matugen"))
+
+    def test_visual_review_cannot_apply_even_if_picker_returns_a_path(self):
+        result = self.command("--visual-review")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.root / "picker-input").exists())
+        self.assertFalse(self.applications())
+        self.assertFalse(self.cache.exists())
+        self.assertFalse(self.calls("matugen"))
+
+    def test_visual_picker_does_not_hold_transaction_lock(self):
+        self.cache.parent.mkdir(parents=True)
+        def pick(_wallpaper):
+            with (self.cache.parent / "wallpaper-pipeline.lock").open("a+") as lock:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+            return self.image
+        picker_error = type("PickerError", (Exception,), {})
+        picker = types.SimpleNamespace(PickerError=picker_error, pick_wallpaper=pick)
+        with mock.patch.dict("sys.modules", {"wallpaper_visual": picker}):
+            result = self.inprocess_command("--pick")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(self.applications()), 1)
 
     def test_waypaper_model_ignores_failure_and_spawns_unsafe_child_but_repository_never_runs_it(self):
         result = subprocess.run([str(self.bin / "waypaper"), "--wallpaper", str(self.other),

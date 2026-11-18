@@ -50,10 +50,24 @@ setup_repo() {
 
 case_name=${1:-all}
 case $case_name in
-    all|staged-invalid|staged-valid|private-overrides|private-reports|history|large-files|hook-environment|setup-mktemp|\
+    all|staged-invalid|staged-valid|private-overrides|private-reports|history|scan-only|large-files|hook-environment|setup-mktemp|\
         setup-checkout|setup-cd|setup-init|setup-add|scanner-errors) ;;
     *) fail "unknown case: $case_name" ;;
 esac
+
+if [[ $case_name == all || $case_name == scan-only ]]; then
+    repo_scan="$TEST_ROOT/scan-only"
+    setup_repo "$repo_scan"
+    printf 'BROKEN\n' > "$repo_scan/fixture.txt"
+    if PATH="$repo_scan/bin:/usr/bin:/bin" "$repo_scan/scripts/audit.sh" \
+        > "$TEST_ROOT/quick-validation.log" 2>&1; then
+        fail 'default audit skipped quick validation'
+    fi
+    rg -Fq 'fixture is broken' "$TEST_ROOT/quick-validation.log" || fail 'quick validation did not run'
+    PATH="$repo_scan/bin:/usr/bin:/bin" "$repo_scan/scripts/audit.sh" --history --scan-only \
+        > "$TEST_ROOT/scan-only.log" 2>&1 || fail 'scan-only audit ran quick validation'
+    rg -Fq 'Scanning unique reachable Git blobs' "$TEST_ROOT/scan-only.log" || fail 'scan-only audit skipped history'
+fi
 
 if [[ $case_name == all || $case_name == scanner-errors ]]; then
     repo_missing="$TEST_ROOT/missing-scanner"

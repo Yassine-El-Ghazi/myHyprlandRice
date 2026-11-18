@@ -132,7 +132,7 @@ def main(arguments):
             if active:
                 return 0
             commands = {
-                "dim": ["brightnessctl", "-s", "set", "10"],
+                "dim": ["brightnessctl", "-c", "backlight", "-s", "set", "10"],
                 "display-off": ["hyprctl", "dispatch", "hl.dsp.dpms({ action = 'off' })"],
                 "suspend": ["systemctl", "suspend"],
             }

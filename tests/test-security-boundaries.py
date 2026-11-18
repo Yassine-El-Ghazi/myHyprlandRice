@@ -243,9 +243,10 @@ class SecurityBoundaryTests(unittest.TestCase):
                 with self.subTest(launcher=relative):
                     result = subprocess.run(
                         ["/bin/bash", str(REPO / relative), *arguments], env=env,
-                        capture_output=True, text=True, check=True,
+                        capture_output=True, text=True,
                     )
-                    self.assertEqual(result.returncode, 0)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("picker", result.stderr.lower())
                     self.assertFalse(marker.exists())
 
     def test_wallpaper_restore_does_not_consult_waypaper_state(self):
