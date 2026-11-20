@@ -167,6 +167,8 @@ the trust anchor automatically. Commit the registration before using
 `myhyprctl update`: incoming updates are checked against the allow-list in the
 currently installed commit. For a new maintainer key, authorize it in a commit
 signed by an already trusted key before publishing updates signed by the new one.
+For PR merges and publication of SSH-signed update tags, see
+[Publish a dotfiles update](.github/SECURITY-MAINTENANCE.md#publish-a-dotfiles-update).
 During key rotation, override the newly configured key for that authorization
 commit with `git -c user.signingkey="$HOME/.ssh/OLD_KEY.pub" commit`; subsequent
 commits can use the new configured key.

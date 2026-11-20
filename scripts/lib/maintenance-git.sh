@@ -125,12 +125,25 @@ _maintenance_git_tree_inventory() {
         "$commit" > "$output"
 }
 
-_maintenance_git_verify_candidate_signature() {
-    local repo_root=$1 current=$2 candidate=$3 tx_dir=$4
-    local allowed_signers="$tx_dir/allowed-signers"
+_maintenance_git_verify_ssh_signature() {
+    local repo_root=$1 allowed_signers=$2 subcommand=$3 object=$4
 
-    # Anchor update authorization in the currently installed commit. Reading
-    # this file from the candidate would let an untrusted update add its own key.
+    # Git chooses the verifier from the signature itself, regardless of
+    # gpg.format. Only SSH signatures use the installed revision's allow-list.
+    _maintenance_git_command -C "$repo_root" \
+        -c gpg.format=ssh \
+        -c gpg.openpgp.program=/usr/bin/false \
+        -c gpg.x509.program=/usr/bin/false \
+        -c gpg.ssh.allowedSignersFile="$allowed_signers" \
+        "$subcommand" "$object" >/dev/null 2>&1
+}
+
+_maintenance_git_verify_candidate_signature() {
+    local repo_root=$1 current=$2 candidate=$3 tx_dir=$4 source=${5:-local}
+    local allowed_signers="$tx_dir/allowed-signers"
+    local tag_ref tag_object target branch remote_name
+
+    # The installed revision supplies the trust anchor for commits and tags.
     if ! _maintenance_git_command -C "$repo_root" show \
         "$current:.config/git/allowed_signers" > "$allowed_signers"; then
         warn 'The trusted commit does not contain a Git signing allow-list.'
@@ -138,13 +151,36 @@ _maintenance_git_verify_candidate_signature() {
     fi
     chmod 0600 -- "$allowed_signers" || return 1
 
-    if ! _maintenance_git_command -C "$repo_root" \
-        -c gpg.format=ssh \
-        -c gpg.ssh.allowedSignersFile="$allowed_signers" \
-        verify-commit "$candidate" >/dev/null 2>&1; then
-        warn 'Incoming candidate is not signed by an authorized maintenance key.'
-        return 65
+    if _maintenance_git_verify_ssh_signature "$repo_root" "$allowed_signers" \
+        verify-commit "$candidate"; then
+        return 0
     fi
+
+    tag_ref="refs/tags/myhypr-update/$candidate"
+    if [[ $source == upstream ]]; then
+        # Fetch the one exact endorsement from the configured upstream. Do not
+        # install it as a local tag or accept a previously cached endorsement.
+        branch=$(_maintenance_git_command -C "$repo_root" symbolic-ref --short HEAD)
+        remote_name=$(_maintenance_git_command -C "$repo_root" config --get "branch.$branch.remote")
+        if [[ -n $remote_name ]] && GIT_TERMINAL_PROMPT=0 \
+            _maintenance_git_command -C "$repo_root" fetch --no-tags -- "$remote_name" \
+            "$tag_ref" >/dev/null 2>&1; then
+            tag_ref=FETCH_HEAD
+        else
+            warn 'Incoming candidate has no available trusted SSH signature or update tag.'
+            return 65
+        fi
+    fi
+
+    if tag_object=$(_maintenance_git_command -C "$repo_root" rev-parse --verify \
+        "${tag_ref}^{tag}" 2>/dev/null) && \
+        target=$(_maintenance_git_command -C "$repo_root" rev-parse --verify \
+            "${tag_object}^{commit}" 2>/dev/null) && [[ $target == "$candidate" ]] && \
+        _maintenance_git_verify_ssh_signature "$repo_root" "$allowed_signers" verify-tag "$tag_object"; then
+        return 0
+    fi
+    warn 'Incoming candidate is not signed or endorsed by an authorized maintenance key.'
+    return 65
 }
 
 _maintenance_git_sensitive_filename() {
@@ -562,7 +598,7 @@ maintenance_git_prepare() {
     [[ $(_maintenance_git_command -C "$repo_root" cat-file -t "$candidate" \
         2>/dev/null) == commit ]] || return 1
     _maintenance_git_verify_candidate_signature \
-        "$repo_root" "$current" "$candidate" "$tx_dir" || return $?
+        "$repo_root" "$current" "$candidate" "$tx_dir" upstream || return $?
     recorded_current=$(jq -er '.current_commit | select(type == "string")' \
         "$tx_dir/journal.json" 2>/dev/null) || return 1
     [[ $recorded_current == "$current" ]] || {

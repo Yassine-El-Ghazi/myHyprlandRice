@@ -43,6 +43,29 @@ self-test. Missing/broken scanners, unreadable inputs, and failed Git inventorie
 fail the audit rather than silently reducing coverage. Temporary scan data is
 private and removed on exit; diagnostics do not print input contents.
 
+## Publish a dotfiles update
+
+The updater trusts an SSH signature on the exact incoming revision or an
+SSH-signed update tag pointing at that revision. Both use the SSH allow-list
+from the user's installed revision. GitHub signs web merges with its own key,
+so merge reviewed PRs using the normal GitHub workflow, then sign the merged
+tip using an already trusted SSH key.
+
+```sh
+git fetch origin
+candidate=$(git rev-parse origin/main)
+previous=$(git rev-parse "$candidate^")
+git -c gpg.format=ssh tag -s "myhypr-update/$candidate" "$candidate" -m "Authorize MyHypr update"
+./scripts/verify-update-tip.sh "$previous" "$candidate"
+git push origin "refs/tags/myhypr-update/$candidate"
+```
+
+After a key rotation, verify the tag against the oldest installed revision
+that still needs the update. Validation checks the published tag and its
+commit after the push. Older updater releases require a one-time verified
+fast-forward to a revision that supports update tags. Verify the exact
+commit through GitHub and the trusted SSH update tag before that manual sync.
+
 ## Responding to a failed check
 
 Review the failed job in Actions, make a reviewed fix, and rerun validation and
