@@ -737,7 +737,12 @@ def run_picker(wallpaper, visual_only=False):
 
 
 if __name__ == '__main__':
+    if sys.argv[1:] != ['--thumbnail']:
+        sys.exit(2)
     try:
-        sys.exit(thumbnail() if sys.argv[1:] == ['--thumbnail'] else 2)
+        # Decoder diagnostics may contain private paths, including from native code.
+        with open(os.devnull, 'wb') as sink:
+            os.dup2(sink.fileno(), 2)
+            sys.exit(thumbnail())
     except Exception:
         sys.exit(1)
