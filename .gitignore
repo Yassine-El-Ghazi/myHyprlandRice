@@ -27,6 +27,7 @@
 **/*.env
 
 # Internal agent planning artifacts
+/AGENTS.md
 /docs/superpowers/
 
 # Detailed security reports stay local, including dated reports and other formats.
