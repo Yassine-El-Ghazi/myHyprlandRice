@@ -45,8 +45,8 @@ jobs:
           pacman-key --init
           pacman-key --populate archlinux
           pacman -Syu --noconfirm --needed \
-          bash bubblewrap desktop-file-utils fish git gitleaks hyprland jq lua neovim openssh python \
-          qt6-declarative ripgrep rsync shellcheck stow util-linux zsh
+          bash bubblewrap desktop-file-utils fish gdk-pixbuf2 git gitleaks gtk4 hyprland jq lua neovim openssh python python-gobject \
+          qt6-declarative ripgrep rsync shellcheck stow util-linux xorg-server-xvfb xorg-xauth zsh
 
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -71,4 +71,4 @@ jobs:
         run: |
           validator_home=$(getent passwd myhypr-validator | cut -d: -f6)
           runuser --user myhypr-validator -- env HOME="$validator_home" \
-            ./scripts/audit.sh --history
+            ./scripts/audit.sh --history --scan-only

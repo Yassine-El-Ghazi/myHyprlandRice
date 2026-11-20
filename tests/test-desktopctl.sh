@@ -39,10 +39,20 @@ printf '%s\n' \
     '#!/usr/bin/env bash' \
     'if [[ $1 == get-volume ]]; then printf "Volume: 0.42%s\\n" "${DESKTOPCTL_TEST_MUTED:+ [MUTED]}"; else printf "wpctl %s\\n" "$*" >> "$DESKTOPCTL_TEST_LOG"; fi' \
     > "$FAKE_BIN/wpctl"
-printf '%s\n' \
-    '#!/usr/bin/env bash' \
-    'if [[ $1 == -m ]]; then printf "device,class,0,73%%\\n"; else printf "brightness %s\\n" "$*" >> "$DESKTOPCTL_TEST_LOG"; fi' \
-    > "$FAKE_BIN/brightnessctl"
+cat > "$FAKE_BIN/brightnessctl" <<'BASH'
+#!/usr/bin/env bash
+case $* in
+    '-c backlight -m info')
+        case ${DESKTOPCTL_TEST_BACKLIGHT:-present} in
+            present) printf 'panel,backlight,73,73%%,100\n' ;;
+            zero) printf 'panel,backlight,0,0%%,100\n' ;;
+            missing) exit 1 ;;
+        esac
+        ;;
+    '-c backlight set '*) printf 'brightness %s\n' "$*" >> "$DESKTOPCTL_TEST_LOG" ;;
+    *) printf 'kbd_backlight,leds,1,50%%,2\n' ;;
+esac
+BASH
 printf '%s\n' \
     '#!/usr/bin/env bash' \
     'if [[ $* == "radio wifi" ]]; then printf "enabled\\n"; else printf "nmcli %s\\n" "$*" >> "$DESKTOPCTL_TEST_LOG"; fi' \
@@ -85,6 +95,12 @@ if run_ctl audio set 101 >/dev/null 2>&1; then
     fail 'invalid audio percentage was accepted'
 fi
 [[ $(run_ctl brightness get) == 73 ]] || fail 'brightness percentage parsing failed'
+[[ $(DESKTOPCTL_TEST_BACKLIGHT=zero run_ctl brightness get) == 0 ]] || fail 'zero brightness was not recognized'
+if DESKTOPCTL_TEST_BACKLIGHT=missing run_ctl brightness get > "$TEST_ROOT/brightness" 2> "$TEST_ROOT/error"; then
+    fail 'brightness was reported when only a keyboard backlight was available'
+fi
+[[ ! -s $TEST_ROOT/brightness ]] || fail 'unavailable screen backlight produced a brightness value'
+rg -Fxq 'Screen backlight unavailable.' "$TEST_ROOT/error" || fail 'missing screen backlight diagnostic'
 run_ctl brightness set 80
 if run_ctl brightness set 9 >/dev/null 2>&1; then
     fail 'invalid brightness percentage was accepted'
@@ -107,7 +123,7 @@ SWAYNC_TOGGLE_STATE=false run_ctl mute set
 rg -q '^waybar$' "$DESKTOPCTL_TEST_LOG"
 rg -q '^dock$' "$DESKTOPCTL_TEST_LOG"
 rg -q '^wpctl set-volume @DEFAULT_AUDIO_SINK@ 75%$' "$DESKTOPCTL_TEST_LOG"
-rg -q '^brightness set 80%$' "$DESKTOPCTL_TEST_LOG"
+rg -q '^brightness -c backlight set 80%$' "$DESKTOPCTL_TEST_LOG"
 rg -q '^nmcli radio wifi off$' "$DESKTOPCTL_TEST_LOG"
 rg -q '^nmcli radio wifi on$' "$DESKTOPCTL_TEST_LOG"
 rg -q '^rfkill block bluetooth$' "$DESKTOPCTL_TEST_LOG"

@@ -23,7 +23,7 @@ source "$CONFIG_ROOT/myhypr/library.sh"
 SAVE_DIR=$(<"$CONFIG_ROOT/myhypr/settings/screenshot-folder")
 SAVE_FILENAME=$(<"$CONFIG_ROOT/myhypr/settings/screenshot-filename")
 screenshot_folder=$(myhypr_expand_path "$SAVE_DIR")
-NAME=$(myhypr_render_filename "$SAVE_FILENAME")
+NAME=$(myhypr_render_screenshot_filename "$SAVE_FILENAME")
 output_path=''
 pending_output=''
 pid_picker=''

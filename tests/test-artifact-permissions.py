@@ -179,6 +179,27 @@ with open(os.environ['RECORD'], 'w') as stream:
                     self.assertTrue(original.is_symlink())
                 self.assertEqual(stat.S_IMODE(self.output.stat().st_mode), 0o755)
 
+    def test_screenshot_filename_templates_use_png(self):
+        setting = self.config / "myhypr/settings/screenshot-filename"
+        for script, arguments in (SCREENSHOTS[0], SCREENSHOTS[2]):
+            for template, filename in (("shot.jpg", "shot.png"),
+                                       ("shot_$(date +%%).JPEG", "shot_%.png"),
+                                       ("shot.PNG", "shot.png"),
+                                       ("shot.with.dots", "shot.with.dots.png")):
+                with self.subTest(script=script, template=template):
+                    shutil.rmtree(self.output, ignore_errors=True)
+                    setting.write_text(template)
+                    result = self.run_script(script, arguments)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual([path.name for path in self.output.iterdir()], [filename])
+
+        shutil.rmtree(self.output)
+        setting.unlink()
+        result = self.run_script(*SCREENSHOTS[2])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        filename, = self.output.iterdir()
+        self.assertRegex(filename.name, r"^screenshot_\d{8}_\d{6}\.png$")
+
     def test_screenshot_cancellation_and_failure_leave_no_partial_files(self):
         for script, arguments in SCREENSHOTS:
             with self.subTest(script=script, arguments=arguments):

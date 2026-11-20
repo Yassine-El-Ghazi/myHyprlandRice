@@ -115,12 +115,14 @@ else
     skip 'python is unavailable'
 fi
 
-qml_linter=''
-if qml_linter=$(resolve_executable qmllint /usr/lib/qt6/bin/qmllint); then
-    run_check 'Quickshell entrypoint syntax' \
-        "$qml_linter" dotfiles/.config/quickshell/shell.qml
+if qml_linter=$(resolve_qt6_qmllint /usr/lib/qt6/bin/qmllint qmllint6 qmllint-qt6 qmllint); then
+    mapfile -d '' qml_files < <(find dotfiles/.config/quickshell -type f -name '*.qml' -print0)
+    # CI does not install the Quickshell modules needed for type analysis.
+    run_check 'Quickshell component syntax (Qt 6)' "$qml_linter" \
+        --ignore-settings --only-explicit-categories --syntax error \
+        --syntax.duplicate-ids error "${qml_files[@]}"
 else
-    skip 'qmllint is unavailable'
+    skip 'Qt 6 qmllint is unavailable'
 fi
 
 if command -v shellcheck >/dev/null 2>&1; then
@@ -222,6 +224,21 @@ run_check 'Waybar desktop actions' "$REPO_ROOT/tests/test-waybar-actions.sh"
 run_check 'Walker service behavior' "$REPO_ROOT/tests/test-walker-launch.sh"
 run_check 'Wallpaper effect behavior' "$REPO_ROOT/tests/test-wallpaper-effect.sh"
 run_check 'Wallpaper selection pipeline' python3 "$REPO_ROOT/tests/test-wallpaper-pipeline.py"
+if ! python3 -c '
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Gdk", "4.0")
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import Gdk, GdkPixbuf, Gio, GLib, GObject, Gtk
+' >/dev/null 2>&1; then
+    skip 'Visual wallpaper picker requires PyGObject, GTK 4, and GdkPixbuf'
+elif ! command -v xvfb-run >/dev/null 2>&1 || ! command -v Xvfb >/dev/null 2>&1 || \
+    ! command -v xauth >/dev/null 2>&1; then
+    skip 'Visual wallpaper picker requires xvfb-run, Xvfb, and xauth'
+else
+    run_check 'Visual wallpaper picker' python3 "$REPO_ROOT/tests/test-visual-wallpaper-picker.py"
+fi
 run_check 'Wallpaper setting reader behavior' "$REPO_ROOT/tests/test-wallpaper-settings.sh"
 
 if [[ $QUICK -eq 0 ]]; then

@@ -6,7 +6,7 @@
 A self-contained, reproducible Hyprland desktop for Arch Linux and CachyOS.
 
 MyHypr combines Hyprland's Lua configuration, Waybar, Quickshell, Awww,
-Waypaper, Matugen, Kitty, Neovim, and portable Bash/Zsh/Fish startup. Its own
+Matugen, Kitty, Neovim, and portable Bash/Zsh/Fish startup. Its own
 settings UI, scripts, themes, state model, migration tooling, and validation
 suite are all stored in this repository. No external dotfiles repository,
 installer, Flatpak remote, or hosted settings service is required at runtime.
@@ -358,9 +358,9 @@ containment, graphical-session environment isolation, service activation,
 desktop controls, Waybar/Walker theme fallbacks, and declarative wallpaper
 effects.
 
-Wallpaper launchers now use a repository picker and one application pipeline,
-including effects, adaptive colors, and startup restore. The compatibility name
-`waypaper.sh` opens the repository picker; it does not execute Waypaper. State is
+Waypaper is optional. Wallpaper launchers use a GTK thumbnail picker and one
+application pipeline with effects, adaptive colors, and startup restore. The
+compatibility script `waypaper.sh` opens the repository picker. State is
 owned by the repository, and one wallpaper is applied across all outputs.
 See [WALLPAPER.md](WALLPAPER.md) for state migration, retry commands, and the
 boundary around external Waypaper launches. Waypaper's shipped raw callback

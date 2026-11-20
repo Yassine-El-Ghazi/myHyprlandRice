@@ -20,19 +20,23 @@ fail() {
 }
 
 test_resolver() {
-    local fallback resolved
+    local qt6 qt5 resolved
     # shellcheck source=scripts/lib.sh
     source "$REPO_ROOT/scripts/lib.sh"
-    fallback="$TEST_ROOT/qt6/qmllint"
-    mkdir -p -- "$(dirname -- "$fallback")" "$TEST_ROOT/empty-path"
-    printf '#!/usr/bin/env bash\nexit 0\n' > "$fallback"
-    chmod +x -- "$fallback"
-    resolved=$(PATH="$TEST_ROOT/empty-path" resolve_executable qmllint "$fallback") || \
-        fail 'explicit Qt 6 fallback was not resolved'
-    [[ $resolved == "$fallback" ]] || fail "unexpected resolver result: $resolved"
-    if PATH="$TEST_ROOT/empty-path" resolve_executable missing-command \
-        "$TEST_ROOT/missing" >/dev/null; then
-        fail 'resolver accepted a missing executable'
+    qt6="$TEST_ROOT/qt6/qmllint"
+    qt5="$TEST_ROOT/qt5/qmllint"
+    mkdir -p -- "${qt6%/*}" "${qt5%/*}"
+    printf '#!/bin/bash\nprintf "qmllint 6.12.0\\n"\n' > "$qt6"
+    printf '#!/bin/bash\nprintf "qmllint 1.0\\n"\n' > "$qt5"
+    chmod +x -- "$qt6" "$qt5"
+    resolved=$(PATH="${qt5%/*}" resolve_qt6_qmllint qmllint "$qt6") || \
+        fail 'Qt 6 was not resolved after encountering Qt 5 on PATH'
+    [[ $resolved == "$qt6" ]] || fail "unexpected resolver result: $resolved"
+    resolved=$(PATH="${qt6%/*}" resolve_qt6_qmllint qmllint) || \
+        fail 'Qt 6 was not resolved on PATH'
+    [[ $resolved == "$qt6" ]] || fail "unexpected resolver result: $resolved"
+    if PATH="${qt5%/*}" resolve_qt6_qmllint "$TEST_ROOT/missing" qmllint >/dev/null; then
+        fail 'resolver accepted a non-Qt 6 executable'
     fi
 }
 

@@ -1,13 +1,41 @@
 # Wallpaper selection and state
 
-The Waybar button, Super+Ctrl+W, `myhyprctl wallpaper`, and the Quickshell
-Welcome/Sidebar buttons open a repository Rofi picker. The historical
+The Waybar wallpaper module (when enabled in the active layout), Super+Ctrl+W,
+`myhyprctl wallpaper`, and the Quickshell Welcome/Sidebar buttons open a
+repository GTK thumbnail picker. The historical
 `hypr/scripts/waypaper.sh` filename remains a compatibility entry point, but
 does not start Waypaper. The terminal `wallpaper` alias still uses Fzf.
-Picker rows display escaped paths; selection returns an index or a NUL-delimited
-path rather than interpreting the displayed text as a filename or command.
-Both pickers use the same repository file list, including names with trailing
-newlines; image-extension filtering never changes the selected path's bytes.
+The graphical picker presents folders and images as large thumbnails, with a
+preview for the selected image. Folder shows or hides the navigation controls;
+use Back, Up, Root or the breadcrumbs to navigate. Search filters the current
+folder, Clear resets the search, and Refresh reloads the folder. Random selects
+an image without applying it. Use Tab to focus the grid, arrow keys to move,
+and Enter to open a folder. With a mouse, double-click a folder to open it.
+Choose Apply to change the wallpaper. Escape, Cancel,
+and closing the window leave the wallpaper unchanged. Clear selection removes
+the current highlight without applying anything. The terminal picker uses
+Fzf. Labels are for display only: selection retains the original filesystem path
+rather than interpreting a displayed name as a filename or command.
+The browser does not follow symbolic links inside the wallpaper root. The terminal
+picker retains its existing discovery behavior. For a visual-only browser with
+application disabled, run `dotfiles/.config/hypr/scripts/wallpaper.sh --visual-review`
+from the repository root. Both pickers support names with trailing newlines;
+image-extension filtering never changes the selected path's bytes. The browser
+shows one directory at a time, including hidden entries, and skips symlinks;
+the terminal picker retains its existing recursive discovery and symlink rules.
+
+The graphical picker requires GTK 4, GdkPixbuf and Python GObject bindings for
+the `python3` used by the launcher. A missing dependency or graphical session
+produces an error rather than silently falling back. Thumbnail loading runs in
+bounded temporary workers; unreadable, oversized or unsupported previews show a
+placeholder and can still be selected. No thumbnail cache is persisted. The file
+can change between its preview and the transaction: application uses the original
+path as it exists at application time, not the preview image.
+Some image decoders report dimensions only after decoding begins, so a preview
+may hit its worker limits and show a placeholder. Discovery retains the sorted
+current-folder candidate list in memory and can take longer on very large or slow
+directories. A file or folder replaced while browsing may change before preview
+or application; the browser does not freeze the underlying filesystem.
 
 All application goes through `hypr/scripts/wallpaper.sh` and `wallpaper.py`:
 

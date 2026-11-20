@@ -21,10 +21,10 @@ myhypr_expand_path() {
     esac
 }
 
-# New configurations use strftime placeholders directly. The legacy
+# Screenshot templates use strftime placeholders directly. The legacy
 # `$(date +FORMAT)` spelling remains readable during namespace migration, but
 # is parsed as data and is never evaluated as shell code.
-myhypr_render_filename() {
+myhypr_render_screenshot_filename() {
     local template=$1
     local rendered
 
@@ -38,7 +38,11 @@ myhypr_render_filename() {
         printf 'Invalid filename template: %s\n' "$template" >&2
         return 1
     }
-    printf '%s' "$rendered"
+    # Replace legacy JPEG suffixes and keep other dots in the filename.
+    case ${rendered,,} in
+        ?*.png|?*.jpg|?*.jpeg) rendered=${rendered%.*} ;;
+    esac
+    printf '%s.png' "$rendered"
 }
 
 # Reserve a fresh private capture file. Existing files/links are never opened

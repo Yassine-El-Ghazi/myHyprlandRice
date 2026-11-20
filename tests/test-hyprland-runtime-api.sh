@@ -52,7 +52,7 @@ rg -Fq 'on-timeout = ~/.config/hypr/scripts/hypridle.sh display-off' "$hypridle"
     fail 'idle-timeout DPMS-off action bypasses presentation policy'
 rg -Fq "\"display-off\": [\"hyprctl\", \"dispatch\", \"hl.dsp.dpms({ action = 'off' })\"]" \
     dotfiles/.config/myhypr/bin/idle-control.py || fail 'idle-control DPMS-off action is not exact'
-rg -Fq "on-resume = hyprctl dispatch \"hl.dsp.dpms({ action = 'on' })\" && brightnessctl -r" "$hypridle" || \
+rg -Fq "on-resume = hyprctl dispatch \"hl.dsp.dpms({ action = 'on' })\" && brightnessctl -c backlight -r" "$hypridle" || \
     fail 'brightness restore is not chained after successful DPMS-on'
 rg -Fq "\"on-scroll-up\": \"hyprctl dispatch \\\"hl.dsp.focus({ workspace = 'r-1' })\\\"\"" "$modules" || \
     fail 'Waybar scroll-up typed focus is not exact'

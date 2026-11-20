@@ -81,7 +81,7 @@ class IdleTests(unittest.TestCase):
                 idle.write_deadline(fd, time.monotonic() - 1)
             with patch.object(idle.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as run:
                 self.run_action("dim")
-                run.assert_called_once_with(["brightnessctl", "-s", "set", "10"], check=False)
+                run.assert_called_once_with(["brightnessctl", "-c", "backlight", "-s", "set", "10"], check=False)
             with idle.state() as fd:
                 idle.write_deadline(fd, "nan")
                 self.assertFalse(idle.presentation(fd))

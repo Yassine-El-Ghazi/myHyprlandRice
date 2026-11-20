@@ -365,8 +365,10 @@ PanelWindow {
 
                         // BRIGHTNESS SLIDER
                         RowLayout {
+                            id: brightnessRow
                             Layout.fillWidth: true
                             spacing: 15
+                            property bool backlightAvailable: false
 
                             Text {
                                 text: "" // Sun/Brightness icon
@@ -376,23 +378,37 @@ PanelWindow {
                                 Layout.alignment: Qt.AlignVCenter
                             }
 
+                            Process {
+                                id: brightnessProbe
+                                command: [root.desktopCtl, "brightness", "get"]
+                                running: root.isOpen
+                                onRunningChanged: if (running) brightnessRow.backlightAvailable = false
+                                stdout: StdioCollector {
+                                    onStreamFinished: {
+                                        const percent = this.text.trim()
+                                        brightnessRow.backlightAvailable = /^\d{1,3}$/.test(percent) && Number(percent) <= 100
+                                        if (brightnessRow.backlightAvailable)
+                                            brightnessSlider.value = Math.max(10, Number(percent))
+                                    }
+                                }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                visible: !brightnessSlider.enabled
+                                text: brightnessProbe.running ? "Checking screen brightness…" : "Screen brightness unavailable"
+                                color: theme.primary
+                                font.family: theme.fontFamily
+                                font.pixelSize: 14
+                            }
+
                             Slider {
                                 id: brightnessSlider
                                 Layout.fillWidth: true
+                                enabled: brightnessRow.backlightAvailable && !brightnessProbe.running
+                                visible: enabled
                                 from: 10 // Guaranteed Minimum 10%
                                 to: 100
-                                value: 100
-
-                                Process {
-                                    command: [root.desktopCtl, "brightness", "get"]
-                                    running: root.isOpen
-                                    stdout: StdioCollector {
-                                        onStreamFinished: {
-                                            let val = parseInt(this.text.trim())
-                                            if (!isNaN(val)) brightnessSlider.value = Math.max(10, val);
-                                        }
-                                    }
-                                }
 
                                 onMoved: {
                                     Quickshell.execDetached([root.desktopCtl, "brightness", "set", Math.round(value).toString()])

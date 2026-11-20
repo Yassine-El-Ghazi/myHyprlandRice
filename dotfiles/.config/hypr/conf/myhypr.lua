@@ -34,6 +34,13 @@ hl.window_rule({
     size = "900 700",
 })
 
+hl.window_rule({
+    name = "wallpaper-picker",
+    match = { title = "^(Choose wallpaper)$" },
+    float = true,
+    center = true,
+})
+
 -- Newelle
 hl.window_rule({
     name = "newelle",
