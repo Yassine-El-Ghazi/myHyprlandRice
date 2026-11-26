@@ -2,6 +2,8 @@ name: Validate
 
 on:
   push:
+    branches: ['**']
+    tags: ['myhypr-update/**']
   pull_request:
   workflow_dispatch:
   schedule:
@@ -53,6 +55,16 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Verify the SSH signature on the published update tag
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/myhypr-update/') }}
+        env:
+          UPDATE_TAG: ${{ github.ref_name }}
+        run: |
+          candidate=$(git rev-parse HEAD)
+          test "$UPDATE_TAG" = "myhypr-update/$candidate"
+          git merge-base --is-ancestor "$candidate" origin/main
+          ./scripts/verify-update-tip.sh HEAD^ "$candidate"
 
       - name: Prepare unprivileged validation account
         run: |

