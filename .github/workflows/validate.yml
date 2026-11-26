@@ -56,21 +56,26 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Prepare unprivileged validation account
+        id: prepare_validator
+        run: |
+          useradd --create-home --user-group myhypr-validator
+          chown --recursive --no-dereference \
+            myhypr-validator:myhypr-validator "$GITHUB_WORKSPACE"
+
       - name: Verify the SSH signature on the published update tag
         if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/myhypr-update/') }}
         env:
           UPDATE_TAG: ${{ github.ref_name }}
         run: |
+          validator_home=$(getent passwd myhypr-validator | cut -d: -f6)
+          runuser --user myhypr-validator -- env HOME="$validator_home" \
+            UPDATE_TAG="$UPDATE_TAG" bash -euo pipefail <<'VERIFY_UPDATE'
           candidate=$(git rev-parse HEAD)
           test "$UPDATE_TAG" = "myhypr-update/$candidate"
           git merge-base --is-ancestor "$candidate" origin/main
           ./scripts/verify-update-tip.sh HEAD^ "$candidate"
-
-      - name: Prepare unprivileged validation account
-        run: |
-          useradd --create-home --user-group myhypr-validator
-          chown --recursive --no-dereference \
-            myhypr-validator:myhypr-validator "$GITHUB_WORKSPACE"
+          VERIFY_UPDATE
 
       - name: Validate every configuration variant
         run: |
@@ -79,7 +84,7 @@ jobs:
             ./scripts/check.sh --require-tools
 
       - name: Audit worktree and history
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.prepare_validator.outcome == 'success' }}
         run: |
           validator_home=$(getent passwd myhypr-validator | cut -d: -f6)
           runuser --user myhypr-validator -- env HOME="$validator_home" \
