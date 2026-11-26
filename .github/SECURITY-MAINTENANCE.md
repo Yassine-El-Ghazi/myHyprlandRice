@@ -61,10 +61,12 @@ git push origin "refs/tags/myhypr-update/$candidate"
 ```
 
 After a key rotation, verify the tag against the oldest installed revision
-that still needs the update. Validation checks the published tag and its
-commit after the push. Older updater releases require a one-time verified
-fast-forward to a revision that supports update tags. Verify the exact
-commit through GitHub and the trusted SSH update tag before that manual sync.
+that still needs the update. The publication command and validation job
+require an authorized SSH signature on the annotated tag with the exact
+`myhypr-update/<commit>` name and target. Older updater releases require a
+one-time verified fast-forward to a revision that supports update tags.
+Verify the exact commit through GitHub and the trusted SSH update tag before
+that manual sync.
 
 ## Responding to a failed check
 

@@ -21,5 +21,5 @@ git -C "$repo" merge-base --is-ancestor "$trusted" "$candidate" || \
 umask 077
 verification_dir=$(mktemp -d)
 trap 'rm -f -- "$verification_dir/allowed-signers"; rmdir -- "$verification_dir"' EXIT
-_maintenance_git_verify_candidate_signature "$repo" "$trusted" "$candidate" "$verification_dir"
-success 'The update tip passes the maintenance SSH trust check.'
+_maintenance_git_verify_candidate_signature "$repo" "$trusted" "$candidate" "$verification_dir" tag-only
+success 'The update tag passes the maintenance SSH trust check.'

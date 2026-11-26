@@ -139,9 +139,11 @@ _maintenance_git_verify_ssh_signature() {
 }
 
 _maintenance_git_verify_candidate_signature() {
-    local repo_root=$1 current=$2 candidate=$3 tx_dir=$4 source=${5:-local}
+    local repo_root=$1 current=$2 candidate=$3 tx_dir=$4 mode=${5:-local}
     local allowed_signers="$tx_dir/allowed-signers"
-    local tag_ref tag_object target branch remote_name
+    local tag_name="myhypr-update/$candidate"
+    local tag_ref="refs/tags/$tag_name"
+    local tag_object tag_header expected_header branch remote_name
 
     # The installed revision supplies the trust anchor for commits and tags.
     if ! _maintenance_git_command -C "$repo_root" show \
@@ -151,13 +153,13 @@ _maintenance_git_verify_candidate_signature() {
     fi
     chmod 0600 -- "$allowed_signers" || return 1
 
-    if _maintenance_git_verify_ssh_signature "$repo_root" "$allowed_signers" \
-        verify-commit "$candidate"; then
+    if [[ $mode != tag-only ]] && \
+        _maintenance_git_verify_ssh_signature "$repo_root" "$allowed_signers" \
+            verify-commit "$candidate"; then
         return 0
     fi
 
-    tag_ref="refs/tags/myhypr-update/$candidate"
-    if [[ $source == upstream ]]; then
+    if [[ $mode == upstream ]]; then
         # Fetch the one exact endorsement from the configured upstream. Do not
         # install it as a local tag or accept a previously cached endorsement.
         branch=$(_maintenance_git_command -C "$repo_root" symbolic-ref --short HEAD)
@@ -172,14 +174,16 @@ _maintenance_git_verify_candidate_signature() {
         fi
     fi
 
+    # The signed payload must authorize this update by name and target.
+    printf -v expected_header 'object %s\ntype commit\ntag %s' "$candidate" "$tag_name"
     if tag_object=$(_maintenance_git_command -C "$repo_root" rev-parse --verify \
         "${tag_ref}^{tag}" 2>/dev/null) && \
-        target=$(_maintenance_git_command -C "$repo_root" rev-parse --verify \
-            "${tag_object}^{commit}" 2>/dev/null) && [[ $target == "$candidate" ]] && \
+        tag_header=$(_maintenance_git_command -C "$repo_root" cat-file tag "$tag_object" \
+            2>/dev/null | sed -n '1,3p') && [[ $tag_header == "$expected_header" ]] && \
         _maintenance_git_verify_ssh_signature "$repo_root" "$allowed_signers" verify-tag "$tag_object"; then
         return 0
     fi
-    warn 'Incoming candidate is not signed or endorsed by an authorized maintenance key.'
+    warn 'The candidate lacks a valid update tag signed by an authorized maintenance key.'
     return 65
 }
 
